@@ -1,0 +1,157 @@
+/**
+ * Drag and Drop Styles
+ * Professional styling for reorderable lists
+ */
+
+/* Drag hint message */
+.drag-hint {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    margin-bottom: var(--space-md);
+    background: linear-gradient(135deg, var(--primary-50), var(--gray-50));
+    border: 1px dashed var(--primary-200);
+    border-radius: var(--radius-md);
+    color: var(--gray-600);
+    font-size: 0.875rem;
+}
+
+.drag-hint-icon {
+    color: var(--primary-500);
+    font-size: 1rem;
+}
+
+/* Drag table */
+.drag-table tbody tr {
+    cursor: grab;
+    transition: all 0.2s ease;
+}
+
+.drag-table tbody tr:active {
+    cursor: grabbing;
+}
+
+/* Drag handle cell */
+.drag-handle-cell {
+    width: 60px;
+    user-select: none;
+}
+
+.drag-handle {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    transition: all 0.2s ease;
+}
+
+.drag-handle:hover {
+    background: var(--gray-100);
+}
+
+.drag-icon {
+    color: var(--gray-400);
+    font-size: 1rem;
+    opacity: 0.7;
+    transition: opacity 0.2s ease;
+}
+
+.drag-handle:hover .drag-icon {
+    opacity: 1;
+    color: var(--primary-500);
+}
+
+.question-number {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    background: var(--primary-100);
+    color: var(--primary-700);
+    border-radius: var(--radius-full);
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+/* Drag row states */
+.drag-row {
+    position: relative;
+    background: var(--bg-card);
+}
+
+.drag-row.dragging {
+    opacity: 0.5;
+    background: var(--primary-50) !important;
+}
+
+.drag-row.drag-over {
+    background: var(--gray-50);
+}
+
+.drag-row.drag-over-top::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-400), var(--primary-600));
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--primary-300);
+    z-index: 10;
+}
+
+.drag-row.drag-over-bottom::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, var(--primary-400), var(--primary-600));
+    border-radius: 2px;
+    box-shadow: 0 0 8px var(--primary-300);
+    z-index: 10;
+}
+
+/* Smooth animation for reordering */
+.drag-row {
+    transition: transform 0.15s ease, background-color 0.2s ease;
+}
+
+/* Hover state for draggable rows */
+.drag-table tbody tr:hover:not(.dragging) {
+    background-color: var(--bg-hover, rgba(0, 0, 0, 0.02));
+}
+
+.drag-table tbody tr:hover .drag-icon {
+    opacity: 1;
+}
+
+/* Mobile touch support hint */
+@media (max-width: 768px) {
+    .drag-hint {
+        font-size: 0.75rem;
+        padding: var(--space-xs) var(--space-sm);
+    }
+
+    .drag-handle {
+        padding: var(--space-xs);
+    }
+
+    .question-number {
+        width: 20px;
+        height: 20px;
+        font-size: 0.625rem;
+    }
+}
+
+/* Drag ghost image style */
+.drag-row.ghost {
+    opacity: 0.8;
+    transform: rotate(2deg);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}

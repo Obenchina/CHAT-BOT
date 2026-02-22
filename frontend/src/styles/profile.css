@@ -1,0 +1,327 @@
+/**
+ * Shared Profile Styles
+ * Used by both DoctorProfile and AssistantProfile pages
+ * Variables inherited from global.css
+ */
+
+
+.profile-container {
+    max-width: 1000px;
+    margin: 0 auto;
+    padding: var(--space-md);
+    animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Profile Header Card */
+.profile-header-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: var(--space-xl);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xl);
+    margin-bottom: var(--space-xl);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+.profile-avatar {
+    width: 100px;
+    height: 100px;
+    background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 2.5rem;
+    color: white;
+    font-weight: 600;
+    box-shadow: 0 8px 16px rgba(0, 102, 230, 0.3);
+}
+
+.profile-info h2 {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--gray-900);
+    margin: 0 0 var(--space-xs) 0;
+}
+
+.profile-role {
+    display: inline-block;
+    padding: 4px 12px;
+    background-color: var(--primary-100);
+    color: var(--primary-700);
+    border-radius: 20px;
+    font-size: 0.875rem;
+    font-weight: 600;
+}
+
+/* Content Grid */
+.profile-content-grid {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--space-xl);
+}
+
+@media (max-width: 768px) {
+    .profile-content-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-header-card {
+        flex-direction: column;
+        text-align: center;
+    }
+}
+
+/* Section Cards */
+.profile-section-card {
+    background: var(--bg-card);
+    border-radius: 16px;
+    padding: var(--space-xl);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
+    border: 1px solid rgba(0, 0, 0, 0.05);
+    height: 100%;
+}
+
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--space-lg);
+    padding-bottom: var(--space-md);
+    border-bottom: 1px solid var(--gray-100);
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--gray-800);
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
+/* Forms & Inputs */
+.form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-lg);
+}
+
+@media (max-width: 640px) {
+    .form-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+.input-group label {
+    display: block;
+    font-size: 0.875rem;
+    font-weight: 500;
+    color: var(--gray-600);
+    margin-bottom: var(--space-xs);
+}
+
+.input-field {
+    width: 100%;
+    padding: 10px 14px;
+    border: 1px solid var(--gray-200);
+    border-radius: 8px;
+    font-size: 0.95rem;
+    transition: all 0.2s;
+    background-color: var(--gray-50);
+}
+
+.input-field:focus {
+    background-color: var(--bg-card);
+    border-color: var(--primary-500);
+    box-shadow: 0 0 0 3px var(--primary-100);
+    outline: none;
+}
+
+.input-field:disabled {
+    background-color: var(--gray-100);
+    color: var(--gray-500);
+    cursor: not-allowed;
+}
+
+/* Read-only View */
+.info-item {
+    padding: var(--space-sm) 0;
+}
+
+.info-label {
+    font-size: 0.875rem;
+    color: var(--gray-500);
+    margin-bottom: 2px;
+}
+
+.info-value {
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--gray-900);
+}
+
+/* Buttons */
+.btn-edit {
+    background-color: var(--gray-100);
+    color: var(--gray-700);
+    border: none;
+    padding: 8px 16px;
+    border-radius: 8px;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-edit:hover {
+    background-color: var(--gray-200);
+    color: var(--gray-900);
+}
+
+.btn-save {
+    background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+    color: white;
+    border: none;
+    padding: 10px 24px;
+    border-radius: 8px;
+    font-weight: 600;
+    box-shadow: 0 4px 12px rgba(0, 102, 230, 0.3);
+    transition: all 0.2s;
+}
+
+.btn-save:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(0, 102, 230, 0.4);
+}
+
+.btn-cancel {
+    background-color: var(--bg-card);
+    border: 1px solid var(--gray-200);
+    color: var(--gray-600);
+    padding: 10px 20px;
+    border-radius: 8px;
+    font-weight: 500;
+}
+
+.btn-cancel:hover {
+    background-color: var(--gray-50);
+    color: var(--gray-800);
+}
+
+.btn-password {
+    width: 100%;
+    padding: 12px;
+    background-color: var(--bg-card);
+    border: 1px solid var(--gray-200);
+    color: var(--gray-700);
+    border-radius: 8px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    transition: all 0.2s;
+}
+
+.btn-password:hover {
+    border-color: var(--gray-300);
+    background-color: var(--gray-50);
+}
+
+/* Modal */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.modal-modern {
+    background: var(--bg-card);
+    border-radius: 20px;
+    width: 90%;
+    max-width: 450px;
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    transform: scale(0.95);
+    animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes scaleIn {
+    to {
+        transform: scale(1);
+    }
+}
+
+.modal-header {
+    padding: 20px 24px;
+    border-bottom: 1px solid var(--gray-100);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--gray-900);
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.5rem;
+    color: var(--gray-400);
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+}
+
+.modal-close:hover {
+    color: var(--gray-600);
+}
+
+.modal-body {
+    padding: 24px;
+}
+
+.form-actions {
+    margin-top: 32px;
+    display: flex;
+    justify-content: flex-end;
+    gap: 12px;
+}
+
+.modal-footer {
+    margin-top: 32px;
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+}
+
+/* Dark Mode Overrides */
+[data-theme="dark"] .profile-avatar {
+    background: var(--gray-700);
+    color: var(--gray-300);
+    box-shadow: none;
+}

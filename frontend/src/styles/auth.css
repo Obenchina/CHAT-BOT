@@ -1,0 +1,107 @@
+/**
+ * Authentication Pages CSS
+ * Styles for login, register, and password reset pages
+ */
+
+.auth-page {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: var(--space-xl);
+    background: linear-gradient(135deg, var(--primary-50) 0%, var(--secondary-50) 100%);
+}
+
+.auth-container {
+    width: 100%;
+    max-width: 400px;
+    background: var(--bg-card);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-xl);
+    padding: var(--space-2xl);
+    animation: slideUp var(--transition-slow);
+}
+
+.auth-container-wide {
+    max-width: 600px;
+}
+
+.auth-logo {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: var(--space-sm);
+    margin-bottom: var(--space-xl);
+}
+
+.logo-icon {
+    font-size: 2.5rem;
+}
+
+.logo-text {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: var(--primary-600);
+}
+
+.auth-title {
+    text-align: center;
+    font-size: 1.5rem;
+    color: var(--gray-900);
+    margin-bottom: var(--space-xl);
+}
+
+.auth-form {
+    margin-bottom: var(--space-lg);
+}
+
+.auth-forgot {
+    text-align: right;
+    margin-bottom: var(--space-lg);
+}
+
+.auth-forgot a {
+    font-size: 0.875rem;
+    color: var(--primary-500);
+}
+
+.auth-forgot a:hover {
+    color: var(--primary-600);
+    text-decoration: underline;
+}
+
+.auth-switch {
+    text-align: center;
+    font-size: 0.875rem;
+    color: var(--gray-600);
+}
+
+.auth-switch a {
+    color: var(--primary-500);
+    font-weight: 500;
+}
+
+.auth-switch a:hover {
+    text-decoration: underline;
+}
+
+/* Form rows for registration */
+.form-row {
+    margin-bottom: var(--space-md);
+}
+
+.form-row-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-md);
+}
+
+@media (max-width: 500px) {
+    .form-row-2 {
+        grid-template-columns: 1fr;
+    }
+
+    .auth-container-wide {
+        padding: var(--space-lg);
+    }
+}
