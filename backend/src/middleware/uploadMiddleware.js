@@ -41,20 +41,10 @@ const audioStorage = multer.diskStorage({
 // FILE FILTERS
 // ======================
 
-// Filter for document uploads (images, PDFs)
+// Filter for document uploads (accept any file)
 const documentFilter = (req, file, cb) => {
-    const allowedTypes = [
-        'image/jpeg',
-        'image/png',
-        'image/gif',
-        'application/pdf'
-    ];
-
-    if (allowedTypes.includes(file.mimetype)) {
-        cb(null, true);
-    } else {
-        cb(new Error('Invalid file type. Only JPEG, PNG, GIF, and PDF are allowed.'), false);
-    }
+    // Unrestricting types completely as requested
+    cb(null, true);
 };
 
 // Filter for audio uploads

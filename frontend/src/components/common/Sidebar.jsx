@@ -3,10 +3,11 @@
  * Navigation sidebar for doctor/assistant dashboards
  */
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import translations from '../../constants/translations';
+import doctorService from '../../services/doctorService';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import AssignmentIcon from '@mui/icons-material/Assignment';
@@ -42,6 +43,28 @@ function Sidebar() {
         setMobileOpen(false);
     }
 
+    // Global AI Status Banner state
+    const [aiErrorConfig, setAiErrorConfig] = useState(null);
+
+    useEffect(() => {
+        // Only run for doctors
+        if (isDoctor) {
+            doctorService.getAiStatus()
+                .then(res => {
+                    if (res && res.data && res.data.hasError) {
+                        setAiErrorConfig(res.data);
+                    } else if (res && res.hasError) {
+                        setAiErrorConfig(res); // fallback if axios unwrap differs
+                    } else {
+                        setAiErrorConfig(null);
+                    }
+                })
+                .catch(err => {
+                    console.error('Failed to get AI status for sidebar:', err);
+                });
+        }
+    }, [isDoctor, location.pathname]); // refetch slightly on page change to catch updates
+
     // Profile name
     const displayName = profile
         ? `${profile.firstName || profile.first_name} ${profile.lastName || profile.last_name}`
@@ -72,17 +95,52 @@ function Sidebar() {
                     <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                         <LocalHospitalIcon fontSize="large" /> MediConsult
                     </div>
-                    <div style={{
-                        marginTop: 'var(--space-sm)',
-                        fontSize: '0.75rem',
-                        color: 'var(--gray-400)'
-                    }}>
-                        {isDoctor ? 'Espace Médecin' : 'Espace Assistant'}
-                    </div>
                 </div>
+
+                {/* AI Error Banner */}
+                {aiErrorConfig && (
+                    <div style={{
+                        background: 'var(--error-500)',
+                        color: 'white',
+                        padding: 'var(--space-md) var(--space-md)',
+                        fontSize: '0.85rem',
+                        fontWeight: '500',
+                        textAlign: 'center',
+                        margin: '0',
+                        borderBottom: '1px solid var(--error-600)',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        gap: '0.4rem'
+                    }}>
+                        <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: 'bold' }}>⚠️ Configuration IA</span>
+                        <span style={{ lineHeight: '1.4' }}>{aiErrorConfig.message}</span>
+                        <NavLink to="/doctor/settings" style={{ 
+                            color: 'white', 
+                            textDecoration: 'underline', 
+                            marginTop: '0.3rem', 
+                            fontSize: '0.8rem',
+                            fontWeight: '600'
+                        }} onClick={handleNavClick}>
+                            Vérifier l'abonnement
+                        </NavLink>
+                    </div>
+                )}
 
                 {/* Navigation */}
                 <nav className="sidebar-nav">
+                    {/* Role indicator */}
+                    <div style={{
+                        fontSize: '0.7rem',
+                        fontWeight: 600,
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.08em',
+                        color: 'rgba(148, 163, 184, 0.6)',
+                        padding: '0 var(--space-md)',
+                        marginBottom: 'var(--space-sm)'
+                    }}>
+                        {isDoctor ? 'Médecin' : 'Assistant'}
+                    </div>
+
                     {/* Doctor Navigation */}
                     {isDoctor && (
                         <>
@@ -91,7 +149,7 @@ function Sidebar() {
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
                             >
-                                <DashboardIcon /> Espace Médecin
+                                <DashboardIcon /> Tableau de bord
                             </NavLink>
 
                             <NavLink
@@ -111,19 +169,11 @@ function Sidebar() {
                             </NavLink>
 
                             <NavLink
-                                to="/doctor/assistants"
+                                to="/doctor/settings"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
                             >
-                                <GroupIcon /> {t.doctor.assistants}
-                            </NavLink>
-
-                            <NavLink
-                                to="/doctor/profile"
-                                className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
-                                onClick={handleNavClick}
-                            >
-                                <PersonIcon /> {t.doctor.profile}
+                                <PersonIcon /> Paramètres
                             </NavLink>
                         </>
                     )}
@@ -151,18 +201,12 @@ function Sidebar() {
                 </nav>
 
                 {/* User section */}
-                <div style={{
-                    position: 'absolute',
-                    bottom: 0,
-                    left: 0,
-                    right: 0,
-                    padding: 'var(--space-md)',
-                    borderTop: '1px solid rgba(255,255,255,0.1)'
-                }}>
+                <div className="sidebar-footer">
                     <div style={{
                         marginBottom: 'var(--space-sm)',
-                        fontSize: '0.875rem',
-                        color: 'var(--gray-300)'
+                        fontSize: '0.813rem',
+                        color: 'rgba(226, 232, 240, 0.7)',
+                        fontWeight: 500
                     }}>
                         {displayName}
                     </div>
@@ -171,14 +215,9 @@ function Sidebar() {
 
                     <button
                         onClick={handleLogout}
-                        className="btn btn-ghost"
-                        style={{
-                            width: '100%',
-                            color: 'var(--gray-400)',
-                            justifyContent: 'flex-start'
-                        }}
+                        className="theme-toggle-btn"
                     >
-                        <LogoutIcon fontSize="small" style={{ marginRight: '0.5rem' }} /> {t.auth.logout}
+                        <LogoutIcon fontSize="small" /> {t.auth.logout}
                     </button>
                 </div>
             </aside>

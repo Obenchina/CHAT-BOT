@@ -12,6 +12,10 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import GroupsIcon from '@mui/icons-material/Groups';
 import PersonIcon from '@mui/icons-material/Person';
 import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import InboxIcon from '@mui/icons-material/Inbox';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import Button from '../../components/common/Button';
 
 const t = translations;
 
@@ -94,7 +98,12 @@ function DoctorDashboard() {
 
             <main className="main-content">
                 <div className="page-header">
-                    <h1 className="page-title">Espace Médecin</h1>
+                    <div>
+                        <h1 className="page-title">Tableau de bord</h1>
+                        <p style={{ margin: 0, fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
+                            Vue d'ensemble de votre activité
+                        </p>
+                    </div>
                 </div>
 
                 <div className="page-content">
@@ -145,8 +154,8 @@ function DoctorDashboard() {
                                     <div className="flex justify-between items-center flex-wrap gap-4">
                                         <h2 className="card-title">Gestion des Cas</h2>
 
-                                        {/* Filter Tabs */}
-                                        <div className="flex gap-sm">
+                                        {/* Filter Tabs - Segmented */}
+                                        <div className="segmented-group">
                                             {[
                                                 { value: 'all', label: 'Tous' },
                                                 { value: 'submitted', label: 'En attente' },
@@ -154,7 +163,7 @@ function DoctorDashboard() {
                                             ].map(tab => (
                                                 <button
                                                     key={tab.value}
-                                                    className={`btn ${filter === tab.value ? 'btn-primary' : 'btn-secondary'}`}
+                                                    className={`seg-btn ${filter === tab.value ? 'seg-active' : ''}`}
                                                     onClick={() => setFilter(tab.value)}
                                                 >
                                                     {tab.label}
@@ -164,7 +173,7 @@ function DoctorDashboard() {
                                     </div>
                                 </div>
 
-                                <div className="table-container">
+                                <div className="table-container desktop-table-container">
                                     {loading ? (
                                         <div className="flex justify-center p-4">
                                             <LoadingSpinner size="md" />
@@ -176,47 +185,47 @@ function DoctorDashboard() {
                                                     <th>{t.patient.title}</th>
                                                     <th>{t.common.date}</th>
                                                     <th>{t.common.status}</th>
-                                                    <th>{t.common.actions}</th>
+                                                    <th style={{ textAlign: 'right' }}>{t.common.actions}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
                                                 {cases.map(caseItem => (
                                                     <tr key={caseItem.id}>
-                                                        <td>
+                                                        <td data-label={t.patient.title}>
                                                             <div>
                                                                 <strong>
                                                                     {caseItem.patient_first_name || caseItem.patient?.first_name || ''}{' '}
                                                                     {caseItem.patient_last_name || caseItem.patient?.last_name || ''}
                                                                 </strong>
                                                             </div>
-                                                            <div style={{ fontSize: '0.75rem', color: 'var(--gray-500)' }}>
-                                                                {caseItem.patient?.age || ''} ans
-                                                            </div>
                                                         </td>
-                                                        <td>
+                                                        <td data-label={t.common.date}>
                                                             {new Date(caseItem.created_at || caseItem.createdAt).toLocaleDateString('fr-FR', {
                                                                 day: '2-digit',
                                                                 month: 'short',
                                                                 year: 'numeric'
                                                             })}
                                                         </td>
-                                                        <td>{getStatusBadge(caseItem.status)}</td>
-                                                        <td>
-                                                            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                                                        <td data-label={t.common.status}>{getStatusBadge(caseItem.status)}</td>
+                                                        <td data-label={t.common.actions} className="col-actions text-right">
+                                                            <div className="flex gap-sm justify-end">
                                                                 <Link
                                                                     to={`/doctor/cases/${caseItem.id}`}
                                                                     state={{ from: 'dashboard' }}
                                                                     className="btn btn-primary btn-sm"
                                                                 >
-                                                                    Voir le cas
+                                                                    <VisibilityIcon fontSize="small" /> Voir
                                                                 </Link>
-                                                                <button
-                                                                    className="btn btn-danger btn-sm"
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="btn-icon"
                                                                     onClick={() => handleDelete(caseItem.id)}
                                                                     title="Supprimer"
+                                                                    style={{ color: 'var(--error)' }}
                                                                 >
                                                                     <DeleteIcon fontSize="small" />
-                                                                </button>
+                                                                </Button>
                                                             </div>
                                                         </td>
                                                     </tr>
@@ -224,11 +233,57 @@ function DoctorDashboard() {
                                             </tbody>
                                         </table>
                                     ) : (
-                                        <div className="card-body text-center" style={{ color: 'var(--gray-500)' }}>
-                                            Aucun cas {filter === 'submitted' ? 'en attente' : filter === 'reviewed' ? 'traité' : ''}
+                                        <div className="card-body" style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-xl)' }}>
+                                            <div style={{
+                                                width: 56, height: 56, borderRadius: '50%',
+                                                background: 'var(--gray-100)', display: 'flex',
+                                                alignItems: 'center', justifyContent: 'center',
+                                                margin: '0 auto var(--space-md)'
+                                            }}>
+                                                <InboxIcon style={{ color: 'var(--gray-400)', fontSize: 28 }} />
+                                            </div>
+                                            <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                                                Aucun cas {filter === 'submitted' ? 'en attente' : filter === 'reviewed' ? 'traité' : ''}
+                                            </div>
+                                            <div style={{ fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
+                                                Les cas apparaîtront ici une fois soumis par vos assistants
+                                            </div>
                                         </div>
                                     )}
                                 </div>
+
+                                {/* Mobile List View (Replit Style) */}
+                                {!loading && cases.length > 0 && (
+                                    <div className="mobile-list-container" style={{ padding: '0 0 var(--space-md) 0' }}>
+                                        {cases.map(caseItem => (
+                                            <Link
+                                                key={`mob-${caseItem.id}`}
+                                                to={`/doctor/cases/${caseItem.id}`}
+                                                state={{ from: 'dashboard' }}
+                                                className="mobile-list-header px-4 py-3"
+                                                style={{ borderBottom: '1px solid var(--border-color)', textDecoration: 'none' }}
+                                            >
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', minWidth: 0 }}>
+                                                    <div style={{ minWidth: 0 }}>
+                                                        <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {caseItem.patient_first_name || caseItem.patient?.first_name || ''}{' '}
+                                                            {caseItem.patient_last_name || caseItem.patient?.last_name || ''}
+                                                        </p>
+                                                        <p style={{ margin: '2px 0 4px 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                            {new Date(caseItem.created_at || caseItem.createdAt).toLocaleDateString()}
+                                                        </p>
+                                                        <div>
+                                                            {getStatusBadge(caseItem.status)}
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexShrink: 0 }}>
+                                                    <KeyboardArrowRightIcon style={{ color: 'var(--text-muted)' }} />
+                                                </div>
+                                            </Link>
+                                        ))}
+                                    </div>
+                                )}
                             </div>
                         </>
                     )}

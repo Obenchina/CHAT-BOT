@@ -17,6 +17,7 @@ import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AttachFileIcon from '@mui/icons-material/AttachFile';
 import InsertDriveFileIcon from '@mui/icons-material/InsertDriveFile';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 
 const t = translations;
 
@@ -66,26 +67,28 @@ function CaseReviewPage() {
     // Handle file upload
     async function handleFileUpload(e) {
         if (isReadOnly) return;
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const documentType = e.target.dataset.type;
+        const files = Array.from(e.target.files);
+        if (!files.length) return;
 
         setUploading(true);
         try {
-            const formData = new FormData();
-            formData.append('document', file);
-            formData.append('documentType', documentType);
+            for (const file of files) {
+                const formData = new FormData();
+                formData.append('document', file);
+                formData.append('documentType', 'general');
 
-            const response = await caseService.uploadDocument(caseId, formData);
-            if (response.success) {
-                // Reload case to get updated documents
-                await loadCase();
+                await caseService.uploadDocument(caseId, formData);
             }
+            // Reload case to get updated documents
+            await loadCase();
+            showSuccess('Document(s) ajouté(s) avec succès');
         } catch (error) {
             console.error('Upload error:', error);
+            showError(error.message || 'Erreur lors du téléchargement');
         } finally {
             setUploading(false);
+            // reset input
+            e.target.value = null;
         }
     }
 
@@ -102,9 +105,11 @@ function CaseReviewPage() {
                     ...prev,
                     documents: prev.documents.filter(d => d.id !== docId)
                 }));
+                showSuccess('Document supprimé');
             }
         } catch (error) {
             console.error('Delete document error:', error);
+            showError('Erreur lors de la suppression');
         }
     }
 
@@ -123,7 +128,11 @@ function CaseReviewPage() {
             }
         } catch (error) {
             console.error('Submit error:', error);
-            showError(error.message || t.errors.serverError);
+            if (error.code === 'MISSING_API_KEY' || error.code === 'QUOTA_EXCEEDED' || error.code === 'API_ERROR') {
+                showError(error.message);
+            } else {
+                showError(error.message || t.errors.serverError);
+            }
         } finally {
             setSubmitting(false);
         }
@@ -140,7 +149,31 @@ function CaseReviewPage() {
 
             <main className="main-content">
                 <div className="page-header">
-                    <h1 className="page-title">{t.assistant.review}</h1>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
+                        <Button
+                            variant="ghost"
+                            onClick={() => {
+                                if (caseData?.patient?.id) {
+                                    navigate(`/assistant/case/new/${caseData.patient.id}`);
+                                } else {
+                                    navigate('/assistant/patients');
+                                }
+                            }}
+                            style={{ 
+                                gap: '0.3rem', 
+                                padding: '6px 16px',
+                                background: 'white',
+                                color: '#3B82F6',
+                                border: '1px solid #3B82F6',
+                                borderRadius: '12px',
+                                fontSize: '1rem',
+                                fontWeight: '500'
+                            }}
+                        >
+                            <ArrowBackIcon fontSize="small" /> Retour
+                        </Button>
+                        <h1 className="page-title" style={{ margin: 0 }}>{t.assistant.review}</h1>
+                    </div>
                     {!isReadOnly && (
                         <Button
                             variant="success"
@@ -161,11 +194,11 @@ function CaseReviewPage() {
                             <LoadingSpinner size="lg" text={t.common.loading} />
                         </div>
                     ) : caseData ? (
-                        <div style={{ display: 'grid', gap: 'var(--space-lg)' }}>
-                            {/* Patient info */}
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', maxWidth: '900px', margin: '0 auto' }}>
+                            {/* 1. Patient info */}
                             <div className="card">
-                                <div className="card-header">
-                                    <h2 className="card-title">{t.patient.title}</h2>
+                                <div className="card-header border-b">
+                                    <h2 className="card-title" style={{ fontSize: '1.1rem' }}>👤 {t.patient.title}</h2>
                                     {isReadOnly && (
                                         <span className="badge badge-gray" style={{ background: 'var(--primary-color)', color: 'white' }}>
                                             {caseData.status === CASE_STATUS.SUBMITTED ? 'Soumis' :
@@ -175,163 +208,166 @@ function CaseReviewPage() {
                                     )}
                                 </div>
                                 <div className="card-body">
-                                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-md)' }}>
-                                        <div>
-                                            <strong>{t.patient.firstName}:</strong><br />
-                                            {caseData.patient?.firstName || caseData.patient?.first_name}
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-xs)' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>{t.patient.firstName} {t.patient.lastName}:</span>
+                                            <strong style={{ textAlign: 'right' }}>{caseData.patient?.firstName || caseData.patient?.first_name} {caseData.patient?.lastName || caseData.patient?.last_name}</strong>
                                         </div>
-                                        <div>
-                                            <strong>{t.patient.lastName}:</strong><br />
-                                            {caseData.patient?.lastName || caseData.patient?.last_name}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-xs)' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>{t.patient.age}:</span>
+                                            <strong style={{ textAlign: 'right' }}>{caseData.patient?.age} ans</strong>
                                         </div>
-                                        <div>
-                                            <strong>{t.patient.age}:</strong><br />
-                                            {caseData.patient?.age} ans
-                                        </div>
-                                        <div>
-                                            <strong>{t.patient.phone}:</strong><br />
-                                            {caseData.patient?.phone}
+                                        <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>{t.patient.phone}:</span>
+                                            <strong style={{ textAlign: 'right' }}>{caseData.patient?.phone || '-'}</strong>
                                         </div>
                                     </div>
                                 </div>
+                            </div>
 
-                                {/* Documents - moved above answers */}
-                                <div className="card">
-                                    <div className="card-header">
-                                        <h2 className="card-title">{t.documents.title}</h2>
-                                    </div>
-                                    <div className="card-body">
-                                        {/* Upload section */}
-                                        {!isReadOnly && (
-                                            <>
-                                                <div style={{
-                                                    display: 'grid',
-                                                    gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
-                                                    gap: 'var(--space-md)',
-                                                    marginBottom: 'var(--space-lg)'
+                            {/* 2. Answers section */}
+                            <div className="card">
+                                <div className="card-header border-b" style={{ paddingBottom: 'var(--space-sm)' }}>
+                                    <h2 className="card-title">📋 {t.case.answers}</h2>
+                                </div>
+                                <div className="card-body" style={{ padding: '0' }}>
+                                    {caseData.answers && caseData.answers.length > 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            {caseData.answers.map((answer, idx) => (
+                                                <div key={idx} style={{
+                                                    padding: 'var(--space-lg)',
+                                                    borderBottom: idx < caseData.answers.length - 1 ? '1px solid var(--border-color)' : 'none',
+                                                    background: idx % 2 === 0 ? 'transparent' : 'var(--bg-elevated)'
                                                 }}>
-                                                    {Object.entries(DOCUMENT_TYPES).map(([key, value]) => (
-                                                        <label key={key} className="upload-zone">
-                                                            <input
-                                                                type="file"
-                                                                accept="image/*,.pdf"
-                                                                data-type={value}
-                                                                onChange={handleFileUpload}
-                                                                style={{ display: 'none' }}
-                                                            />
-                                                            <div className="upload-zone-content">
-                                                                <InsertDriveFileIcon style={{ fontSize: '2.5rem', color: 'var(--primary-400)' }} />
-                                                                <span>{getDocTypeLabel(value)}</span>
-                                                                <span style={{ fontSize: '0.75rem', color: 'var(--gray-400)' }}>
-                                                                    Cliquez pour ajouter
-                                                                </span>
-                                                            </div>
-                                                        </label>
-                                                    ))}
-                                                </div>
-
-                                                {uploading && (
-                                                    <div className="flex justify-center" style={{ marginBottom: 'var(--space-md)' }}>
-                                                        <LoadingSpinner size="sm" text="Téléchargement..." />
+                                                    <div style={{ fontWeight: '600', marginBottom: 'var(--space-sm)', color: 'var(--text-primary)', fontSize: '1.05rem' }}>
+                                                        <span style={{ color: 'var(--primary)', marginRight: '8px' }}>Q{idx + 1}.</span>
+                                                        {answer.question_text || answer.question?.question_text || `Question ${idx + 1}`}
                                                     </div>
-                                                )}
-                                            </>
-                                        )}
-
-                                        {/* Uploaded documents */}
-                                        {caseData.documents && caseData.documents.length > 0 ? (
-                                            <div>
-                                                <h4 style={{ marginBottom: 'var(--space-sm)' }}>Documents téléchargés:</h4>
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                                                    {caseData.documents.map(doc => (
-                                                        <div
-                                                            key={doc.id}
-                                                            style={{
-                                                                display: 'flex',
-                                                                justifyContent: 'space-between',
-                                                                alignItems: 'center',
-                                                                padding: 'var(--space-sm) var(--space-md)',
-                                                                background: 'var(--gray-50)',
-                                                                borderRadius: 'var(--radius-sm)'
-                                                            }}
-                                                        >
-                                                            <span>
-                                                                <a
-                                                                    href={`${UPLOAD_URL}/${doc.file_path || doc.filePath}`}
-                                                                    target="_blank"
-                                                                    rel="noopener noreferrer"
-                                                                    style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}
-                                                                    onClick={(e) => isReadOnly && e.stopPropagation()}
-                                                                >
-                                                                    <AttachFileIcon fontSize="small" style={{ marginRight: '4px' }} />
-                                                                    <span style={{ textDecoration: 'underline' }}>{doc.file_name || doc.fileName}</span>
-                                                                </a>
-                                                                <span className="badge badge-gray" style={{ marginLeft: 'var(--space-sm)' }}>
-                                                                    {getDocTypeLabel(doc.document_type || doc.documentType)}
-                                                                </span>
-                                                            </span>
-                                                            {!isReadOnly && (
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    onClick={() => handleDeleteDocument(doc.id)}
-                                                                >
-                                                                    <DeleteIcon color="error" />
-                                                                </Button>
-                                                            )}
-                                                        </div>
-                                                    ))}
-                                                </div>
-                                            </div>
-                                        ) : isReadOnly && (
-                                            <div style={{
-                                                padding: 'var(--space-lg)',
-                                                textAlign: 'center',
-                                                color: 'var(--gray-500)',
-                                                background: 'var(--gray-50)',
-                                                borderRadius: 'var(--radius-md)',
-                                                fontStyle: 'italic'
-                                            }}>
-                                                Aucun document médical
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
-
-                                {/* Answers summary */}
-                                <div className="card">
-                                    <div className="card-header">
-                                        <h2 className="card-title">{t.case.answers}</h2>
-                                    </div>
-                                    <div className="card-body">
-                                        {caseData.answers && caseData.answers.length > 0 ? (
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                                                {caseData.answers.map((answer, idx) => (
-                                                    <div key={idx} style={{
-                                                        padding: 'var(--space-md)',
-                                                        background: 'var(--gray-50)',
-                                                        borderRadius: 'var(--radius-md)'
+                                                    <div style={{
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: 'var(--space-sm)',
+                                                        marginTop: 'var(--space-md)'
                                                     }}>
-                                                        <div style={{ fontWeight: '500', marginBottom: 'var(--space-xs)' }}>
-                                                            {answer.question?.question_text || `Question ${idx + 1}`}
-                                                        </div>
-                                                        <div style={{ color: 'var(--gray-600)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                                                        <div style={{
+                                                            color: 'var(--text-secondary)',
+                                                            padding: 'var(--space-md)',
+                                                            background: 'var(--bg-card)',
+                                                            borderRadius: 'var(--radius-md)',
+                                                            border: '1px solid var(--border-color)',
+                                                            direction: 'rtl',
+                                                            textAlign: 'right',
+                                                            fontSize: '0.95rem',
+                                                            lineHeight: '1.6'
+                                                        }}>
                                                             {answer.transcribed_text ? (
                                                                 <>{answer.transcribed_text}</>
                                                             ) : (
-                                                                <>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end', fontStyle: 'italic' }}>
+                                                                    <span>Réponse enregistrée vocalement</span>
                                                                     <CheckIcon color="success" fontSize="small" />
-                                                                    <span>Réponse enregistrée</span>
-                                                                </>
+                                                                </div>
                                                             )}
                                                         </div>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        ) : (
-                                            <p style={{ color: 'var(--gray-500)' }}>Aucune réponse enregistrée</p>
-                                        )}
-                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div style={{ padding: 'var(--space-2xl) var(--space-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>
+                                            Aucune réponse enregistrée
+                                        </div>
+                                    )}
+                                </div>
+                            </div>
+
+                            {/* 3. Documents */}
+                            <div className="card">
+                                <div className="card-header border-b">
+                                    <h2 className="card-title" style={{ fontSize: '1.1rem' }}>📎 {t.documents.title}</h2>
+                                </div>
+                                <div className="card-body" style={{ padding: '0' }}>
+                                    {/* Upload section */}
+                                    {!isReadOnly && (
+                                        <div style={{ padding: 'var(--space-md)', borderBottom: '1px solid var(--border-color)' }}>
+                                            <label htmlFor="doc-upload" className="upload-zone" style={{ padding: 'var(--space-xl)', display: 'block', textAlign: 'center', cursor: 'pointer', border: '2px dashed var(--primary-300)', borderRadius: 'var(--radius-lg)', background: 'var(--bg-component)', transition: 'all 0.2s' }}>
+                                                <input
+                                                    id="doc-upload"
+                                                    type="file"
+                                                    accept="image/*,.pdf"
+                                                    multiple
+                                                    onChange={handleFileUpload}
+                                                    style={{ display: 'none' }}
+                                                />
+                                                <div className="upload-zone-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-sm)' }}>
+                                                    <InsertDriveFileIcon style={{ fontSize: '2.5rem', color: 'var(--primary)' }} />
+                                                    <span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                                                        Cliquez pour ajouter des documents médicaux
+                                                    </span>
+                                                    <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                                                        Images ou PDF pris en charge. Sélectionnez plusieurs fichiers si besoin.
+                                                    </span>
+                                                </div>
+                                            </label>
+
+                                            {uploading && (
+                                                <div className="flex justify-center" style={{ marginTop: 'var(--space-md)' }}>
+                                                    <LoadingSpinner size="sm" text="Téléchargement..." />
+                                                </div>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* Uploaded documents */}
+                                    {caseData.documents && caseData.documents.length > 0 ? (
+                                        <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                            {caseData.documents.map((doc, index) => (
+                                                <div
+                                                    key={doc.id}
+                                                    style={{
+                                                        display: 'flex',
+                                                        justifyContent: 'space-between',
+                                                        alignItems: 'center',
+                                                        padding: 'var(--space-sm) var(--space-md)',
+                                                        borderBottom: index < caseData.documents.length - 1 ? '1px solid var(--border-color)' : 'none'
+                                                    }}
+                                                >
+                                                    <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', alignItems: 'center' }}>
+                                                        <a
+                                                            href={`${UPLOAD_URL}/${doc.file_path || doc.filePath}`}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}
+                                                            onClick={(e) => isReadOnly && e.stopPropagation()}
+                                                        >
+                                                            <AttachFileIcon fontSize="small" style={{ marginRight: '4px', color: 'var(--primary)' }} />
+                                                            <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>{doc.file_name || doc.fileName}</span>
+                                                        </a>
+                                                    </span>
+                                                    {!isReadOnly && (
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            className="btn-icon"
+                                                            onClick={() => handleDeleteDocument(doc.id)}
+                                                        >
+                                                            <DeleteIcon fontSize="small" color="error" />
+                                                        </Button>
+                                                    )}
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : isReadOnly && (
+                                        <div style={{
+                                            padding: 'var(--space-lg)',
+                                            textAlign: 'center',
+                                            color: 'var(--gray-500)',
+                                            fontSize: '0.85rem',
+                                            fontStyle: 'italic'
+                                        }}>
+                                            Aucun document médical
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         </div>

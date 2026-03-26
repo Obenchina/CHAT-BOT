@@ -33,6 +33,26 @@ const doctorService = {
     },
 
     // ======================
+    // AI CONFIGURATION
+    // ======================
+
+    async getAiConfig() {
+        return api.get(ENDPOINTS.DOCTOR_AI_CONFIG);
+    },
+
+    async updateAiConfig(data) {
+        return api.put(ENDPOINTS.DOCTOR_AI_CONFIG, data);
+    },
+
+    async activateAiConfig(provider) {
+        return api.put(`${ENDPOINTS.DOCTOR_AI_CONFIG}/activate`, { provider });
+    },
+
+    async getAiStatus() {
+        return api.get(`${ENDPOINTS.DOCTOR_AI_CONFIG}/status`);
+    },
+
+    // ======================
     // ASSISTANT MANAGEMENT
     // ======================
 

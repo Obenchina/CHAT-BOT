@@ -27,28 +27,29 @@
 /* Profile Header Card */
 .profile-header-card {
     background: var(--bg-card);
-    border-radius: 16px;
+    border-radius: var(--radius-card);
     padding: var(--space-xl);
     display: flex;
     align-items: center;
     gap: var(--space-xl);
     margin-bottom: var(--space-xl);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow-md);
+    border: 1px solid var(--border-color);
 }
 
 .profile-avatar {
-    width: 100px;
-    height: 100px;
+    width: 80px;
+    height: 80px;
     background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 2.5rem;
+    font-size: 2rem;
     color: white;
     font-weight: 600;
-    box-shadow: 0 8px 16px rgba(0, 102, 230, 0.3);
+    box-shadow: 0 6px 12px rgba(59, 130, 246, 0.25);
+    flex-shrink: 0;
 }
 
 .profile-info h2 {
@@ -83,16 +84,32 @@
     .profile-header-card {
         flex-direction: column;
         text-align: center;
+        padding: var(--space-md);
+        gap: var(--space-md);
+    }
+
+    .profile-avatar {
+        width: 56px;
+        height: 56px;
+        font-size: 1.4rem;
+    }
+
+    .profile-info h2 {
+        font-size: 1.2rem;
+    }
+
+    .profile-section-card {
+        padding: var(--space-md);
     }
 }
 
 /* Section Cards */
 .profile-section-card {
     background: var(--bg-card);
-    border-radius: 16px;
+    border-radius: var(--radius-card);
     padding: var(--space-xl);
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
-    border: 1px solid rgba(0, 0, 0, 0.05);
+    box-shadow: var(--shadow);
+    border: 1px solid var(--border-color);
     height: 100%;
 }
 
@@ -138,16 +155,17 @@
 .input-field {
     width: 100%;
     padding: 10px 14px;
-    border: 1px solid var(--gray-200);
-    border-radius: 8px;
-    font-size: 0.95rem;
-    transition: all 0.2s;
-    background-color: var(--gray-50);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-input);
+    font-size: 0.875rem;
+    transition: all var(--transition-fast);
+    background-color: var(--bg-input);
+    color: var(--text-primary);
 }
 
 .input-field:focus {
     background-color: var(--bg-card);
-    border-color: var(--primary-500);
+    border-color: var(--primary-400);
     box-shadow: 0 0 0 3px var(--primary-100);
     outline: none;
 }
@@ -175,15 +193,16 @@
     color: var(--gray-900);
 }
 
-/* Buttons */
 .btn-edit {
     background-color: var(--gray-100);
     color: var(--gray-700);
     border: none;
-    padding: 8px 16px;
-    border-radius: 8px;
-    font-weight: 600;
-    transition: all 0.2s;
+    padding: var(--space-sm) var(--space-md);
+    border-radius: var(--radius-button);
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
 }
 
 .btn-edit:hover {
@@ -192,53 +211,60 @@
 }
 
 .btn-save {
-    background: linear-gradient(135deg, var(--primary-500), var(--primary-700));
+    background: var(--primary-500);
     color: white;
     border: none;
-    padding: 10px 24px;
-    border-radius: 8px;
-    font-weight: 600;
-    box-shadow: 0 4px 12px rgba(0, 102, 230, 0.3);
-    transition: all 0.2s;
+    padding: 10px var(--space-lg);
+    border-radius: var(--radius-button);
+    font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
 }
 
 .btn-save:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 6px 16px rgba(0, 102, 230, 0.4);
+    background: var(--primary-600);
+    box-shadow: var(--shadow-md);
 }
 
 .btn-cancel {
     background-color: var(--bg-card);
-    border: 1px solid var(--gray-200);
-    color: var(--gray-600);
-    padding: 10px 20px;
-    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 10px var(--space-lg);
+    border-radius: var(--radius-button);
     font-weight: 500;
+    font-size: 0.875rem;
+    cursor: pointer;
+    transition: all var(--transition-fast);
 }
 
 .btn-cancel:hover {
     background-color: var(--gray-50);
-    color: var(--gray-800);
+    color: var(--text-primary);
 }
 
 .btn-password {
     width: 100%;
-    padding: 12px;
+    padding: var(--space-md);
     background-color: var(--bg-card);
-    border: 1px solid var(--gray-200);
-    color: var(--gray-700);
-    border-radius: 8px;
-    font-weight: 600;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    border-radius: var(--radius-button);
+    font-weight: 500;
+    font-size: 0.875rem;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: var(--space-sm);
-    transition: all 0.2s;
+    cursor: pointer;
+    transition: all var(--transition-fast);
 }
 
 .btn-password:hover {
     border-color: var(--gray-300);
     background-color: var(--gray-50);
+    color: var(--text-primary);
 }
 
 /* Modal */
@@ -259,10 +285,11 @@
 
 .modal-modern {
     background: var(--bg-card);
-    border-radius: 20px;
+    border-radius: var(--radius-xl);
     width: 90%;
     max-width: 450px;
-    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.2);
+    box-shadow: var(--shadow-xl);
+    border: 1px solid var(--border-color);
     transform: scale(0.95);
     animation: scaleIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }

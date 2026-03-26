@@ -139,6 +139,30 @@ async function startServer() {
 
     if (!dbConnected) {
         console.warn('⚠️  Starting server without database connection');
+    } else {
+        // Auto-migrate: create pending_registrations table if it doesn't exist
+        try {
+            const { pool } = require('./config/database');
+            await pool.execute(`
+                CREATE TABLE IF NOT EXISTS pending_registrations (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    email VARCHAR(190) NOT NULL UNIQUE,
+                    password_hash VARCHAR(255) NOT NULL,
+                    first_name VARCHAR(100),
+                    last_name VARCHAR(100),
+                    gender ENUM('male','female') DEFAULT 'male',
+                    phone VARCHAR(50),
+                    address TEXT,
+                    specialty VARCHAR(100),
+                    otp_code VARCHAR(10) NOT NULL,
+                    otp_expires_at DATETIME NOT NULL,
+                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+                )
+            `);
+            console.log('✅ pending_registrations table ready');
+        } catch (err) {
+            console.warn('⚠️  Could not create pending_registrations table:', err.message);
+        }
     }
 
     app.listen(PORT, () => {

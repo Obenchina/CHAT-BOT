@@ -17,13 +17,27 @@ const authService = {
         return api.post(ENDPOINTS.LOGIN, { email, password });
     },
 
-    /**
-     * Register new doctor
-     * @param {Object} data - Registration data
-     * @returns {Promise<Object>} API response
-     */
     async register(data) {
         return api.post(ENDPOINTS.REGISTER, data);
+    },
+
+    /**
+     * Verify registration OTP
+     * @param {string} pendingId - Pending registration ID
+     * @param {string} code - 6-digit OTP code
+     * @returns {Promise<Object>} API response
+     */
+    async verifyRegistration(pendingId, code) {
+        return api.post(ENDPOINTS.VERIFY_REGISTRATION, { pendingId, code });
+    },
+
+    /**
+     * Resend verification OTP
+     * @param {string} pendingId - Pending registration ID
+     * @returns {Promise<Object>} API response
+     */
+    async resendOtp(pendingId) {
+        return api.post(ENDPOINTS.RESEND_OTP, { pendingId });
     },
 
     /**

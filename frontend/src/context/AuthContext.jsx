@@ -94,13 +94,32 @@ export function AuthProvider({ children }) {
     }
 
     /**
-     * Register new doctor
+     * Register new doctor (Step 1: Get Pending ID)
      * @param {Object} data - Registration data
      * @returns {Promise<Object>} Registration result
      */
     async function register(data) {
         try {
             const response = await authService.register(data);
+            return response;
+        } catch (error) {
+            console.error('Register error:', error);
+            return {
+                success: false,
+                message: error.message || 'Erreur d\'inscription'
+            };
+        }
+    }
+
+    /**
+     * Verify registration OTP (Step 2: Actual Login)
+     * @param {string} pendingId - Pending registration ID
+     * @param {string} code - OTP code
+     * @returns {Promise<Object>} Verification result
+     */
+    async function verifyRegistration(pendingId, code) {
+        try {
+            const response = await authService.verifyRegistration(pendingId, code);
 
             if (response.success) {
                 // Save token
@@ -116,10 +135,10 @@ export function AuthProvider({ children }) {
 
             return response;
         } catch (error) {
-            console.error('Register error:', error);
+            console.error('Verify registration error:', error);
             return {
                 success: false,
-                message: 'Erreur d\'inscription'
+                message: error.message || 'Code de vérification invalide ou expiré'
             };
         }
     }
@@ -157,6 +176,7 @@ export function AuthProvider({ children }) {
         isAssistant: user?.role === 'assistant',
         login,
         register,
+        verifyRegistration,
         logout,
         updateProfile,
         checkAuth

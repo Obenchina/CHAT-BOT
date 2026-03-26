@@ -28,6 +28,7 @@ const AssistantsManagement = lazy(() => import('./pages/doctor/AssistantsManagem
 const CaseDetails = lazy(() => import('./pages/doctor/CaseDetails'));
 const DoctorPatients = lazy(() => import('./pages/doctor/DoctorPatients'));
 const DoctorProfile = lazy(() => import('./pages/doctor/DoctorProfile'));
+const DoctorSettings = lazy(() => import('./pages/doctor/DoctorSettings'));
 const PatientsList = lazy(() => import('./pages/assistant/PatientsList'));
 const QuestionnairePage = lazy(() => import('./pages/assistant/QuestionnairePage'));
 const CaseReviewPage = lazy(() => import('./pages/assistant/CaseReviewPage'));
@@ -145,21 +146,28 @@ function AppRoutes() {
           </ProtectedRoute>
         } />
 
-        <Route path="/doctor/assistants" element={
+        <Route path="/doctor/settings" element={
           <ProtectedRoute requiredRole="doctor">
-            <AssistantsManagement />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/doctor/profile" element={
-          <ProtectedRoute requiredRole="doctor">
-            <DoctorProfile />
+            <DoctorSettings />
           </ProtectedRoute>
         } />
 
         <Route path="/doctor/patients" element={
           <ProtectedRoute requiredRole="doctor">
             <DoctorPatients />
+          </ProtectedRoute>
+        } />
+
+        {/* Redirects for old routes */}
+        <Route path="/doctor/profile" element={
+          <ProtectedRoute requiredRole="doctor">
+            <Navigate to="/doctor/settings" replace />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/doctor/assistants" element={
+          <ProtectedRoute requiredRole="doctor">
+            <Navigate to="/doctor/settings#assistants" replace />
           </ProtectedRoute>
         } />
 
@@ -205,7 +213,7 @@ function App() {
         <CssBaseline />
         <ErrorBoundary>
           <AuthProvider>
-            <Toaster />
+            <Toaster toastOptions={{ duration: 3000 }} />
             <AppRoutes />
           </AuthProvider>
         </ErrorBoundary>

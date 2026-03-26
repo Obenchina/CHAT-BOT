@@ -97,8 +97,21 @@
 }
 
 @media (max-width: 500px) {
+    .auth-page {
+        padding: var(--space-md);
+    }
+
+    .auth-title {
+        font-size: 1.25rem;
+        margin-bottom: var(--space-lg);
+    }
+
     .form-row-2 {
         grid-template-columns: 1fr;
+    }
+
+    .auth-container {
+        padding: var(--space-lg);
     }
 
     .auth-container-wide {

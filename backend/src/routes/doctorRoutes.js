@@ -20,4 +20,10 @@ router.get('/dashboard', doctorController.getDashboard);
 router.get('/profile', doctorController.getProfile);
 router.put('/profile', doctorController.updateProfile);
 
+// AI Configuration
+router.get('/ai-config', doctorController.getAiConfig);
+router.put('/ai-config', doctorController.updateAiConfig);
+router.put('/ai-config/activate', doctorController.activateAiConfig);
+router.get('/ai-config/status', doctorController.getAiStatus);
+
 module.exports = router;

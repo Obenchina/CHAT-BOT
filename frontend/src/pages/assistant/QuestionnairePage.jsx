@@ -240,6 +240,12 @@ function QuestionnairePage() {
                 }
             } catch (error) {
                 console.error('Failed to save answer:', error);
+                // Handle specific AI errors
+                if (error.code === 'MISSING_API_KEY' || error.code === 'QUOTA_EXCEEDED' || error.code === 'API_ERROR') {
+                    showError(error.message);
+                } else {
+                    showError(error.message || 'Erreur lors de l\'enregistrement de la réponse');
+                }
             }
         })();
 

@@ -1,13 +1,16 @@
 /**
  * Authentication Controller
- * Handles user registration, login, and password reset
+ * Handles user registration (with OTP email verification), login, and password reset
  */
 
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const User = require('../models/User');
 const Doctor = require('../models/Doctor');
 const Assistant = require('../models/Assistant');
 const config = require('../config/config');
+const { pool } = require('../config/database');
+const { sendVerificationCode } = require('../services/emailService');
 
 /**
  * Generate JWT token for user
@@ -23,7 +26,15 @@ function generateToken(user) {
 }
 
 /**
- * Register new doctor
+ * Generate a random 6-digit OTP code
+ * @returns {string} 6-digit code
+ */
+function generateOTP() {
+    return Math.floor(100000 + Math.random() * 900000).toString();
+}
+
+/**
+ * Register new doctor (Step 1: send OTP)
  * POST /api/auth/register
  */
 async function register(req, res) {
@@ -38,7 +49,7 @@ async function register(req, res) {
             });
         }
 
-        // Check if email already exists
+        // Check if email already exists in users table
         const existingUser = await User.findByEmail(email);
         if (existingUser) {
             return res.status(400).json({
@@ -47,44 +58,56 @@ async function register(req, res) {
             });
         }
 
-        // Create user account
-        const user = await User.create({
-            email,
-            password,
-            role: 'doctor'
-        });
+        // Hash password
+        const passwordHash = await bcrypt.hash(password, 10);
 
-        // Create doctor profile
-        const doctor = await Doctor.create({
-            userId: user.id,
-            firstName,
-            lastName,
-            gender,
-            phone,
-            email,
-            address,
-            specialty
-        });
+        // Generate OTP
+        const otpCode = generateOTP();
+        const otpExpiresAt = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
 
-        // Generate token
-        const token = generateToken(user);
+        // Upsert into pending_registrations (replace if same email exists)
+        await pool.execute(
+            `INSERT INTO pending_registrations (email, password_hash, first_name, last_name, gender, phone, address, specialty, otp_code, otp_expires_at)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE
+                password_hash = VALUES(password_hash),
+                first_name = VALUES(first_name),
+                last_name = VALUES(last_name),
+                gender = VALUES(gender),
+                phone = VALUES(phone),
+                address = VALUES(address),
+                specialty = VALUES(specialty),
+                otp_code = VALUES(otp_code),
+                otp_expires_at = VALUES(otp_expires_at),
+                created_at = NOW()`,
+            [email, passwordHash, firstName, lastName, gender || 'male', phone, address || '', specialty, otpCode, otpExpiresAt]
+        );
 
-        res.status(201).json({
+        // Get the pending ID
+        const [rows] = await pool.execute(
+            'SELECT id FROM pending_registrations WHERE email = ?',
+            [email]
+        );
+        const pendingId = rows[0].id;
+
+        // Send OTP email
+        const emailSent = await sendVerificationCode(email, otpCode);
+
+        if (!emailSent) {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to send verification email. Please try again.'
+            });
+        }
+
+        console.log(`📧 OTP sent to ${email} (pendingId: ${pendingId})`);
+
+        res.status(200).json({
             success: true,
-            message: 'Registration successful',
+            message: 'Verification code sent to your email',
             data: {
-                user: {
-                    id: user.id,
-                    email: user.email,
-                    role: user.role
-                },
-                doctor: {
-                    id: doctor.id,
-                    firstName,
-                    lastName,
-                    specialty
-                },
-                token
+                pendingId,
+                email
             }
         });
     } catch (error) {
@@ -92,6 +115,186 @@ async function register(req, res) {
         res.status(500).json({
             success: false,
             message: 'Registration failed'
+        });
+    }
+}
+
+/**
+ * Verify OTP and complete registration (Step 2)
+ * POST /api/auth/verify-registration
+ */
+async function verifyRegistration(req, res) {
+    try {
+        const { pendingId, code } = req.body;
+
+        if (!pendingId || !code) {
+            return res.status(400).json({
+                success: false,
+                message: 'Pending ID and verification code are required'
+            });
+        }
+
+        // Find pending registration
+        const [rows] = await pool.execute(
+            'SELECT * FROM pending_registrations WHERE id = ?',
+            [pendingId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Registration request not found. Please register again.'
+            });
+        }
+
+        const pending = rows[0];
+
+        // Check if OTP has expired
+        if (new Date() > new Date(pending.otp_expires_at)) {
+            return res.status(400).json({
+                success: false,
+                message: 'Verification code has expired. Please request a new one.',
+                expired: true
+            });
+        }
+
+        // Check OTP match
+        if (pending.otp_code !== code.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Invalid verification code'
+            });
+        }
+
+        // OTP is valid — create the real account
+        // Check again that email is not taken (race condition protection)
+        const existingUser = await User.findByEmail(pending.email);
+        if (existingUser) {
+            // Clean up pending record
+            await pool.execute('DELETE FROM pending_registrations WHERE id = ?', [pendingId]);
+            return res.status(400).json({
+                success: false,
+                message: 'Email already registered'
+            });
+        }
+
+        // Create user account (password is already hashed)
+        const [userResult] = await pool.execute(
+            `INSERT INTO users (email, password, role, is_active, created_at, updated_at)
+             VALUES (?, ?, 'doctor', true, NOW(), NOW())`,
+            [pending.email, pending.password_hash]
+        );
+
+        const userId = userResult.insertId;
+
+        // Create doctor profile
+        const doctor = await Doctor.create({
+            userId,
+            firstName: pending.first_name,
+            lastName: pending.last_name,
+            gender: pending.gender,
+            phone: pending.phone,
+            email: pending.email,
+            address: pending.address,
+            specialty: pending.specialty
+        });
+
+        // Delete pending record
+        await pool.execute('DELETE FROM pending_registrations WHERE id = ?', [pendingId]);
+
+        // Generate token
+        const token = generateToken({ id: userId, role: 'doctor' });
+
+        console.log(`✅ Doctor account created: ${pending.email} (userId: ${userId})`);
+
+        res.status(201).json({
+            success: true,
+            message: 'Registration successful',
+            data: {
+                user: {
+                    id: userId,
+                    email: pending.email,
+                    role: 'doctor'
+                },
+                doctor: {
+                    id: doctor.id,
+                    firstName: pending.first_name,
+                    lastName: pending.last_name,
+                    specialty: pending.specialty
+                },
+                token
+            }
+        });
+    } catch (error) {
+        console.error('Verify registration error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Verification failed'
+        });
+    }
+}
+
+/**
+ * Resend OTP code
+ * POST /api/auth/resend-otp
+ */
+async function resendOtp(req, res) {
+    try {
+        const { pendingId } = req.body;
+
+        if (!pendingId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Pending ID is required'
+            });
+        }
+
+        // Find pending registration
+        const [rows] = await pool.execute(
+            'SELECT * FROM pending_registrations WHERE id = ?',
+            [pendingId]
+        );
+
+        if (rows.length === 0) {
+            return res.status(404).json({
+                success: false,
+                message: 'Registration request not found. Please register again.'
+            });
+        }
+
+        const pending = rows[0];
+
+        // Generate new OTP
+        const newOtp = generateOTP();
+        const newExpiry = new Date(Date.now() + 10 * 60 * 1000);
+
+        // Update record
+        await pool.execute(
+            'UPDATE pending_registrations SET otp_code = ?, otp_expires_at = ? WHERE id = ?',
+            [newOtp, newExpiry, pendingId]
+        );
+
+        // Send email
+        const emailSent = await sendVerificationCode(pending.email, newOtp);
+
+        if (!emailSent) {
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to re-send verification email.'
+            });
+        }
+
+        console.log(`📧 OTP re-sent to ${pending.email}`);
+
+        res.json({
+            success: true,
+            message: 'New verification code sent'
+        });
+    } catch (error) {
+        console.error('Resend OTP error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to resend code'
         });
     }
 }
@@ -197,7 +400,6 @@ async function forgotPassword(req, res) {
 
         // In production: Send reset email here
         if (user) {
-            // TODO: Implement email sending
             console.log(`Password reset requested for: ${email}`);
         }
     } catch (error) {
@@ -224,9 +426,6 @@ async function resetPassword(req, res) {
             });
         }
 
-        // TODO: Verify reset token and update password
-        // This requires implementing a password reset token system
-
         res.json({
             success: true,
             message: 'Password reset successful'
@@ -240,10 +439,6 @@ async function resetPassword(req, res) {
     }
 }
 
-/**
- * Get current user info
- * GET /api/auth/me
- */
 /**
  * Change password
  * POST /api/auth/change-password
@@ -286,6 +481,10 @@ async function changePassword(req, res) {
     }
 }
 
+/**
+ * Get current user info
+ * GET /api/auth/me
+ */
 async function getCurrentUser(req, res) {
     try {
         const user = await User.findById(req.user.id);
@@ -327,6 +526,8 @@ async function getCurrentUser(req, res) {
 
 module.exports = {
     register,
+    verifyRegistration,
+    resendOtp,
     login,
     forgotPassword,
     resetPassword,

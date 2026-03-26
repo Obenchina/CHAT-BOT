@@ -8,8 +8,8 @@ import { createTheme } from '@mui/material/styles';
 
 /**
  * Custom Material UI Theme
- * Matches the existing application color palette
- * Supports Light and Dark modes with Google Cloud Console style
+ * Matches the Enterprise SaaS Design System color palette
+ * Supports Light and Dark modes
  */
 export const getTheme = (mode) => createTheme({
   palette: {
@@ -18,15 +18,15 @@ export const getTheme = (mode) => createTheme({
       ? {
         // Light Mode
         primary: {
-          main: '#0066e6', // var(--primary-500)
-          light: '#4d9cff', // var(--primary-300)
-          dark: '#003d80', // var(--primary-700)
+          main: '#3b82f6', // var(--primary-500)
+          light: '#93c5fd', // var(--primary-300)
+          dark: '#1d4ed8', // var(--primary-700)
           contrastText: '#ffffff',
         },
         secondary: {
-          main: '#00bfa5', // var(--secondary-500)
-          light: '#4ddcce', // var(--secondary-300)
-          dark: '#007360', // var(--secondary-700)
+          main: '#14b8a6', // var(--secondary-500)
+          light: '#5eead4', // var(--secondary-300)
+          dark: '#0f766e', // var(--secondary-700)
           contrastText: '#ffffff',
         },
         background: {
@@ -34,51 +34,51 @@ export const getTheme = (mode) => createTheme({
           paper: '#ffffff',
         },
         text: {
-          primary: '#1e293b', // var(--gray-800)
+          primary: '#0f172a', // var(--gray-900)
           secondary: '#64748b', // var(--gray-500)
         },
       }
       : {
-        // Dark Mode (Google Cloud Style)
+        // Dark Mode
         primary: {
-          main: '#8ab4f8', // Google Blue Light
-          light: '#aecbfa',
-          dark: '#4285f4', // Google Blue
-          contrastText: '#1d1d1d',
+          main: '#3b82f6', // var(--primary-500)
+          light: '#60a5fa',
+          dark: '#1d4ed8',
+          contrastText: '#ffffff',
         },
         secondary: {
-          main: '#81c995', // Google Green Light
-          light: '#b7e1cd',
-          dark: '#34a853',
-          contrastText: '#1d1d1d',
+          main: '#2dd4bf', // var(--secondary-400)
+          light: '#5eead4',
+          dark: '#0f766e',
+          contrastText: '#0f172a',
         },
         background: {
-          default: '#1d1d1d', // Google Dark Background
-          paper: '#292a2d', // Google Dark Surface
+          default: '#0f172a', // var(--gray-50 dark)
+          paper: '#1e293b', // var(--gray-100 dark)
         },
         text: {
-          primary: '#e8eaed', // Google Light Text
-          secondary: '#9aa0a6', // Google Secondary Text
+          primary: '#f8fafc', // var(--gray-900 dark)
+          secondary: '#94a3b8', // var(--gray-500 dark)
         },
         error: {
-          main: '#f28b82', // Google Red Light
+          main: '#f87171',
         },
         success: {
-          main: '#81c995',
+          main: '#34d399',
         },
         warning: {
-          main: '#fdd663',
+          main: '#fbbf24',
         },
         info: {
-          main: '#8ab4f8',
+          main: '#38bdf8',
         },
       }),
   },
   typography: {
     fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-    h1: { fontWeight: 600 },
-    h2: { fontWeight: 600 },
-    h3: { fontWeight: 600 },
+    h1: { fontWeight: 600, letterSpacing: '-0.02em' },
+    h2: { fontWeight: 600, letterSpacing: '-0.02em' },
+    h3: { fontWeight: 600, letterSpacing: '-0.02em' },
     button: {
       textTransform: 'none',
       fontWeight: 500,
@@ -88,19 +88,24 @@ export const getTheme = (mode) => createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: '0.5rem',
-          padding: '0.5rem 1rem',
+          borderRadius: '8px', // Match CSS variables
+          padding: '8px 16px',
+          boxShadow: 'none',
+          '&:hover': {
+            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+          }
         },
       },
     },
     MuiCard: {
       styleOverrides: {
         root: {
-          borderRadius: '0.75rem',
+          borderRadius: '12px',
           boxShadow: mode === 'dark'
-            ? '0 1px 3px 0 rgba(0,0,0,0.5), 0 1px 2px -1px rgba(0,0,0,0.5)'
-            : '0 1px 3px 0 rgb(0 0 0 / 0.1), 0 1px 2px -1px rgb(0 0 0 / 0.1)',
+            ? '0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.5)'
+            : '0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05)',
           backgroundImage: 'none', // Remove default MUI dark mode overlay
+          border: mode === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
         },
       },
     },
@@ -108,6 +113,7 @@ export const getTheme = (mode) => createTheme({
       styleOverrides: {
         root: {
           backgroundImage: 'none', // Remove default MUI dark mode overlay
+          borderRadius: '12px',
         },
       },
     },
@@ -115,8 +121,13 @@ export const getTheme = (mode) => createTheme({
       styleOverrides: {
         root: {
           '& .MuiTableCell-head': {
-            backgroundColor: mode === 'dark' ? '#292a2d' : '#f8fafc',
-            color: mode === 'dark' ? '#bdc1c6' : '#64748b',
+            backgroundColor: mode === 'dark' ? '#1e293b' : '#f8fafc',
+            color: mode === 'dark' ? '#94a3b8' : '#64748b',
+            fontWeight: 600,
+            textTransform: 'uppercase',
+            fontSize: '0.75rem',
+            letterSpacing: '0.05em',
+            borderBottom: mode === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
           }
         }
       }
@@ -124,7 +135,8 @@ export const getTheme = (mode) => createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: mode === 'dark' ? '1px solid #3c4043' : '1px solid #e2e8f0',
+          borderBottom: mode === 'dark' ? '1px solid #334155' : '1px solid #f1f5f9',
+          padding: '16px',
         }
       }
     }

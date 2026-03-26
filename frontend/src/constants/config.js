@@ -13,6 +13,8 @@ export const ENDPOINTS = {
     // Auth
     LOGIN: '/auth/login',
     REGISTER: '/auth/register',
+    VERIFY_REGISTRATION: '/auth/verify-registration',
+    RESEND_OTP: '/auth/resend-otp',
     FORGOT_PASSWORD: '/auth/forgot-password',
     RESET_PASSWORD: '/auth/reset-password',
     CURRENT_USER: '/auth/me',
@@ -20,6 +22,7 @@ export const ENDPOINTS = {
     // Doctor
     DOCTOR_DASHBOARD: '/doctor/dashboard',
     DOCTOR_PROFILE: '/doctor/profile',
+    DOCTOR_AI_CONFIG: '/doctor/ai-config',
 
     // Assistant
     ASSISTANTS: '/assistant',

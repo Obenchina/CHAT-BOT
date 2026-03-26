@@ -3,7 +3,7 @@
  * Read-only view of patients with history
  */
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
@@ -18,6 +18,10 @@ import { GENDER_OPTIONS } from '../../constants/config';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import GroupOffIcon from '@mui/icons-material/GroupOff';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 
 const t = translations;
 
@@ -26,6 +30,12 @@ function DoctorPatients() {
     const [patients, setPatients] = useState([]);
     const [loading, setLoading] = useState(true);
     const [searchQuery, setSearchQuery] = useState('');
+
+    // Filter/Sort/Pagination State
+    const [genderFilter, setGenderFilter] = useState('all');
+    const [sortBy, setSortBy] = useState('newest');
+    const [currentPage, setCurrentPage] = useState(1);
+    const [rowsPerPage, setRowsPerPage] = useState(10);
 
     // Edit/Delete State
     const [showModal, setShowModal] = useState(false);
@@ -69,6 +79,7 @@ function DoctorPatients() {
     async function handleSearch(e) {
         const query = e.target.value;
         setSearchQuery(query);
+        setCurrentPage(1); // Reset to first page on search
 
         if (query.length >= 2) {
             try {
@@ -83,6 +94,47 @@ function DoctorPatients() {
             loadPatients();
         }
     }
+
+    function clearSearch() {
+        setSearchQuery('');
+        loadPatients();
+    }
+
+    // Data Processing (Filter, Sort, Paginate)
+    const processedPatients = useMemo(() => {
+        let result = [...patients];
+
+        // 1. Filter
+        if (genderFilter !== 'all') {
+            result = result.filter(p => p.gender === genderFilter);
+        }
+
+        // 2. Sort
+        result.sort((a, b) => {
+            switch (sortBy) {
+                case 'name_asc':
+                    const nameA = (a.firstName || a.first_name || '').toLowerCase();
+                    const nameB = (b.firstName || b.first_name || '').toLowerCase();
+                    return nameA.localeCompare(nameB);
+                case 'age_desc':
+                    return (b.age || 0) - (a.age || 0);
+                case 'age_asc':
+                    return (a.age || 0) - (b.age || 0);
+                case 'newest':
+                default:
+                    return b.id - a.id;
+            }
+        });
+
+        return result;
+    }, [patients, genderFilter, sortBy]);
+
+    const paginatedPatients = useMemo(() => {
+        const startIndex = (currentPage - 1) * rowsPerPage;
+        return processedPatients.slice(startIndex, startIndex + rowsPerPage);
+    }, [processedPatients, currentPage, rowsPerPage]);
+
+    const totalPages = Math.ceil(processedPatients.length / rowsPerPage);
 
     // Toggle History
     async function toggleHistory(patientId) {
@@ -225,67 +277,127 @@ function DoctorPatients() {
 
             <main className="main-content">
                 <div className="page-header">
-                    <h1 className="page-title">{t.assistant.patientsList}</h1>
+                    <div>
+                        <h1 className="page-title">Mes Patients</h1>
+                        <p style={{ margin: 0, fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
+                            Consultez les dossiers de vos patients et gérez leurs visites.
+                        </p>
+                    </div>
                 </div>
 
                 <div className="page-content">
-                    {/* Search */}
-                    <div style={{ marginBottom: 'var(--space-lg)', maxWidth: '400px' }}>
-                        <input
-                            type="text"
-                            className="form-input"
-                            placeholder={t.patient.searchPatient}
-                            value={searchQuery}
-                            onChange={handleSearch}
-                        />
+                    {/* SaaS Toolbar */}
+                    <div className="card" style={{ marginBottom: 'var(--space-lg)', border: 'none', background: 'transparent', boxShadow: 'none' }}>
+                        <div className="flex justify-between items-center flex-wrap gap-md" style={{ padding: '0' }}>
+                            {/* Search */}
+                            <div className="form-group" style={{ marginBottom: 0, flex: '1', minWidth: '180px', position: 'relative' }}>
+                                <SearchIcon style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
+                                <input
+                                    type="text"
+                                    className="form-input"
+                                    style={{ paddingLeft: '40px', paddingRight: '40px' }}
+                                    placeholder={t.patient.searchPatient}
+                                    value={searchQuery}
+                                    onChange={handleSearch}
+                                />
+                                {searchQuery && (
+                                    <button
+                                        onClick={clearSearch}
+                                        style={{
+                                            position: 'absolute', right: '12px', top: '10px',
+                                            background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer'
+                                        }}
+                                    >
+                                        <CloseIcon fontSize="small" />
+                                    </button>
+                                )}
+                            </div>
+
+                            {/* Filters & Sort */}
+                            <div className="flex gap-sm">
+                                <select
+                                    className="form-input form-select"
+                                    style={{ width: 'auto' }}
+                                    value={genderFilter}
+                                    onChange={(e) => { setGenderFilter(e.target.value); setCurrentPage(1); }}
+                                >
+                                    <option value="all">Tous les genres</option>
+                                    <option value="male">Homme</option>
+                                    <option value="female">Femme</option>
+                                </select>
+
+                                <select
+                                    className="form-input form-select"
+                                    style={{ width: 'auto' }}
+                                    value={sortBy}
+                                    onChange={(e) => setSortBy(e.target.value)}
+                                >
+                                    <option value="newest">Plus récents</option>
+                                    <option value="name_asc">Nom (A-Z)</option>
+                                    <option value="age_desc">Âge (Décroissant)</option>
+                                    <option value="age_asc">Âge (Croissant)</option>
+                                </select>
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Patients list */}
+                    {/* Content Area */}
                     {loading ? (
-                        <div className="flex justify-center" style={{ padding: 'var(--space-2xl)' }}>
-                            <LoadingSpinner size="lg" text={t.common.loading} />
+                        <div className="skeleton-card-container" style={{ minHeight: '400px' }}>
+                            <div className="skeleton skeleton-text" style={{ height: '40px', marginBottom: '20px' }}></div>
+                            <div className="skeleton skeleton-text" style={{ height: '40px', marginBottom: '10px' }}></div>
+                            <div className="skeleton skeleton-text" style={{ height: '40px', marginBottom: '10px' }}></div>
+                            <div className="skeleton skeleton-text" style={{ height: '40px', marginBottom: '10px' }}></div>
                         </div>
-                    ) : patients.length > 0 ? (
+                    ) : processedPatients.length > 0 ? (
                         <div className="card">
-                            <div className="table-container">
+                            {/* Desktop Table */}
+                            <div className="table-container desktop-table-container">
                                 <table className="table">
                                     <thead>
                                         <tr>
-                                            <th>{t.patient.firstName}</th>
-                                            <th>{t.patient.lastName}</th>
-                                            <th>{t.patient.gender}</th>
-                                            <th>{t.patient.age}</th>
-                                            <th>{t.patient.phone}</th>
-                                            <th>Actions</th>
+                                            <th style={{ width: '32px' }}></th>
+                                            <th className="col-hide-md" style={{ width: '12%' }}>Date</th>
+                                            <th>Patient</th>
+                                            <th style={{ width: '10%' }}>{t.patient.gender}</th>
+                                            <th style={{ width: '8%' }}>{t.patient.age}</th>
+                                            <th className="col-hide-md" style={{ width: '14%' }}>{t.patient.phone}</th>
+                                            <th className="col-actions" style={{ width: '100px' }}>Actions</th>
                                         </tr>
                                     </thead>
                                     <tbody>
-                                        {patients.map(patient => (
-                                            <>
-                                                <tr key={patient.id} style={{ cursor: 'pointer' }} onClick={() => toggleHistory(patient.id)}>
-                                                    <td>
-                                                        <span style={{
-                                                            display: 'inline-block',
-                                                            transform: expandedPatientId === patient.id ? 'rotate(90deg)' : 'rotate(0deg)',
-                                                            transition: 'transform 0.2s',
-                                                            marginRight: '8px'
-                                                        }}>
-                                                            ▶
+                                        {paginatedPatients.map(patient => (
+                                            <React.Fragment key={patient.id}>
+                                                <tr style={{ cursor: 'pointer' }} onClick={() => toggleHistory(patient.id)}>
+                                                    <td data-label="Historique" style={{ color: 'var(--text-muted)' }}>
+                                                        <KeyboardArrowRightIcon
+                                                            style={{
+                                                                transform: expandedPatientId === patient.id ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                                transition: 'transform var(--transition-base)',
+                                                                fontSize: '20px'
+                                                            }}
+                                                        />
+                                                    </td>
+                                                    <td data-label="Date" className="col-hide-md" style={{ color: 'var(--text-secondary)' }}>
+                                                        {new Date(patient.createdAt || Date.now()).toLocaleDateString()}
+                                                    </td>
+                                                    <td data-label="Patient" className="col-truncate" style={{ fontWeight: 500, color: 'var(--text-primary)' }} title={`${patient.firstName || patient.first_name} ${patient.lastName || patient.last_name}`}>
+                                                        {patient.firstName || patient.first_name} {patient.lastName || patient.last_name}
+                                                    </td>
+                                                    <td data-label={t.patient.gender}>
+                                                        <span className="badge badge-gray">
+                                                            {patient.gender === 'male' ? t.patient.male :
+                                                                patient.gender === 'female' ? t.patient.female : t.patient.other}
                                                         </span>
-                                                        {patient.firstName || patient.first_name}
                                                     </td>
-                                                    <td>{patient.lastName || patient.last_name}</td>
-                                                    <td>
-                                                        {patient.gender === 'male' ? t.patient.male :
-                                                            patient.gender === 'female' ? t.patient.female : t.patient.other}
-                                                    </td>
-                                                    <td>{patient.age} ans</td>
-                                                    <td>{patient.phone}</td>
-                                                    <td>
-                                                        <div className="flex gap-sm">
+                                                    <td data-label={t.patient.age}>{patient.age} ans</td>
+                                                    <td data-label={t.patient.phone} className="col-hide-md" style={{ color: 'var(--text-secondary)' }}>{patient.phone || '-'}</td>
+                                                    <td data-label="Actions" className="col-actions">
+                                                        <div>
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
+                                                                className="btn-icon"
                                                                 onClick={(e) => {
                                                                     e.stopPropagation();
                                                                     handleEditClick(e, patient);
@@ -297,106 +409,247 @@ function DoctorPatients() {
                                                             <Button
                                                                 variant="ghost"
                                                                 size="sm"
+                                                                className="btn-icon"
                                                                 onClick={(e) => handleDeletePatient(e, patient.id)}
                                                                 title="Supprimer"
-                                                                className="text-error"
+                                                                style={{ color: 'var(--error)' }}
                                                             >
                                                                 <DeleteIcon fontSize="small" />
                                                             </Button>
                                                         </div>
                                                     </td>
                                                 </tr>
+                                                {/* Expanded History Row (SaaS Sub-card) */}
                                                 {expandedPatientId === patient.id && (
-                                                    <tr className="history-row" style={{ backgroundColor: 'var(--gray-50)' }}>
-                                                        <td colSpan="6" style={{ padding: 'var(--space-md)' }}>
-                                                            <div className="history-container">
-                                                                <h4 style={{ marginBottom: 'var(--space-sm)' }}>Historique des visites</h4>
-                                                                {historyLoading[patient.id] ? (
-                                                                    <LoadingSpinner size="sm" />
-                                                                ) : historyData[patient.id] && historyData[patient.id].length > 0 ? (
-                                                                    <table className="table table-sm" style={{ backgroundColor: 'var(--bg-card)' }}>
-                                                                        <thead>
-                                                                            <tr>
-                                                                                <th>Visite</th>
-                                                                                <th>Date</th>
-                                                                                <th>Statut</th>
-                                                                                <th>Action</th>
-                                                                            </tr>
-                                                                        </thead>
-                                                                        <tbody>
-                                                                            {historyData[patient.id].map((cse, index) => (
-                                                                                <tr key={cse.id}>
-                                                                                    <td><strong>Visite {historyData[patient.id].length - index}</strong></td>
-                                                                                    <td>{new Date(cse.createdAt || cse.created_at).toLocaleString()}</td>
-                                                                                    <td>
-                                                                                        <span className={`badge badge-${cse.status === 'in_progress' ? 'warning' :
-                                                                                            cse.status === 'submitted' ? 'info' :
-                                                                                                cse.status === 'reviewed' ? 'success' : 'gray'
-                                                                                            }`}>
-                                                                                            {cse.status === 'in_progress' ? 'En cours' :
-                                                                                                cse.status === 'submitted' ? 'En attente' :
-                                                                                                    cse.status === 'reviewed' ? 'Traité' : 'Clôturé'}
-                                                                                        </span>
-                                                                                    </td>
-                                                                                    <td>
-                                                                                        <div className="flex gap-2">
-                                                                                            <Button
-                                                                                                variant="ghost"
-                                                                                                size="sm"
-                                                                                                onClick={(e) => {
-                                                                                                    e.stopPropagation();
-                                                                                                    navigate(`/doctor/cases/${cse.id}`, { state: { from: 'patients' } });
-                                                                                                }}
-                                                                                                title="Voir"
-                                                                                            >
-                                                                                                <VisibilityIcon fontSize="small" />
-                                                                                            </Button>
-                                                                                            <Button
-                                                                                                variant="ghost"
-                                                                                                size="sm"
-                                                                                                onClick={(e) => handleDeleteCase(e, cse.id, patient.id)}
-                                                                                                title="Supprimer la visite"
-                                                                                                className="text-error"
-                                                                                            >
-                                                                                                <DeleteIcon fontSize="small" />
-                                                                                            </Button>
-                                                                                        </div>
-                                                                                    </td>
+                                                    <tr style={{ backgroundColor: 'var(--gray-50)', borderBottom: '1px solid var(--border-color)' }}>
+                                                        <td colSpan="7" style={{ padding: 'var(--space-lg) var(--space-xl)' }}>
+                                                            <div className="card" style={{ border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
+                                                                <div className="card-header" style={{ padding: 'var(--space-md) var(--space-lg)' }}>
+                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                                        <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Historique des visites</h4>
+                                                                        <span className="badge badge-info">Patient ID: {patient.id}</span>
+                                                                    </div>
+                                                                </div>
+
+                                                                <div className="card-body" style={{ padding: '0' }}>
+                                                                    {historyLoading[patient.id] ? (
+                                                                        <div className="flex justify-center" style={{ padding: 'var(--space-xl)' }}>
+                                                                            <LoadingSpinner size="sm" />
+                                                                        </div>
+                                                                    ) : historyData[patient.id] && historyData[patient.id].length > 0 ? (
+                                                                        <table className="table" style={{ margin: 0 }}>
+                                                                            <thead style={{ background: 'transparent' }}>
+                                                                                <tr>
+                                                                                    <th style={{ padding: 'var(--space-sm) var(--space-lg)' }}>Visite</th>
+                                                                                    <th style={{ padding: 'var(--space-sm) var(--space-lg)' }}>Date</th>
+                                                                                    <th style={{ padding: 'var(--space-sm) var(--space-lg)' }}>Statut</th>
+                                                                                    <th style={{ padding: 'var(--space-sm) var(--space-lg)', textAlign: 'right' }}>Action</th>
                                                                                 </tr>
-                                                                            ))}
-                                                                        </tbody>
-                                                                    </table>
-                                                                ) : (
-                                                                    <p style={{ color: 'var(--gray-500)', fontStyle: 'italic' }}>Aucune visite précédente.</p>
-                                                                )}
+                                                                            </thead>
+                                                                            <tbody>
+                                                                                {historyData[patient.id].map((cse, index) => (
+                                                                                    <tr key={cse.id} style={{ background: 'transparent' }}>
+                                                                                        <td style={{ padding: 'var(--space-sm) var(--space-lg)' }}>
+                                                                                            <strong>Visite #{historyData[patient.id].length - index}</strong>
+                                                                                        </td>
+                                                                                        <td style={{ padding: 'var(--space-sm) var(--space-lg)', color: 'var(--text-secondary)' }}>
+                                                                                            {new Date(cse.createdAt || cse.created_at).toLocaleString()}
+                                                                                        </td>
+                                                                                        <td style={{ padding: 'var(--space-sm) var(--space-lg)' }}>
+                                                                                            <span className={`badge badge-${cse.status === 'in_progress' ? 'warning' :
+                                                                                                cse.status === 'submitted' ? 'info' :
+                                                                                                    cse.status === 'reviewed' ? 'success' : 'gray'
+                                                                                                }`}>
+                                                                                                {cse.status === 'in_progress' ? 'En cours' :
+                                                                                                    cse.status === 'submitted' ? 'En attente' :
+                                                                                                        cse.status === 'reviewed' ? 'Traité' : 'Clôturé'}
+                                                                                            </span>
+                                                                                        </td>
+                                                                                        <td style={{ padding: 'var(--space-sm) var(--space-lg)' }}>
+                                                                                            <div className="flex gap-2 justify-right" style={{ justifyContent: 'flex-end' }}>
+                                                                                                <Button
+                                                                                                    variant="secondary"
+                                                                                                    size="sm"
+                                                                                                    onClick={(e) => {
+                                                                                                        e.stopPropagation();
+                                                                                                        navigate(`/doctor/cases/${cse.id}`, { state: { from: 'patients' } });
+                                                                                                    }}
+                                                                                                >
+                                                                                                    <VisibilityIcon fontSize="small" style={{ marginRight: '4px' }} /> Voir
+                                                                                                </Button>
+                                                                                                <Button
+                                                                                                    variant="ghost"
+                                                                                                    size="sm"
+                                                                                                    className="btn-icon"
+                                                                                                    onClick={(e) => handleDeleteCase(e, cse.id, patient.id)}
+                                                                                                    title="Supprimer la visite"
+                                                                                                    style={{ color: 'var(--error)' }}
+                                                                                                >
+                                                                                                    <DeleteIcon fontSize="small" />
+                                                                                                </Button>
+                                                                                            </div>
+                                                                                        </td>
+                                                                                    </tr>
+                                                                                ))}
+                                                                            </tbody>
+                                                                        </table>
+                                                                    ) : (
+                                                                        <div className="text-center" style={{ padding: 'var(--space-xl)', color: 'var(--text-muted)' }}>
+                                                                            <p style={{ margin: 0 }}>Aucune visite précédente pour ce patient.</p>
+                                                                        </div>
+                                                                    )}
+                                                                </div>
                                                             </div>
                                                         </td>
                                                     </tr>
                                                 )}
-                                            </>
+                                            </React.Fragment>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
+
+                            {/* Mobile List View (Replit Style) */}
+                            <div className="mobile-list-container" style={{ padding: 'var(--space-md)' }}>
+                                {paginatedPatients.map(patient => (
+                                    <div key={`mob-${patient.id}`} className="mobile-list-item">
+                                        <button
+                                            className="mobile-list-header"
+                                            onClick={() => toggleHistory(patient.id)}
+                                        >
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', minWidth: 0 }}>
+                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                                                    <VisibilityIcon style={{ color: 'var(--primary)', fontSize: '20px' }} />
+                                                </div>
+                                                <div style={{ minWidth: 0 }}>
+                                                    <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                        {patient.firstName || patient.first_name} {patient.lastName || patient.last_name}
+                                                    </p>
+                                                    <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                        {patient.age} ans · {patient.gender === 'female' ? 'Femme' : 'Homme'} {patient.phone ? `· ${patient.phone}` : ''}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexShrink: 0 }}>
+                                                <KeyboardArrowRightIcon
+                                                    style={{
+                                                        transform: expandedPatientId === patient.id ? 'rotate(90deg)' : 'rotate(0deg)',
+                                                        transition: 'transform 0.2s',
+                                                        color: 'var(--text-muted)'
+                                                    }}
+                                                />
+                                            </div>
+                                        </button>
+
+                                        {/* Expanded History for Mobile */}
+                                        {expandedPatientId === patient.id && (
+                                            <div className="mobile-list-content">
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-md) 0', borderBottom: '1px solid var(--border-color)' }}>
+                                                    <h5 style={{ margin: 0, fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Consultations</h5>
+                                                    <div style={{ display: 'flex', gap: '4px' }}>
+                                                        <Button variant="ghost" size="sm" className="btn-icon" onClick={(e) => handleEditClick(e, patient)}><EditIcon fontSize="small" /></Button>
+                                                        <Button variant="ghost" size="sm" className="btn-icon" style={{ color: 'var(--error)' }} onClick={(e) => handleDeletePatient(e, patient.id)}><DeleteIcon fontSize="small" /></Button>
+                                                    </div>
+                                                </div>
+
+                                                {historyLoading[patient.id] ? (
+                                                    <div className="flex justify-center" style={{ padding: 'var(--space-md)' }}><LoadingSpinner size="sm" /></div>
+                                                ) : historyData[patient.id] && historyData[patient.id].length > 0 ? (
+                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)' }}>
+                                                        {historyData[patient.id].map(cse => (
+                                                            <div key={`mob-case-${cse.id}`}
+                                                                style={{ background: 'var(--bg-elevated)', padding: 'var(--space-sm)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
+                                                                onClick={() => navigate(`/doctor/cases/${cse.id}`, { state: { from: 'patients' } })}
+                                                            >
+                                                                <div>
+                                                                    <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 500 }}>{new Date(cse.createdAt || cse.created_at).toLocaleDateString()}</p>
+                                                                    <span style={{ fontSize: '0.7rem' }} className={`badge badge-${cse.status === 'in_progress' ? 'warning' : cse.status === 'submitted' ? 'info' : cse.status === 'reviewed' ? 'success' : 'gray'}`}>
+                                                                        {cse.status === 'in_progress' ? 'En cours' : cse.status === 'submitted' ? 'En attente' : cse.status === 'reviewed' ? 'Traité' : 'Clôturé'}
+                                                                    </span>
+                                                                </div>
+                                                                <KeyboardArrowRightIcon style={{ color: 'var(--primary)' }} />
+                                                            </div>
+                                                        ))}
+                                                    </div>
+                                                ) : (
+                                                    <p style={{ margin: 'var(--space-md) 0', fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Aucune consultation.</p>
+                                                )}
+                                            </div>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+
+                            {/* Pagination Footer */}
+                            {processedPatients.length > 0 && (
+                                <div className="card-footer flex justify-between items-center" style={{ background: 'var(--bg-card)' }}>
+                                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
+                                        Affichage de {((currentPage - 1) * rowsPerPage) + 1} à {Math.min(currentPage * rowsPerPage, processedPatients.length)} sur {processedPatients.length} patients
+                                    </div>
+                                    <div className="flex items-center gap-md">
+                                        <select
+                                            className="form-input form-select"
+                                            style={{ width: 'auto', padding: 'var(--space-xs) 2rem var(--space-xs) var(--space-sm)', height: '32px' }}
+                                            value={rowsPerPage}
+                                            onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
+                                        >
+                                            <option value={10}>10 par page</option>
+                                            <option value={25}>25 par page</option>
+                                            <option value={50}>50 par page</option>
+                                        </select>
+                                        <div className="flex gap-sm">
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                disabled={currentPage === 1}
+                                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                            >
+                                                Précédent
+                                            </Button>
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                disabled={currentPage === totalPages}
+                                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                            >
+                                                Suivant
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     ) : (
-                        <div className="card">
-                            <div className="card-body text-center" style={{ color: 'var(--gray-500)' }}>
-                                {t.patient.noPatients}
+                        // Empty State (No Data or No Search Results)
+                        <div className="card flex flex-col items-center justify-center" style={{ padding: 'var(--space-3xl)', textAlign: 'center', background: 'var(--bg-surface)' }}>
+                            <div style={{
+                                width: '64px', height: '64px', borderRadius: '50%', background: 'var(--gray-100)',
+                                display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--space-md)', color: 'var(--text-muted)'
+                            }}>
+                                <GroupOffIcon fontSize="large" />
                             </div>
+                            <h3 style={{ marginBottom: 'var(--space-sm)' }}>Aucun patient</h3>
+                            <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', marginBottom: 'var(--space-lg)' }}>
+                                {searchQuery
+                                    ? `Nous n'avons trouvé aucun patient correspondant à "${searchQuery}".`
+                                    : "Il n'y a actuellement aucun patient dans le système."}
+                            </p>
+                            {searchQuery && (
+                                <Button variant="secondary" onClick={clearSearch}>Réinitialiser la recherche</Button>
+                            )}
                         </div>
                     )}
                 </div>
             </main>
 
-            {/* Edit Patient Modal */}
+            {/* Edit Patient Modal - Updated 2 column Layout */}
             <Modal
                 isOpen={showModal}
                 onClose={closeModal}
                 title="Modifier le patient"
                 footer={
                     <>
-                        <Button variant="secondary" onClick={closeModal}>
+                        <Button variant="ghost" onClick={closeModal}>
                             {t.common.cancel}
                         </Button>
                         <Button
@@ -415,24 +668,25 @@ function DoctorPatients() {
                     )
                 }
 
-                < form onSubmit={handleUpdatePatient} >
-                    <Input
-                        label={t.patient.firstName}
-                        name="firstName"
-                        value={formData.firstName}
-                        onChange={handleFormChange}
-                        error={formErrors.firstName}
-                        required
-                    />
-
-                    <Input
-                        label={t.patient.lastName}
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleFormChange}
-                        error={formErrors.lastName}
-                        required
-                    />
+                <form onSubmit={handleUpdatePatient}>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 var(--space-md)' }}>
+                        <Input
+                            label={t.patient.firstName}
+                            name="firstName"
+                            value={formData.firstName}
+                            onChange={handleFormChange}
+                            error={formErrors.firstName}
+                            required
+                        />
+                        <Input
+                            label={t.patient.lastName}
+                            name="lastName"
+                            value={formData.lastName}
+                            onChange={handleFormChange}
+                            error={formErrors.lastName}
+                            required
+                        />
+                    </div>
 
                     <div className="form-group">
                         <label className="form-label">{t.patient.gender} *</label>
@@ -450,28 +704,29 @@ function DoctorPatients() {
                         </select>
                     </div>
 
-                    <Input
-                        label={t.patient.age}
-                        name="age"
-                        type="number"
-                        value={formData.age}
-                        onChange={handleFormChange}
-                        error={formErrors.age}
-                        required
-                    />
-
-                    <Input
-                        label={t.patient.phone}
-                        name="phone"
-                        type="tel"
-                        value={formData.phone}
-                        onChange={handleFormChange}
-                        error={formErrors.phone}
-                        required
-                    />
-                </form >
-            </Modal >
-        </div >
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 var(--space-md)' }}>
+                        <Input
+                            label={t.patient.age}
+                            name="age"
+                            type="number"
+                            value={formData.age}
+                            onChange={handleFormChange}
+                            error={formErrors.age}
+                            required
+                        />
+                        <Input
+                            label={t.patient.phone}
+                            name="phone"
+                            type="tel"
+                            value={formData.phone}
+                            onChange={handleFormChange}
+                            error={formErrors.phone}
+                            required
+                        />
+                    </div>
+                </form>
+            </Modal>
+        </div>
     );
 }
 

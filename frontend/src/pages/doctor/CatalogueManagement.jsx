@@ -18,6 +18,7 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import CheckIcon from '@mui/icons-material/Check';
 import AddIcon from '@mui/icons-material/Add';
+import InboxIcon from '@mui/icons-material/Inbox';
 
 const t = translations;
 
@@ -302,7 +303,12 @@ function CatalogueManagement() {
 
             <main className="main-content">
                 <div className="page-header">
-                    <h1 className="page-title">{t.catalogue.title}</h1>
+                    <div>
+                        <h1 className="page-title">{t.catalogue.title}</h1>
+                        <p style={{ margin: 0, fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
+                            Gérez les questions du questionnaire
+                        </p>
+                    </div>
                     <div className="flex gap-md">
                         {catalogue && !catalogue.is_published && (
                             <Button variant="success" onClick={handlePublish}>
@@ -347,15 +353,16 @@ function CatalogueManagement() {
                             {/* Questions list with drag and drop */}
                             {questions.length > 0 ? (
                                 <div className="card">
-                                    <div className="table-container">
+                                    {/* Desktop Table view */}
+                                    <div className="table-container desktop-table-container">
                                         <table className="table drag-table">
                                             <thead>
                                                 <tr>
                                                     <th style={{ width: '50px' }}>#</th>
                                                     <th>Question</th>
-                                                    <th>{t.catalogue.answerType}</th>
-                                                    <th>{t.common.status}</th>
-                                                    <th>{t.common.actions}</th>
+                                                    <th style={{ width: '18%' }}>{t.catalogue.answerType}</th>
+                                                    <th style={{ width: '10%' }}>{t.common.status}</th>
+                                                    <th className="col-actions" style={{ width: '100px', textAlign: 'right' }}>{t.common.actions}</th>
                                                 </tr>
                                             </thead>
                                             <tbody>
@@ -377,37 +384,42 @@ function CatalogueManagement() {
                                                             ${dragOverItem === index && draggedItem !== null && draggedItem > index ? 'drag-over-top' : ''}
                                                         `}
                                                     >
-                                                        <td className="drag-handle-cell">
+                                                        <td data-label="#" className="drag-handle-cell">
                                                             <div className="drag-handle" title="Glisser pour réordonner">
                                                                 <span className="drag-icon"><DragIndicatorIcon fontSize="small" /></span>
                                                                 <span className="question-number">{index + 1}</span>
                                                             </div>
                                                         </td>
-                                                        <td style={{ maxWidth: '300px' }}>
+                                                        <td data-label="Question" className="col-truncate" title={question.question_text || question.questionText}>
                                                             {question.question_text || question.questionText}
                                                             {(question.is_required ?? question.isRequired) && (
                                                                 <span style={{ color: 'var(--error)', marginLeft: '4px' }}>*</span>
                                                             )}
                                                         </td>
-                                                        <td>{getAnswerTypeLabel(question.answer_type || question.answerType)}</td>
-                                                        <td>
+                                                        <td data-label={t.catalogue.answerType}>{getAnswerTypeLabel(question.answer_type || question.answerType)}</td>
+                                                        <td data-label={t.common.status}>
                                                             <span className={`badge ${(question.is_active ?? question.isActive) ? 'badge-success' : 'badge-gray'}`}>
                                                                 {(question.is_active ?? question.isActive) ? 'Actif' : 'Inactif'}
                                                             </span>
                                                         </td>
-                                                        <td>
-                                                            <div className="flex gap-sm">
+                                                        <td data-label={t.common.actions} className="col-actions text-right">
+                                                            <div className="flex gap-sm justify-end">
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
+                                                                    className="btn-icon"
                                                                     onClick={() => openEditModal(question)}
+                                                                    title="Modifier"
                                                                 >
                                                                     <EditIcon fontSize="small" />
                                                                 </Button>
                                                                 <Button
                                                                     variant="ghost"
                                                                     size="sm"
+                                                                    className="btn-icon"
                                                                     onClick={() => handleDelete(question.id)}
+                                                                    title="Supprimer"
+                                                                    style={{ color: 'var(--error)' }}
                                                                 >
                                                                     <DeleteIcon fontSize="small" />
                                                                 </Button>
@@ -418,11 +430,78 @@ function CatalogueManagement() {
                                             </tbody>
                                         </table>
                                     </div>
+
+                                    {/* Mobile List View */}
+                                    <div className="mobile-list-container" style={{ padding: 'var(--space-md)' }}>
+                                        {questions.map((question, index) => (
+                                            <div
+                                                key={`mob-${question.id}`}
+                                                className={`mobile-list-item drag-row ${draggedItem === index ? 'dragging' : ''} ${dragOverItem === index ? 'drag-over' : ''}`}
+                                                draggable
+                                                onDragStart={(e) => handleDragStart(e, index)}
+                                                onDragEnd={handleDragEnd}
+                                                onDragOver={(e) => handleDragOver(e, index)}
+                                                onDragEnter={(e) => handleDragEnter(e, index)}
+                                                onDragLeave={handleDragLeave}
+                                                onDrop={(e) => handleDrop(e, index)}
+                                            >
+                                                <div className="mobile-list-header" style={{ cursor: 'grab', paddingBottom: 'var(--space-sm)' }}>
+                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-md)', minWidth: 0, width: '100%' }}>
+                                                        <div className="drag-handle" style={{ padding: '4px', cursor: 'grab', color: 'var(--text-muted)' }}>
+                                                            <DragIndicatorIcon fontSize="small" />
+                                                        </div>
+                                                        <div style={{ flex: 1, minWidth: 0 }}>
+                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
+                                                                <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                                                                    <span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>#{index + 1}</span>
+                                                                    {question.question_text || question.questionText}
+                                                                    {(question.is_required ?? question.isRequired) && <span style={{ color: 'var(--error)', marginLeft: '4px' }}>*</span>}
+                                                                </p>
+                                                            </div>
+                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                                    {getAnswerTypeLabel(question.answer_type || question.answerType)}
+                                                                </span>
+                                                                <span style={{ color: 'var(--border-color)' }}>•</span>
+                                                                <span className={`badge ${(question.is_active ?? question.isActive) ? 'badge-success' : 'badge-gray'}`} style={{ transform: 'scale(0.8)', transformOrigin: 'left' }}>
+                                                                    {(question.is_active ?? question.isActive) ? 'Actif' : 'Inactif'}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                                <div className="mobile-list-content" style={{ display: 'flex', gap: 'var(--space-sm)', paddingTop: 'var(--space-md)' }}>
+                                                    <Button variant="secondary" size="sm" style={{ flex: 1 }} onClick={() => openEditModal(question)}>
+                                                        <EditIcon fontSize="small" style={{ marginRight: '4px' }} /> Modifier
+                                                    </Button>
+                                                    <Button variant="ghost" size="sm" className="btn-icon" style={{ color: 'var(--error)' }} onClick={() => handleDelete(question.id)}>
+                                                        <DeleteIcon fontSize="small" />
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
                                 </div>
                             ) : (
                                 <div className="card">
-                                    <div className="card-body text-center" style={{ color: 'var(--gray-500)' }}>
-                                        {t.catalogue.noQuestions}
+                                    <div className="card-body" style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-xl)' }}>
+                                        <div style={{
+                                            width: 56, height: 56, borderRadius: '50%',
+                                            background: 'var(--gray-100)', display: 'flex',
+                                            alignItems: 'center', justifyContent: 'center',
+                                            margin: '0 auto var(--space-md)'
+                                        }}>
+                                            <InboxIcon style={{ color: 'var(--gray-400)', fontSize: 28 }} />
+                                        </div>
+                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
+                                            {t.catalogue.noQuestions}
+                                        </div>
+                                        <div style={{ fontSize: '0.813rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
+                                            Ajoutez votre première question pour démarrer
+                                        </div>
+                                        <Button variant="primary" size="sm" onClick={openAddModal}>
+                                            <AddIcon fontSize="small" /> {t.catalogue.addQuestion}
+                                        </Button>
                                     </div>
                                 </div>
                             )}

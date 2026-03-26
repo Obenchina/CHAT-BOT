@@ -37,6 +37,12 @@ const config = {
     upload: {
         maxFileSize: parseInt(process.env.MAX_FILE_SIZE) || 10485760, // 10MB default
         path: process.env.UPLOAD_PATH || './uploads'
+    },
+
+    // Email SMTP configuration
+    email: {
+        smtpEmail: process.env.SMTP_EMAIL || '',
+        smtpPassword: process.env.SMTP_PASSWORD || ''
     }
 };
 

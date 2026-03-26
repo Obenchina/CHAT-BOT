@@ -10,6 +10,7 @@ const Doctor = require('../models/Doctor');
 const Assistant = require('../models/Assistant');
 const Catalogue = require('../models/Catalogue');
 const AuditLog = require('../models/AuditLog');
+const AiConfig = require('../models/AiConfig');
 const aiService = require('../services/aiService');
 const pdfService = require('../services/pdfService');
 
@@ -304,8 +305,30 @@ async function addAnswer(req, res) {
         // If audio was uploaded and no transcription provided, transcribe it
         if (audioPath && !transcribedText) {
             console.log('Transcribing audio for question:', questionId);
-            transcribedText = await aiService.transcribeAudio(audioPath);
-            console.log('Transcription result:', transcribedText ? transcribedText.substring(0, 50) + '...' : 'null');
+            try {
+                // Look up doctor AI config for transcription
+                const assistant = await Assistant.findByUserId(req.user.id);
+                let aiCfg = null;
+                if (assistant) {
+                    aiCfg = await AiConfig.getEffectiveConfig(assistant.doctor_id);
+                }
+                transcribedText = await aiService.transcribeAudio(audioPath, aiCfg);
+                console.log('Transcription result:', transcribedText ? transcribedText.substring(0, 50) + '...' : 'null');
+            } catch (err) {
+                console.error('Audio transcription error:', err);
+                if (err.code === 'MISSING_API_KEY' || err.code === 'QUOTA_EXCEEDED' || err.code === 'API_ERROR') {
+                    return res.status(400).json({
+                        success: false,
+                        code: err.code,
+                        message: err.message
+                    });
+                }
+                // Fallback for other unexpected errors during transcription
+                return res.status(500).json({
+                    success: false,
+                    message: 'Échec de la transcription audio: ' + err.message
+                });
+            }
         }
 
         // Check if answer already exists to prevent duplicates (Upsert logic)
@@ -367,14 +390,7 @@ async function uploadDocument(req, res) {
             });
         }
 
-        // Validate document type (accept both English and French names)
-        const validTypes = ['analysis', 'imagery', 'prescription', 'report', 'analyses', 'imagerie', 'ordonnances', 'comptes_rendus', 'other'];
-        if (!validTypes.includes(documentType)) {
-            return res.status(400).json({
-                success: false,
-                message: 'Invalid document type'
-            });
-        }
+        // Any document type is accepted now
 
         const document = await Document.create({
             caseId: id,
@@ -527,7 +543,14 @@ async function submit(req, res) {
         // ========================================
         console.log('Step 4: Running AI analysis...');
         try {
-            const analysis = await aiService.analyzeCase(caseData);
+            // Look up doctor's AI config
+            const patient = await Patient.findById(caseData.patient_id || caseData.patient?.id);
+            const doctorId = patient ? patient.doctor_id : null;
+            let aiCfg = null;
+            if (doctorId) {
+                aiCfg = await AiConfig.getEffectiveConfig(doctorId);
+            }
+            const analysis = await aiService.analyzeCase(caseData, aiCfg);
             if (analysis) {
                 await Case.saveAiAnalysis(id, analysis);
                 console.log('AI analysis saved successfully');
@@ -539,8 +562,23 @@ async function submit(req, res) {
                 }
             }
         } catch (aiError) {
-            console.error('AI analysis error:', aiError);
-            // Continue without AI analysis
+            console.error('AI analysis error during submit:', aiError);
+            if (aiError.code === 'MISSING_API_KEY' || aiError.code === 'QUOTA_EXCEEDED' || aiError.code === 'API_ERROR') {
+                
+                // Save the error so the doctor can see it permanently attached to the case!
+                await Case.saveAiAnalysis(id, {
+                    summary: "L'analyse IA n'a pas pu être générée.",
+                    error_code: aiError.code,
+                    error_message: aiError.message
+                });
+
+                return res.status(400).json({
+                    success: false,
+                    code: aiError.code,
+                    message: aiError.message
+                });
+            }
+            // Continue without AI analysis for generic/parsing errors
         }
 
         res.json({
@@ -942,8 +980,16 @@ async function reanalyzeCase(req, res) {
 
         console.log(`Found ${answersWithText.length} answers with transcriptions, analyzing...`);
 
+        // Get doctor's AI config
+        const patient = await Patient.findById(caseData.patient_id || caseData.patient?.id);
+        const doctorId = patient ? patient.doctor_id : null;
+        let aiCfg = null;
+        if (doctorId) {
+            aiCfg = await AiConfig.getEffectiveConfig(doctorId);
+        }
+
         // Analyze the case
-        const analysis = await aiService.analyzeCase(caseData);
+        const analysis = await aiService.analyzeCase(caseData, aiCfg);
 
         if (analysis) {
             // Save the analysis
@@ -958,6 +1004,13 @@ async function reanalyzeCase(req, res) {
         });
     } catch (error) {
         console.error('Reanalyze error:', error);
+        if (error.code === 'MISSING_API_KEY' || error.code === 'QUOTA_EXCEEDED' || error.code === 'API_ERROR') {
+            return res.status(400).json({
+                success: false,
+                code: error.code,
+                message: error.message
+            });
+        }
         res.status(500).json({
             success: false,
             message: 'Failed to reanalyze case',

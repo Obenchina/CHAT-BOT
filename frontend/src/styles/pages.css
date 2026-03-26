@@ -90,11 +90,12 @@
     font-weight: 800;
     color: var(--gray-900);
     margin-bottom: var(--space-lg);
-    line-height: 1.1;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
 }
 
 .hero-gradient-text {
-    background: linear-gradient(135deg, var(--primary-500), var(--secondary-500));
+    background: linear-gradient(135deg, var(--primary-600), var(--secondary-500));
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
@@ -105,6 +106,7 @@
     color: var(--gray-600);
     margin-bottom: var(--space-xl);
     max-width: 600px;
+    line-height: 1.6;
 }
 
 .hero-cta {
@@ -227,10 +229,11 @@
 .feature-card {
     padding: var(--space-xl);
     background: var(--bg-card);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     text-align: center;
     transition: all var(--transition-base);
     border: 1px solid var(--gray-100);
+    box-shadow: var(--shadow-sm);
     animation: staggerFadeIn 0.5s ease-out both;
 }
 
@@ -252,7 +255,7 @@
 
 .feature-card:hover {
     transform: translateY(-6px);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-md);
     border-color: var(--primary-100);
 }
 
@@ -318,13 +321,14 @@
 
 .step-card {
     background: var(--gray-50);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     padding: var(--space-xl);
     text-align: center;
     flex: 1;
     max-width: 280px;
     transition: all var(--transition-base);
     border: 1px solid var(--gray-100);
+    box-shadow: var(--shadow-sm);
 }
 
 .step-card:hover {
@@ -386,16 +390,17 @@
 
 .testimonial-card {
     background: white;
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-lg);
     padding: var(--space-xl);
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-sm);
     transition: all var(--transition-base);
-    border: 1px solid rgba(255, 255, 255, 0.8);
+    border: 1px solid var(--gray-100);
 }
 
 .testimonial-card:hover {
     transform: translateY(-4px);
-    box-shadow: var(--shadow-lg);
+    box-shadow: var(--shadow-md);
+    border-color: var(--gray-200);
 }
 
 .testimonial-stars {
@@ -445,7 +450,7 @@
    ====================== */
 .cta-section {
     padding: var(--space-3xl) var(--space-xl);
-    background: linear-gradient(135deg, var(--primary-600) 0%, var(--primary-700) 100%);
+    background: linear-gradient(135deg, var(--primary-600) 0%, var(--secondary-600) 100%);
     text-align: center;
 }
 
@@ -546,6 +551,39 @@
 [data-theme="dark"] .step-card {
     background: var(--gray-100);
     border-color: var(--gray-200);
+}
+
+[data-theme="dark"] .ai-diagnosis-card {
+    background: var(--gray-800);
+    border-color: var(--gray-700);
+}
+
+/* ======================
+   CASE DETAILS PAGES
+   ====================== */
+.case-details-grid {
+    display: grid;
+    grid-template-columns: repeat(12, 1fr);
+    gap: var(--space-lg);
+}
+
+.case-left-column {
+    grid-column: span 12;
+}
+
+.case-right-column {
+    grid-column: span 12;
+}
+
+/* Desktop layout: 4 columns left, 8 columns right */
+@media (min-width: 992px) {
+    .case-left-column {
+        grid-column: span 4;
+    }
+
+    .case-right-column {
+        grid-column: span 8;
+    }
 }
 
 [data-theme="dark"] .testimonial-card {
