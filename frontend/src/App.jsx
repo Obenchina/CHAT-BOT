@@ -24,10 +24,10 @@ import RegisterPage from './pages/public/RegisterPage';
 // Lazy-loaded Pages (loaded on demand)
 const DoctorDashboard = lazy(() => import('./pages/doctor/DoctorDashboard'));
 const CatalogueManagement = lazy(() => import('./pages/doctor/CatalogueManagement'));
-const AssistantsManagement = lazy(() => import('./pages/doctor/AssistantsManagement'));
+
 const CaseDetails = lazy(() => import('./pages/doctor/CaseDetails'));
 const DoctorPatients = lazy(() => import('./pages/doctor/DoctorPatients'));
-const DoctorProfile = lazy(() => import('./pages/doctor/DoctorProfile'));
+
 const DoctorSettings = lazy(() => import('./pages/doctor/DoctorSettings'));
 const PatientsList = lazy(() => import('./pages/assistant/PatientsList'));
 const QuestionnairePage = lazy(() => import('./pages/assistant/QuestionnairePage'));
