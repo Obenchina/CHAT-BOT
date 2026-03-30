@@ -244,7 +244,7 @@ async function activateAiConfig(req, res) {
         }
 
         await AiConfig.setActiveProvider(doctor.id, provider);
-        
+
         res.json({
             success: true,
             message: `Provider ${provider} activated successfully`
@@ -265,7 +265,7 @@ async function getAiStatus(req, res) {
         const { pool } = require('../config/database');
         const AiConfig = require('../models/AiConfig');
         const Doctor = require('../models/Doctor');
-        
+
         const profile = await Doctor.findByUserId(req.user.id);
         if (!profile) return res.json({ hasError: false });
 
@@ -292,7 +292,7 @@ async function getAiStatus(req, res) {
             if (typeof analysis === 'string') {
                 try { analysis = JSON.parse(analysis); } catch (e) { /* ignore */ }
             }
-            
+
             if (analysis && (analysis.error_code === 'QUOTA_EXCEEDED' || analysis.error_code === 'API_ERROR')) {
                 const msg = analysis.error_code === 'QUOTA_EXCEEDED' ? "Crédit API épuisé ou limite atteinte." : "Clé API invalide.";
                 return res.json({ hasError: true, code: analysis.error_code, message: msg });
