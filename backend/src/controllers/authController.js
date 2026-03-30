@@ -393,15 +393,31 @@ async function forgotPassword(req, res) {
         const user = await User.findByEmail(email);
 
         // Always return success to prevent email enumeration
+        if (!user) {
+            return res.json({
+                success: true,
+                message: 'Si un compte existe avec cet email, un code de réinitialisation vous sera envoyé.'
+            });
+        }
+
+        // Generate OTP
+        const otp = Math.floor(100000 + Math.random() * 900000).toString();
+        const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 min
+
+        // Store the OTP in the database (reuse pending_registrations pattern)
+        await pool.execute(
+            `INSERT INTO password_resets (user_id, email, otp_code, expires_at) VALUES (?, ?, ?, ?)
+             ON DUPLICATE KEY UPDATE otp_code = VALUES(otp_code), expires_at = VALUES(expires_at)`,
+            [user.id, email, otp, expiresAt]
+        );
+
+        // Send OTP via email
+        await sendVerificationCode(email, otp);
+
         res.json({
             success: true,
-            message: 'If account exists, reset instructions will be sent'
+            message: 'Si un compte existe avec cet email, un code de réinitialisation vous sera envoyé.'
         });
-
-        // In production: Send reset email here
-        if (user) {
-            console.log(`Password reset requested for: ${email}`);
-        }
     } catch (error) {
         console.error('Forgot password error:', error);
         res.status(500).json({
@@ -412,23 +428,53 @@ async function forgotPassword(req, res) {
 }
 
 /**
- * Reset password with token
+ * Reset password with OTP
  * POST /api/auth/reset-password
  */
 async function resetPassword(req, res) {
     try {
-        const { token, newPassword } = req.body;
+        const { email, otp, newPassword } = req.body;
 
-        if (!token || !newPassword) {
+        if (!email || !otp || !newPassword) {
             return res.status(400).json({
                 success: false,
-                message: 'Token and new password are required'
+                message: 'Email, code OTP et nouveau mot de passe sont requis'
             });
         }
 
+        if (newPassword.length < 6) {
+            return res.status(400).json({
+                success: false,
+                message: 'Le mot de passe doit contenir au moins 6 caractères'
+            });
+        }
+
+        // Find the reset record
+        const [rows] = await pool.execute(
+            'SELECT * FROM password_resets WHERE email = ? AND otp_code = ? AND expires_at > NOW()',
+            [email, otp]
+        );
+
+        if (rows.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Code invalide ou expiré'
+            });
+        }
+
+        // Hash and update password
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
+        await pool.execute(
+            'UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?',
+            [hashedPassword, rows[0].user_id]
+        );
+
+        // Delete the reset record
+        await pool.execute('DELETE FROM password_resets WHERE email = ?', [email]);
+
         res.json({
             success: true,
-            message: 'Password reset successful'
+            message: 'Mot de passe réinitialisé avec succès'
         });
     } catch (error) {
         console.error('Reset password error:', error);

@@ -26,8 +26,12 @@ const app = express();
 // ======================
 
 // Enable CORS for frontend
+const corsOrigins = process.env.CORS_ORIGINS
+    ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
+    : ['http://localhost:5173', 'http://localhost:5174'];
+
 app.use(cors({
-    origin: ['http://localhost:5173', 'http://localhost:5174'],
+    origin: corsOrigins,
     credentials: true
 }));
 

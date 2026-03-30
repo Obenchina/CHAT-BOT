@@ -597,56 +597,6 @@ async function submit(req, res) {
 }
 
 /**
- * Save doctor review (diagnosis and prescription)
- * PUT /api/cases/:id/review
- */
-async function saveReview(req, res) {
-    try {
-        const { id } = req.params;
-        const { diagnosis, prescription } = req.body;
-
-        await Case.saveDoctorReview(id, { diagnosis, prescription });
-
-        // Log review
-        await AuditLog.logDoctorReview(req.user.id, id, { diagnosis, prescription });
-
-        res.json({
-            success: true,
-            message: 'Review saved successfully'
-        });
-    } catch (error) {
-        console.error('Save review error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to save review'
-        });
-    }
-}
-
-/**
- * Close case
- * POST /api/cases/:id/close
- */
-async function closeCase(req, res) {
-    try {
-        const { id } = req.params;
-
-        await Case.close(id);
-
-        res.json({
-            success: true,
-            message: 'Case closed successfully'
-        });
-    } catch (error) {
-        console.error('Close case error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to close case'
-        });
-    }
-}
-
-/**
  * Add text answer to case (for yes/no and choices)
  * POST /api/cases/:id/answers/text
  */
@@ -794,22 +744,39 @@ async function deleteCase(req, res) {
             });
         }
 
-        // Permission check
+        // Permission check with ownership verification
         if (user.role === 'assistant') {
-            // Assistant can only delete their own cases that are in_progress
-            // actually, requirement says "Assistant should only be able to delete visits that are in the 'in_progress' state"
-            // We'll enforce the status check.
+            // Assistant can only delete their own in-progress cases
+            const Assistant = require('../models/Assistant');
+            const assistant = await Assistant.findByUserId(user.id);
+            if (!assistant || caseData.assistant_id !== assistant.id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Accès non autorisé à cette consultation'
+                });
+            }
             if (caseData.status !== 'in_progress') {
                 return res.status(403).json({
                     success: false,
                     message: 'Assistants can only delete in-progress cases'
                 });
             }
+        } else if (user.role === 'doctor') {
+            // Doctor can only delete cases of their own patients
+            const Doctor = require('../models/Doctor');
+            const Patient = require('../models/Patient');
+            const doctor = await Doctor.findByUserId(user.id);
+            if (!doctor) {
+                return res.status(403).json({ success: false, message: 'Doctor not found' });
+            }
+            const patient = await Patient.findById(caseData.patient_id);
+            if (!patient || patient.doctor_id !== doctor.id) {
+                return res.status(403).json({
+                    success: false,
+                    message: 'Accès non autorisé à cette consultation'
+                });
+            }
         }
-        // Doctors can delete any case (implied, no extra check needed if they own the patient, 
-        // but getById/access middleware controls access to the patient's data normally. 
-        // Here we rely on doctorOrAssistant middleware which just checks role, 
-        // so strictly we should verify ownership, but for now we assume they have access if they can see it)
 
         await Case.delete(id);
 

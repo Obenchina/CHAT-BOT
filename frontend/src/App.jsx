@@ -20,6 +20,7 @@ import './styles/components.css';
 import LandingPage from './pages/public/LandingPage';
 import LoginPage from './pages/public/LoginPage';
 import RegisterPage from './pages/public/RegisterPage';
+import ForgotPasswordPage from './pages/public/ForgotPasswordPage';
 
 // Lazy-loaded Pages (loaded on demand)
 const DoctorDashboard = lazy(() => import('./pages/doctor/DoctorDashboard'));
@@ -121,9 +122,17 @@ function AppRoutes() {
           </PublicRoute>
         } />
 
+        {/* Register */}
         <Route path="/register" element={
           <PublicRoute>
             <RegisterPage />
+          </PublicRoute>
+        } />
+
+        {/* Forgot Password */}
+        <Route path="/forgot-password" element={
+          <PublicRoute>
+            <ForgotPasswordPage />
           </PublicRoute>
         } />
 

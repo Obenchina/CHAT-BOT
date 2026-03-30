@@ -17,6 +17,7 @@ const t = translations;
 function CaseDetails() {
     const { id } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
 
     // State
     const [caseData, setCaseData] = useState(null);
@@ -261,7 +262,7 @@ function CaseDetails() {
         'other': 'Autre'
     };
 
-    const location = useLocation();
+
 
     // Determine back path
     const backPath = location.state?.from === 'patients' ? '/doctor/patients' : '/doctor/dashboard';

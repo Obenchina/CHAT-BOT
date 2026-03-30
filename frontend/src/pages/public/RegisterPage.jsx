@@ -10,6 +10,7 @@ import authService from '../../services/authService';
 import Button from '../../components/common/Button';
 import Input from '../../components/common/Input';
 import translations from '../../constants/translations';
+import { showSuccess } from '../../utils/toast';
 import { SPECIALTY_OPTIONS, GENDER_OPTIONS } from '../../constants/config';
 import '../../styles/auth.css';
 
@@ -163,7 +164,7 @@ function RegisterPage() {
             if (result.success) {
                 setResendTimer(60);
                 setOtpError('');
-                alert('Un nouveau code a été envoyé à votre adresse email.');
+                showSuccess('Un nouveau code a été envoyé à votre adresse email.');
             } else {
                 setOtpError(result.message || 'Erreur lors du renvoi du code');
             }

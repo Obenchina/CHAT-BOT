@@ -184,6 +184,59 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 ) ENGINE=InnoDB;
 
 -- ======================
+-- PENDING REGISTRATIONS TABLE
+-- Stores temporary registrations awaiting OTP verification
+-- ======================
+CREATE TABLE IF NOT EXISTS pending_registrations (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    email VARCHAR(190) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100) NOT NULL,
+    last_name VARCHAR(100) NOT NULL,
+    gender ENUM('male', 'female', 'other') NULL,
+    phone VARCHAR(20) NOT NULL,
+    address TEXT,
+    specialty VARCHAR(100) NOT NULL,
+    otp_code VARCHAR(10) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_email (email),
+    INDEX idx_expires (expires_at)
+) ENGINE=InnoDB;
+
+-- ======================
+-- AI CONFIGURATION TABLE
+-- Stores per-doctor AI provider settings (Gemini / OpenAI)
+-- ======================
+CREATE TABLE IF NOT EXISTS ai_config (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    doctor_id INT NOT NULL,
+    provider ENUM('gemini', 'openai') NOT NULL DEFAULT 'gemini',
+    api_key VARCHAR(500) NOT NULL DEFAULT '',
+    model VARCHAR(100) NOT NULL DEFAULT 'gemini-1.5-flash',
+    is_active BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY doctor_provider_unique (doctor_id, provider),
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ======================
+-- PASSWORD RESETS TABLE
+-- Stores OTP codes for password reset
+-- ======================
+CREATE TABLE IF NOT EXISTS password_resets (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    email VARCHAR(190) NOT NULL UNIQUE,
+    otp_code VARCHAR(10) NOT NULL,
+    expires_at TIMESTAMP NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    INDEX idx_email (email)
+) ENGINE=InnoDB;
+
+-- ======================
 -- SUCCESS MESSAGE
 -- ======================
 SELECT 'Database schema created successfully!' AS message;

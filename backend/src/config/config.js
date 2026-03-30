@@ -23,7 +23,7 @@ const config = {
 
     // JWT configuration
     jwt: {
-        secret: process.env.JWT_SECRET || 'default_secret_key',
+        secret: process.env.JWT_SECRET || (() => { console.warn('⚠️ WARNING: JWT_SECRET non défini dans .env — utilisation d\'une clé temporaire pour le développement.'); return 'dev_only_insecure_key_' + Date.now(); })(),
         expiresIn: process.env.JWT_EXPIRES_IN || '7d'
     },
 

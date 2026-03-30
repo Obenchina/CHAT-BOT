@@ -41,10 +41,21 @@ const audioStorage = multer.diskStorage({
 // FILE FILTERS
 // ======================
 
-// Filter for document uploads (accept any file)
+// Filter for document uploads (medical files only)
 const documentFilter = (req, file, cb) => {
-    // Unrestricting types completely as requested
-    cb(null, true);
+    const allowedTypes = [
+        'image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif',
+        'application/pdf',
+        'application/msword',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    ];
+    const allowedExtensions = /\.(jpg|jpeg|png|webp|gif|pdf|doc|docx)$/i;
+
+    if (allowedTypes.includes(file.mimetype) || allowedExtensions.test(file.originalname)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Type de fichier non autorisé. Formats acceptés: JPG, PNG, WebP, GIF, PDF, DOC, DOCX'), false);
+    }
 };
 
 // Filter for audio uploads

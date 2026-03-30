@@ -50,13 +50,14 @@ const authService = {
     },
 
     /**
-     * Reset password with token
-     * @param {string} token - Reset token
+     * Reset password with OTP
+     * @param {string} email - User email
+     * @param {string} otp - OTP code
      * @param {string} newPassword - New password
      * @returns {Promise<Object>} API response
      */
-    async resetPassword(token, newPassword) {
-        return api.post(ENDPOINTS.RESET_PASSWORD, { token, newPassword });
+    async resetPassword(email, otp, newPassword) {
+        return api.post(ENDPOINTS.RESET_PASSWORD, { email, otp, newPassword });
     },
 
     /**
