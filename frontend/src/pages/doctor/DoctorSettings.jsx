@@ -91,15 +91,27 @@ function DoctorSettings() {
 
     // Detect initial tab from URL hash or referrer
     useEffect(() => {
-        if (location.hash === '#assistants' || location.state?.tab === 'assistants') {
-            setActiveTab('assistants');
-        } else if (location.hash === '#ai' || location.state?.tab === 'ai') {
-            setActiveTab('ai');
+        const hash = location.hash;
+        const tab = location.state?.tab;
+        let nextTab = null;
+
+        if (hash === '#assistants' || tab === 'assistants') {
+            nextTab = 'assistants';
+        } else if (hash === '#ai' || tab === 'ai') {
+            nextTab = 'ai';
         }
+
+        if (!nextTab) {
+            return;
+        }
+
+        queueMicrotask(() => {
+            setActiveTab(prev => (prev !== nextTab ? nextTab : prev));
+        });
     }, [location]);
 
     return (
-        <div className="layout">
+        <div className="layout internal-shell doctor-settings-shell">
             <Sidebar />
             <main className="main-content">
                 <div className="page-content">
@@ -109,7 +121,7 @@ function DoctorSettings() {
                     </div>
 
                     {/* Tab Navigation */}
-                    <div style={{
+                    <div className="settings-tabs" style={{
                         display: 'flex',
                         gap: 'var(--space-xs)',
                         marginBottom: 'var(--space-lg)',
@@ -121,6 +133,7 @@ function DoctorSettings() {
                             <button
                                 key={tab.id}
                                 onClick={() => setActiveTab(tab.id)}
+                                className={`settings-tab ${activeTab === tab.id ? 'is-active' : ''}`}
                                 style={{
                                     display: 'flex',
                                     alignItems: 'center',
@@ -625,12 +638,13 @@ function AiConfigTab() {
                     <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-sm)', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
                         Fournisseur d'IA
                     </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 'var(--space-md)' }}>
+                    <div className="ai-provider-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 'var(--space-md)' }}>
                         {AI_PROVIDERS.map(provider => (
                             <button
                                 key={provider.id}
                                 type="button"
                                 onClick={() => handleProviderChange(provider.id)}
+                                className={`ai-provider-card ${formData.provider === provider.id ? 'is-active' : ''}`}
                                 style={{
                                     display: 'flex',
                                     flexDirection: 'column',

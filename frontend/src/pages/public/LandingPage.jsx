@@ -63,18 +63,20 @@ function LandingPage() {
                 </nav>
 
                 <div className="hero-content">
-                    <div className="hero-badge">🚀 Plateforme Médicale Intelligente</div>
-                    <h1 className="hero-title">
-                        <span className="hero-gradient-text">{t.landing.title}</span>
+                    <div className="hero-badge animate-fade-in" style={{ animationDelay: '0.1s' }}>🌟 L'assistant IA des professionnels de santé</div>
+                    <h1 className="hero-title animate-slide-up" style={{ animationDelay: '0.2s' }}>
+                        <span className="hero-gradient-text">Excellence Diagnostique,<br/>Soutenue par l'IA.</span>
                     </h1>
-                    <p className="hero-subtitle">{t.landing.subtitle}</p>
+                    <p className="hero-subtitle animate-slide-up" style={{ animationDelay: '0.3s' }}>
+                        Modernisez votre pratique avec MediConsult. Collectez les constantes via un questionnaire vocal intelligent, gagnez du temps sur vos comptes-rendus, et obtenez une analyse augmentée pour sécuriser vos diagnostics.
+                    </p>
 
-                    <div className="hero-cta">
+                    <div className="hero-cta animate-slide-up" style={{ animationDelay: '0.4s' }}>
                         <Link to="/register" className="btn btn-primary btn-lg hero-btn-primary">
-                            {t.landing.cta}
+                            Commencer l'essai gratuit
                         </Link>
                         <Link to="/login" className="btn btn-secondary btn-lg hero-btn-secondary">
-                            Accéder à mon compte
+                            Accès Praticien
                         </Link>
                     </div>
                 </div>
@@ -118,34 +120,34 @@ function LandingPage() {
                 <div className="features-grid">
                     <div className="feature-card">
                         <div className="feature-icon-wrapper feature-icon-ai">
-                            <span className="feature-icon">🤖</span>
+                            <span className="feature-icon">🧠</span>
                         </div>
-                        <h3>{t.landing.features.aiAnalysis}</h3>
-                        <p>Analyse automatique des symptômes par intelligence artificielle pour aider au diagnostic.</p>
+                        <h3>Analyse IA Avancée</h3>
+                        <p>Obtenez des suggestions de diagnostic basées sur l'état de l'art médical, pour un deuxième avis fiable et rapide.</p>
                     </div>
 
                     <div className="feature-card">
                         <div className="feature-icon-wrapper feature-icon-voice">
-                            <span className="feature-icon">🎤</span>
+                            <span className="feature-icon">🎙️</span>
                         </div>
-                        <h3>{t.landing.features.voiceRecording}</h3>
-                        <p>Enregistrement vocal des réponses des patients avec transcription automatique.</p>
+                        <h3>Questionnaire Vocal</h3>
+                        <p>Vos patients répondent oralement aux questions préparatoires. L'IA transcrit et structure automatiquement leurs réponses.</p>
                     </div>
 
                     <div className="feature-card">
                         <div className="feature-icon-wrapper feature-icon-pdf">
-                            <span className="feature-icon">📄</span>
+                            <span className="feature-icon">📑</span>
                         </div>
-                        <h3>{t.landing.features.pdfGeneration}</h3>
-                        <p>Génération automatique d'ordonnances et rapports médicaux au format PDF.</p>
+                        <h3>Édition Automatisée</h3>
+                        <p>Générez instantanément des ordonnances, bilans et certificats au format PDF, prêts à être imprimés ou envoyés.</p>
                     </div>
 
                     <div className="feature-card">
                         <div className="feature-icon-wrapper feature-icon-security">
-                            <span className="feature-icon">🔒</span>
+                            <span className="feature-icon">🛡️</span>
                         </div>
-                        <h3>{t.landing.features.secureData}</h3>
-                        <p>Stockage sécurisé de toutes les données médicales des patients.</p>
+                        <h3>Sécurité Médicale</h3>
+                        <p>Conformité stricte aux normes de santé (HDS). Vos données et celles de vos patients sont chiffrées de bout en bout.</p>
                     </div>
                 </div>
             </section>
@@ -178,19 +180,19 @@ function LandingPage() {
 
             {/* Testimonials */}
             <section className="testimonials-section">
-                <h2 className="section-title">Ce que disent nos utilisateurs</h2>
-                <p className="section-subtitle">La confiance de professionnels de santé</p>
+                <h2 className="section-title">Confiance & Excellence</h2>
+                <p className="section-subtitle">Découvrez pourquoi nos confrères choisissent MediConsult</p>
 
                 <div className="testimonials-grid">
                     <div className="testimonial-card">
                         <div className="testimonial-stars">⭐⭐⭐⭐⭐</div>
                         <p className="testimonial-text">
-                            "MediConsult a transformé ma façon de gérer les consultations. Le gain de temps est considérable."
+                            "L'intelligence artificielle de MediConsult m'offre un gain de temps inestimable. Je peux enfin me recentrer sur l'écoute active de mes patients, l'IA s'occupe de la structure et des suggestions de diagnostic avec une précision remarquable."
                         </p>
                         <div className="testimonial-author">
                             <div className="testimonial-avatar">👨‍⚕️</div>
                             <div>
-                                <div className="testimonial-name">Dr. Ahmed B.</div>
+                                <div className="testimonial-name">Dr. Julien L.</div>
                                 <div className="testimonial-role">Médecin Généraliste</div>
                             </div>
                         </div>
@@ -199,7 +201,7 @@ function LandingPage() {
                     <div className="testimonial-card">
                         <div className="testimonial-stars">⭐⭐⭐⭐⭐</div>
                         <p className="testimonial-text">
-                            "L'enregistrement vocal simplifie énormément la prise de notes. Les patients apprécient."
+                            "Le questionnaire vocal est une révolution. Mes patients remplissent leurs antécédents de manière très naturelle dans la salle d'attente, et j'arrive en consultation avec une synthèse déjà prête et analysée."
                         </p>
                         <div className="testimonial-author">
                             <div className="testimonial-avatar">👩‍⚕️</div>
@@ -213,13 +215,13 @@ function LandingPage() {
                     <div className="testimonial-card">
                         <div className="testimonial-stars">⭐⭐⭐⭐⭐</div>
                         <p className="testimonial-text">
-                            "Interface intuitive et sécurisée. Exactement ce dont notre cabinet avait besoin."
+                            "Une plateforme ultra-sécurisée, facile à prendre en main. En tant qu'assistante, la gestion des dossiers et la création automatique des PDF d'ordonnances simplifient tout le workflow du cabinet."
                         </p>
                         <div className="testimonial-author">
-                            <div className="testimonial-avatar">👨‍💼</div>
+                            <div className="testimonial-avatar">👩‍💼</div>
                             <div>
-                                <div className="testimonial-name">Karim L.</div>
-                                <div className="testimonial-role">Assistant Médical</div>
+                                <div className="testimonial-name">Sophie T.</div>
+                                <div className="testimonial-role">Assistante Médicale</div>
                             </div>
                         </div>
                     </div>

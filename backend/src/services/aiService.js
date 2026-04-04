@@ -135,7 +135,8 @@ async function processCaseDocuments(caseData) {
                         // 2. Extract text for OpenAI fallback
                         if (pdfParse) {
                             try {
-                                const pdfData = await pdfParse(fileBuffer);
+                                const parseFunc = typeof pdfParse === 'function' ? pdfParse : (pdfParse.default || pdfParse.PDFParse);
+                                const pdfData = await parseFunc(fileBuffer);
                                 result.extractedText += `\n--- محتويات مستند PDF: ${fileName} ---\n${pdfData.text}\n`;
                                 console.log(`Extracted text from PDF for OpenAI: ${fileName}`);
                             } catch (pdfErr) {

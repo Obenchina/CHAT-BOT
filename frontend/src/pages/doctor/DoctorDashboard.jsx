@@ -29,6 +29,7 @@ function DoctorDashboard() {
     // Load data
     useEffect(() => {
         loadData();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [filter]);
 
     async function loadData() {
@@ -93,7 +94,7 @@ function DoctorDashboard() {
     }
 
     return (
-        <div className="layout">
+        <div className="layout internal-shell doctor-dashboard-shell">
             <Sidebar />
 
             <main className="main-content">

@@ -11,13 +11,13 @@ import doctorService from '../../services/doctorService';
 import DashboardIcon from '@mui/icons-material/Dashboard';
 import PeopleIcon from '@mui/icons-material/People';
 import AssignmentIcon from '@mui/icons-material/Assignment';
-import GroupIcon from '@mui/icons-material/Group';
 import PersonIcon from '@mui/icons-material/Person';
 import LogoutIcon from '@mui/icons-material/Logout';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
 import ThemeToggle from './ThemeToggle';
+import '../../styles/internal-premium.css';
 
 const t = translations;
 
@@ -69,6 +69,14 @@ function Sidebar() {
     const displayName = profile
         ? `${profile.firstName || profile.first_name} ${profile.lastName || profile.last_name}`
         : user?.email;
+    const initials = displayName
+        ?.split(' ')
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part.charAt(0).toUpperCase())
+        .join('') || 'MC';
+    const roleLabel = isDoctor ? 'Espace medecin' : 'Espace assistant';
+    const roleHint = isDoctor ? 'Pilotage clinique' : 'Suivi des patients';
 
     return (
         <>
@@ -92,14 +100,20 @@ function Sidebar() {
             <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}>
                 {/* Header */}
                 <div className="sidebar-header">
-                    <div className="sidebar-logo" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                        <LocalHospitalIcon fontSize="large" /> MediConsult
+                    <div className="sidebar-logo">
+                        <span className="sidebar-brand-mark">
+                            <LocalHospitalIcon fontSize="small" />
+                        </span>
+                        <div className="sidebar-brand-copy">
+                            <span className="sidebar-brand-name">MediConsult</span>
+                            <span className="sidebar-brand-subtitle">{roleLabel}</span>
+                        </div>
                     </div>
                 </div>
 
                 {/* AI Error Banner */}
                 {aiErrorConfig && (
-                    <div style={{
+                    <div className="sidebar-alert" style={{
                         background: 'var(--error-500)',
                         color: 'white',
                         padding: 'var(--space-md) var(--space-md)',
@@ -113,8 +127,8 @@ function Sidebar() {
                         gap: '0.4rem'
                     }}>
                         <span style={{ display: 'block', fontSize: '0.95rem', fontWeight: 'bold' }}>⚠️ Configuration IA</span>
-                        <span style={{ lineHeight: '1.4' }}>{aiErrorConfig.message}</span>
-                        <NavLink to="/doctor/settings" style={{ 
+                        <span className="sidebar-alert-message" style={{ lineHeight: '1.4' }}>{aiErrorConfig.message}</span>
+                        <NavLink to="/doctor/settings" className="sidebar-alert-link" style={{ 
                             color: 'white', 
                             textDecoration: 'underline', 
                             marginTop: '0.3rem', 
@@ -129,7 +143,7 @@ function Sidebar() {
                 {/* Navigation */}
                 <nav className="sidebar-nav">
                     {/* Role indicator */}
-                    <div style={{
+                    <div className="sidebar-section-label" style={{
                         fontSize: '0.7rem',
                         fontWeight: 600,
                         textTransform: 'uppercase',
@@ -202,23 +216,24 @@ function Sidebar() {
 
                 {/* User section */}
                 <div className="sidebar-footer">
-                    <div style={{
-                        marginBottom: 'var(--space-sm)',
-                        fontSize: '0.813rem',
-                        color: 'rgba(226, 232, 240, 0.7)',
-                        fontWeight: 500
-                    }}>
-                        {displayName}
+                    <div className="sidebar-user-card">
+                        <span className="sidebar-user-avatar">{initials}</span>
+                        <div className="sidebar-user-meta">
+                            <span className="sidebar-user-name">{displayName}</span>
+                            <span className="sidebar-user-role">{roleHint}</span>
+                        </div>
                     </div>
 
-                    <ThemeToggle />
+                    <div className="sidebar-footer-actions">
+                        <ThemeToggle />
 
-                    <button
-                        onClick={handleLogout}
-                        className="theme-toggle-btn"
-                    >
-                        <LogoutIcon fontSize="small" /> {t.auth.logout}
-                    </button>
+                        <button
+                            onClick={handleLogout}
+                            className="theme-toggle-btn"
+                        >
+                            <LogoutIcon fontSize="small" /> {t.auth.logout}
+                        </button>
+                    </div>
                 </div>
             </aside>
         </>

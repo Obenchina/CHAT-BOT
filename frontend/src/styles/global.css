@@ -19,6 +19,8 @@
   --primary-700: #1d4ed8;
   --primary-800: #1e40af;
   --primary-900: #1e3a8a;
+  --primary: var(--primary-500);
+  --primary-color: var(--primary-500);
 
   /* Secondary Colors - Professional Teal */
   --secondary-50: #f0fdfa;
@@ -108,11 +110,19 @@
   /* Semantic Colors (dark-mode-aware) */
   --bg-card: #ffffff;
   --bg-surface: #ffffff;
+  --bg-elevated: #f8fbff;
+  --bg-component: #f3f8ff;
   --bg-input: #ffffff;
   --border-color: var(--gray-200);
   --text-primary: var(--gray-900);
   --text-secondary: var(--gray-500);
   --text-muted: var(--gray-400);
+
+  /* Glassmorphism */
+  --glass-bg: rgba(255, 255, 255, 0.75);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.4);
+  --glass-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.07);
+  --glass-blur: blur(12px);
 }
 
 /* ======================
@@ -403,6 +413,8 @@ button {
   --primary-500: #3b82f6;
   --primary-600: #60a5fa;
   --primary-700: #93c5fd;
+  --primary: var(--primary-500);
+  --primary-color: var(--primary-500);
 
   /* Secondary */
   --secondary-50: #042f2e;
@@ -435,11 +447,18 @@ button {
   /* Semantic Colors for dark mode */
   --bg-card: #1e293b;
   --bg-surface: #0f172a;
+  --bg-elevated: #18263d;
+  --bg-component: #10233f;
   --bg-input: #334155;
   --border-color: #334155;
   --text-primary: #f8fafc;
   --text-secondary: #94a3b8;
   --text-muted: #64748b;
+
+  /* Glassmorphism Dark Mode */
+  --glass-bg: rgba(15, 23, 42, 0.7);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.05);
+  --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
 }
 
 /* ======================
@@ -515,6 +534,18 @@ button {
   }
 }
 
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-15px); }
+  100% { transform: translateY(0px); }
+}
+
+@keyframes floatLight {
+  0% { transform: translateY(0px) scale(1); }
+  50% { transform: translateY(-8px) scale(1.02); }
+  100% { transform: translateY(0px) scale(1); }
+}
+
 .animate-slide-in-left {
   animation: slideInLeft var(--transition-slow);
 }
@@ -525,6 +556,14 @@ button {
 
 .animate-pulse {
   animation: pulse 2s ease-in-out infinite;
+}
+
+.animate-float {
+  animation: float 6s ease-in-out infinite;
+}
+
+.animate-float-light {
+  animation: floatLight 4s ease-in-out infinite;
 }
 
 /* Respect reduced motion preference */

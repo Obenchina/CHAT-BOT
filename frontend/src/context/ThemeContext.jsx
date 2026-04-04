@@ -1,3 +1,4 @@
+/* eslint-disable react-refresh/only-export-components */
 /**
  * Theme Context
  * Manages the application theme (light/dark) and integrates with Material UI

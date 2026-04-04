@@ -45,6 +45,7 @@ function LoginPage() {
                 setError(result.message || t.auth.invalidCredentials);
             }
         } catch (err) {
+            console.error('Login error:', err);
             setError(t.errors.serverError);
         } finally {
             setLoading(false);
@@ -53,64 +54,88 @@ function LoginPage() {
 
     return (
         <div className="auth-page">
-            <div className="auth-container">
-                {/* Logo */}
-                <div className="auth-logo">
-                    <span className="logo-icon">🏥</span>
-                    <span className="logo-text">MediConsult</span>
+            {/* Left Cover - Desktop Only */}
+            <div className="auth-cover">
+                <div className="auth-cover-content">
+                    <h1 className="auth-cover-title">L'Excellence Médicale,<br />Simplifiée.</h1>
+                    <p className="auth-cover-subtitle">
+                        Accédez à votre espace sécurisé pour gérer vos assistants, suivre vos patients et tirer parti de l'intelligence artificielle.
+                    </p>
+                    <div className="auth-trust-badges">
+                        <span className="trust-badge">🔒 Connexion Sécurisée</span>
+                        <span className="trust-badge">⚕️ Conformité Médicale</span>
+                    </div>
                 </div>
+            </div>
 
-                {/* Title */}
-                <h1 className="auth-title">{t.auth.loginTitle}</h1>
-
-                {/* Error message */}
-                {error && (
-                    <div className="alert alert-error">
-                        {error}
-                    </div>
-                )}
-
-                {/* Login form */}
-                <form onSubmit={handleSubmit} className="auth-form">
-                    <Input
-                        label={t.auth.email}
-                        type="email"
-                        name="email"
-                        value={formData.email}
-                        onChange={handleChange}
-                        placeholder="exemple@email.com"
-                        required
-                    />
-
-                    <Input
-                        label={t.auth.password}
-                        type="password"
-                        name="password"
-                        value={formData.password}
-                        onChange={handleChange}
-                        placeholder="••••••••"
-                        required
-                    />
-
-                    <div className="auth-forgot">
-                        <Link to="/forgot-password">{t.auth.forgotPassword}</Link>
+            {/* Right Panel - Auth Form */}
+            <div className="auth-panel">
+                <div className="auth-container">
+                    {/* Logo for mobile / alternate header */}
+                    <div className="auth-header">
+                        <div className="auth-logo">
+                            <span className="logo-icon">🏥</span>
+                            <span className="logo-text">MediConsult</span>
+                        </div>
+                        <h2 className="auth-title">Bienvenue Docteur</h2>
+                        <p className="auth-subtitle">Veuillez vous connecter à votre compte</p>
                     </div>
 
-                    <Button
-                        type="submit"
-                        variant="primary"
-                        size="lg"
-                        loading={loading}
-                        style={{ width: '100%' }}
-                    >
-                        {t.auth.loginButton}
-                    </Button>
-                </form>
+                    {/* Error message */}
+                    {error && (
+                        <div className="alert alert-error" style={{ marginBottom: 'var(--space-md)' }}>
+                            {error}
+                        </div>
+                    )}
 
-                {/* Register link */}
-                <div className="auth-switch">
-                    {t.auth.noAccount}{' '}
-                    <Link to="/register">{t.auth.register}</Link>
+                    {/* Login form */}
+                    <form onSubmit={handleSubmit} className="auth-form">
+                        <div className="form-row">
+                            <Input
+                                label={t.auth.email}
+                                type="email"
+                                name="email"
+                                value={formData.email}
+                                onChange={handleChange}
+                                placeholder="exemple@cabinet.fr"
+                                required
+                                className="input-premium"
+                            />
+                        </div>
+
+                        <div className="form-row" style={{ marginBottom: 0 }}>
+                            <Input
+                                label={t.auth.password}
+                                type="password"
+                                name="password"
+                                value={formData.password}
+                                onChange={handleChange}
+                                placeholder="••••••••"
+                                required
+                                className="input-premium"
+                            />
+                        </div>
+
+                        <div className="auth-forgot">
+                            <Link to="/forgot-password">{t.auth.forgotPassword}</Link>
+                        </div>
+
+                        <Button
+                            type="submit"
+                            variant="primary"
+                            size="lg"
+                            className="btn-premium"
+                            loading={loading}
+                        >
+                            {t.auth.loginButton}
+                        </Button>
+                    </form>
+
+                    {/* Register link */}
+                    <div className="auth-switch">
+                        {t.auth.noAccount}
+                        <Link to="/register">{t.auth.register}</Link>
+                    </div>
                 </div>
             </div>
         </div>

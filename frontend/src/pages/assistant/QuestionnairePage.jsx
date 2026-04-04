@@ -40,12 +40,12 @@ function QuestionnairePage() {
     const [isRecording, setIsRecording] = useState(false);
     const mediaRecorderRef = useRef(null);
     const audioChunksRef = useRef([]);
-    const fileInputRef = useRef(null);
     const pendingSavesRef = useRef(new Set());
 
     // Load patient and create case
     useEffect(() => {
         initializeQuestionnaire();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [patientId]);
 
     // Warn user before leaving page during active questionnaire
@@ -409,7 +409,7 @@ function QuestionnairePage() {
     }
 
     return (
-        <div className="layout">
+        <div className="layout internal-shell questionnaire-shell">
             <Sidebar />
 
             <main className="main-content">

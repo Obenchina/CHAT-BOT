@@ -3,7 +3,7 @@
  * Doctor can manage questionnaire questions with drag-and-drop reordering
  */
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
@@ -34,7 +34,7 @@ function CatalogueManagement() {
     // Drag and drop state
     const [draggedItem, setDraggedItem] = useState(null);
     const [dragOverItem, setDragOverItem] = useState(null);
-    const [isDragging, setIsDragging] = useState(false);
+    const [, setIsDragging] = useState(false);
 
     // Form state
     const [formData, setFormData] = useState({
@@ -298,7 +298,7 @@ function CatalogueManagement() {
     }
 
     return (
-        <div className="layout">
+        <div className="layout internal-shell catalogue-shell">
             <Sidebar />
 
             <main className="main-content">
@@ -330,7 +330,7 @@ function CatalogueManagement() {
                         <>
                             {/* Catalogue info */}
                             {catalogue && (
-                                <div className="card" style={{ marginBottom: 'var(--space-lg)' }}>
+                                <div className="card toolbar-shell" style={{ marginBottom: 'var(--space-lg)' }}>
                                     <div className="card-body flex justify-between items-center">
                                         <div>
                                             <strong>{t.catalogue.version}:</strong> {catalogue.version}

@@ -125,10 +125,18 @@ function AssistantProfile() {
     };
 
     return (
-        <div className="layout">
+        <div className="layout internal-shell assistant-profile-shell">
             <Sidebar />
 
             <main className="main-content">
+                <div className="page-header">
+                    <div>
+                        <h1 className="page-title">Mon profil</h1>
+                        <p style={{ margin: 0, fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
+                            Coordonnees personnelles et securite du compte assistant.
+                        </p>
+                    </div>
+                </div>
 
                 <div className="page-content">
                     {loading ? (

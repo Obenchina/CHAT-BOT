@@ -112,10 +112,11 @@ function DoctorPatients() {
         // 2. Sort
         result.sort((a, b) => {
             switch (sortBy) {
-                case 'name_asc':
+                case 'name_asc': {
                     const nameA = (a.firstName || a.first_name || '').toLowerCase();
                     const nameB = (b.firstName || b.first_name || '').toLowerCase();
                     return nameA.localeCompare(nameB);
+                }
                 case 'age_desc':
                     return (b.age || 0) - (a.age || 0);
                 case 'age_asc':
@@ -272,7 +273,7 @@ function DoctorPatients() {
     }
 
     return (
-        <div className="layout">
+        <div className="layout internal-shell doctor-patients-shell">
             <Sidebar />
 
             <main className="main-content">
@@ -287,7 +288,7 @@ function DoctorPatients() {
 
                 <div className="page-content">
                     {/* SaaS Toolbar */}
-                    <div className="card" style={{ marginBottom: 'var(--space-lg)', border: 'none', background: 'transparent', boxShadow: 'none' }}>
+                    <div className="card toolbar-shell" style={{ marginBottom: 'var(--space-lg)', border: 'none', background: 'transparent', boxShadow: 'none' }}>
                         <div className="flex justify-between items-center flex-wrap gap-md" style={{ padding: '0' }}>
                             {/* Search */}
                             <div className="form-group" style={{ marginBottom: 0, flex: '1', minWidth: '180px', position: 'relative' }}>
@@ -621,7 +622,7 @@ function DoctorPatients() {
                         </div>
                     ) : (
                         // Empty State (No Data or No Search Results)
-                        <div className="card flex flex-col items-center justify-center" style={{ padding: 'var(--space-3xl)', textAlign: 'center', background: 'var(--bg-surface)' }}>
+                        <div className="card empty-state-card flex flex-col items-center justify-center" style={{ padding: 'var(--space-3xl)', textAlign: 'center', background: 'var(--bg-surface)' }}>
                             <div style={{
                                 width: '64px', height: '64px', borderRadius: '50%', background: 'var(--gray-100)',
                                 display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--space-md)', color: 'var(--text-muted)'

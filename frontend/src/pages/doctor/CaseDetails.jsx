@@ -3,7 +3,7 @@
  * Doctor views case details, answers, and writes diagnosis
  */
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
@@ -39,6 +39,7 @@ function CaseDetails() {
     // Load case
     useEffect(() => {
         loadCase();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
 
     async function loadCase() {
@@ -222,7 +223,7 @@ function CaseDetails() {
 
     if (loading) {
         return (
-            <div className="layout">
+            <div className="layout internal-shell case-details-shell">
                 <Sidebar />
                 <main className="main-content">
                     <div className="flex justify-center" style={{ padding: 'var(--space-2xl)' }}>
@@ -235,7 +236,7 @@ function CaseDetails() {
 
     if (!caseData) {
         return (
-            <div className="layout">
+            <div className="layout internal-shell case-details-shell">
                 <Sidebar />
                 <main className="main-content">
                     <div className="card">
@@ -253,28 +254,19 @@ function CaseDetails() {
     const documents = caseData.documents || [];
     const aiAnalysis = caseData.aiAnalysis || caseData.ai_analysis;
 
-    // Document type labels
-    const docTypeLabels = {
-        'analyses': 'Analyses',
-        'imagerie': 'Imagerie',
-        'ordonnances': 'Ordonnances',
-        'comptes_rendus': 'Comptes rendus',
-        'other': 'Autre'
-    };
-
 
 
     // Determine back path
     const backPath = location.state?.from === 'patients' ? '/doctor/patients' : '/doctor/dashboard';
 
     return (
-        <div className="layout">
+        <div className="layout internal-shell case-details-shell">
             <Sidebar />
 
             <main className="main-content">
                 <div className="page-header">
                     <div>
-                        <Button variant="secondary" onClick={() => navigate(backPath)}>
+                        <Button variant="secondary" className="page-back-button" onClick={() => navigate(backPath)}>
                             ← Retour
                         </Button>
                     </div>
@@ -285,7 +277,7 @@ function CaseDetails() {
                 </div>
 
                 <div className="page-content">
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', maxWidth: '900px', margin: '0 auto' }}>
+                    <div className="case-stack case-details-stack" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', maxWidth: '900px', margin: '0 auto' }}>
                         {/* 1. Patient Info */}
                         <div className="card">
                             <div className="card-header border-b">
@@ -412,7 +404,7 @@ function CaseDetails() {
 
                         {/* 4. AI Analysis */}
                         {aiAnalysis && (
-                            <div className="card" style={{ background: 'var(--primary-50)', border: '1px solid var(--primary-100)' }}>
+                            <div className="card ai-analysis-card" style={{ background: 'var(--primary-50)', border: '1px solid var(--primary-100)' }}>
                                 <div className="card-header border-b" style={{ borderBottomColor: 'var(--primary-100)' }}>
                                     <h2 className="card-title" style={{ color: 'var(--primary-700)', fontSize: '1.1rem' }}>🤖 Analyse IA</h2>
                                 </div>

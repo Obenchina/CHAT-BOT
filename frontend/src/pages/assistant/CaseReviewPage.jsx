@@ -37,6 +37,7 @@ function CaseReviewPage() {
     // Load case
     useEffect(() => {
         loadCase();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [caseId]);
 
     async function loadCase(retryCount = 0) {
@@ -138,13 +139,8 @@ function CaseReviewPage() {
         }
     }
 
-    // Get document type label
-    function getDocTypeLabel(type) {
-        return t.documents.types[type] || type;
-    }
-
     return (
-        <div className="layout">
+        <div className="layout internal-shell case-review-shell">
             <Sidebar />
 
             <main className="main-content">
@@ -152,6 +148,7 @@ function CaseReviewPage() {
                     <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)' }}>
                         <Button
                             variant="ghost"
+                            className="page-back-button"
                             onClick={() => {
                                 if (caseData?.patient?.id) {
                                     navigate(`/assistant/case/new/${caseData.patient.id}`);
@@ -194,7 +191,7 @@ function CaseReviewPage() {
                             <LoadingSpinner size="lg" text={t.common.loading} />
                         </div>
                     ) : caseData ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', maxWidth: '900px', margin: '0 auto' }}>
+                        <div className="case-stack case-review-stack" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', maxWidth: '900px', margin: '0 auto' }}>
                             {/* 1. Patient info */}
                             <div className="card">
                                 <div className="card-header border-b">

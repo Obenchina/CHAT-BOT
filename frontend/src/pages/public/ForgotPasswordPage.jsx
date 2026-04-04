@@ -53,6 +53,7 @@ function ForgotPasswordPage() {
                 setError(response.message || 'Erreur lors de l\'envoi');
             }
         } catch (err) {
+            console.error('Error sending OTP:', err);
             setError('Erreur serveur. Réessayez.');
         } finally {
             setLoading(false);
@@ -144,179 +145,192 @@ function ForgotPasswordPage() {
             setResendTimer(60);
             showSuccess('Code renvoyé !');
         } catch (err) {
+            console.error('Error resending OTP:', err);
             setError('Erreur lors du renvoi');
         }
     }
 
     return (
         <div className="auth-page">
-            <div className="auth-container">
-                {/* Logo */}
-                <div className="auth-logo">
-                    <span className="logo-icon">🏥</span>
-                    <span className="logo-text">MediConsult</span>
+            {/* Left Cover - Desktop Only */}
+            <div className="auth-cover">
+                <div className="auth-cover-content">
+                    <h1 className="auth-cover-title">Récupération Sécurisée.</h1>
+                    <p className="auth-cover-subtitle">
+                        Nous accordons la plus haute importance à la protection de vos données médicales. Suivez les étapes pour retrouver l'accès à votre espace.
+                    </p>
+                    <div className="auth-trust-badges">
+                        <span className="trust-badge">🔒 Validation Multi-étapes</span>
+                        <span className="trust-badge">🛡️ Données Protégées</span>
+                    </div>
                 </div>
+            </div>
 
-                {/* Step 1: Email */}
-                {step === 'email' && (
-                    <>
-                        <h1 className="auth-title">Mot de passe oublié</h1>
-                        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                            Entrez votre adresse email pour recevoir un code de vérification.
-                        </p>
+            {/* Right Panel - Auth Form */}
+            <div className="auth-panel">
+                <div className="auth-container">
+                    {/* Logo for mobile / alternate header */}
+                    <div className="auth-header">
+                        <div className="auth-logo">
+                            <span className="logo-icon">🏥</span>
+                            <span className="logo-text">MediConsult</span>
+                        </div>
+                    </div>
 
-                        {error && <div className="alert alert-error">{error}</div>}
+                    {/* Step 1: Email */}
+                    {step === 'email' && (
+                        <div className="animate-fade-in">
+                            <h2 className="auth-title" style={{ textAlign: 'center' }}>Mot de passe oublié ?</h2>
+                            <p className="auth-subtitle" style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
+                                Entrez votre adresse email pour recevoir un code de vérification.
+                            </p>
 
-                        <form onSubmit={handleSendOtp} className="auth-form">
-                            <Input
-                                label={t.auth.email}
-                                type="email"
-                                value={email}
-                                onChange={(e) => { setEmail(e.target.value); setError(''); }}
-                                placeholder="exemple@email.com"
-                                required
-                            />
+                            {error && <div className="alert alert-error" style={{ marginBottom: 'var(--space-md)' }}>{error}</div>}
 
-                            <Button
-                                type="submit"
-                                variant="primary"
-                                size="lg"
-                                loading={loading}
-                                style={{ width: '100%' }}
-                            >
-                                Envoyer le code
-                            </Button>
-                        </form>
-                    </>
-                )}
-
-                {/* Step 2: OTP */}
-                {step === 'otp' && (
-                    <>
-                        <h1 className="auth-title">Vérification</h1>
-                        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                            Entrez le code à 6 chiffres envoyé à <strong>{email}</strong>
-                        </p>
-
-                        {error && <div className="alert alert-error">{error}</div>}
-
-                        <form onSubmit={handleVerifyOtp} className="auth-form">
-                            <div style={{
-                                display: 'flex',
-                                gap: '0.5rem',
-                                justifyContent: 'center',
-                                marginBottom: '1.5rem'
-                            }}>
-                                {otp.map((digit, i) => (
-                                    <input
-                                        key={i}
-                                        ref={el => otpRefs.current[i] = el}
-                                        type="text"
-                                        inputMode="numeric"
-                                        maxLength={1}
-                                        value={digit}
-                                        onChange={(e) => handleOtpChange(i, e.target.value)}
-                                        onKeyDown={(e) => handleOtpKeyDown(i, e)}
-                                        onPaste={i === 0 ? handleOtpPaste : undefined}
-                                        style={{
-                                            width: '3rem',
-                                            height: '3.5rem',
-                                            textAlign: 'center',
-                                            fontSize: '1.5rem',
-                                            fontWeight: '600',
-                                            borderRadius: '10px',
-                                            border: '2px solid var(--border-color)',
-                                            background: 'var(--bg-card)',
-                                            color: 'var(--text-primary)',
-                                            outline: 'none',
-                                            transition: 'border-color 0.2s'
-                                        }}
-                                        onFocus={(e) => e.target.style.borderColor = 'var(--primary)'}
-                                        onBlur={(e) => e.target.style.borderColor = 'var(--border-color)'}
+                            <form onSubmit={handleSendOtp} className="auth-form">
+                                <div className="form-row">
+                                    <Input
+                                        label={t.auth.email}
+                                        type="email"
+                                        value={email}
+                                        onChange={(e) => { setEmail(e.target.value); setError(''); }}
+                                        placeholder="exemple@cabinet.fr"
+                                        className="input-premium"
+                                        required
                                     />
-                                ))}
-                            </div>
+                                </div>
 
-                            <Button
-                                type="submit"
-                                variant="primary"
-                                size="lg"
-                                style={{ width: '100%' }}
-                            >
-                                Vérifier le code
-                            </Button>
+                                <Button
+                                    type="submit"
+                                    variant="primary"
+                                    size="lg"
+                                    loading={loading}
+                                    className="btn-premium"
+                                    style={{ marginTop: 'var(--space-md)' }}
+                                >
+                                    Envoyer le code
+                                </Button>
+                            </form>
+                        </div>
+                    )}
 
-                            <div style={{ textAlign: 'center', marginTop: '1rem' }}>
-                                {resendTimer > 0 ? (
-                                    <span style={{ color: 'var(--text-secondary)' }}>
-                                        Renvoyer dans {resendTimer}s
-                                    </span>
-                                ) : (
-                                    <button
-                                        type="button"
-                                        onClick={handleResend}
-                                        style={{
-                                            background: 'none',
-                                            border: 'none',
-                                            color: 'var(--primary)',
-                                            cursor: 'pointer',
-                                            fontWeight: '500',
-                                            textDecoration: 'underline'
-                                        }}
-                                    >
-                                        Renvoyer le code
-                                    </button>
-                                )}
-                            </div>
-                        </form>
-                    </>
-                )}
+                    {/* Step 2: OTP */}
+                    {step === 'otp' && (
+                        <div className="animate-fade-in">
+                            <h2 className="auth-title" style={{ textAlign: 'center' }}>Vérification</h2>
+                            <p className="auth-subtitle" style={{ textAlign: 'center', marginBottom: 'var(--space-lg)' }}>
+                                Entrez le code à 6 chiffres envoyé à <br /><strong>{email}</strong>
+                            </p>
 
-                {/* Step 3: New Password */}
-                {step === 'reset' && (
-                    <>
-                        <h1 className="auth-title">Nouveau mot de passe</h1>
-                        <p style={{ textAlign: 'center', color: 'var(--text-secondary)', marginBottom: '1.5rem' }}>
-                            Choisissez votre nouveau mot de passe.
-                        </p>
+                            {error && <div className="alert alert-error" style={{ marginBottom: 'var(--space-md)' }}>{error}</div>}
 
-                        {error && <div className="alert alert-error">{error}</div>}
+                            <form onSubmit={handleVerifyOtp} className="auth-form">
+                                <div className="otp-inputs">
+                                    {otp.map((digit, i) => (
+                                        <input
+                                            key={i}
+                                            ref={el => otpRefs.current[i] = el}
+                                            type="text"
+                                            inputMode="numeric"
+                                            maxLength={1}
+                                            value={digit}
+                                            onChange={(e) => handleOtpChange(i, e.target.value)}
+                                            onKeyDown={(e) => handleOtpKeyDown(i, e)}
+                                            onPaste={i === 0 ? handleOtpPaste : undefined}
+                                            className="otp-box"
+                                        />
+                                    ))}
+                                </div>
 
-                        <form onSubmit={handleResetPassword} className="auth-form">
-                            <Input
-                                label="Nouveau mot de passe"
-                                type="password"
-                                value={newPassword}
-                                onChange={(e) => { setNewPassword(e.target.value); setError(''); }}
-                                placeholder="••••••••"
-                                required
-                            />
+                                <Button
+                                    type="submit"
+                                    variant="primary"
+                                    size="lg"
+                                    className="btn-premium"
+                                    style={{ marginBottom: 'var(--space-lg)' }}
+                                >
+                                    Vérifier le code
+                                </Button>
 
-                            <Input
-                                label="Confirmer le mot de passe"
-                                type="password"
-                                value={confirmPassword}
-                                onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
-                                placeholder="••••••••"
-                                required
-                            />
+                                <div style={{ textAlign: 'center', fontSize: '0.875rem' }}>
+                                    {resendTimer > 0 ? (
+                                        <span style={{ color: 'var(--text-secondary)' }}>
+                                            Renvoyer le code dans {resendTimer}s
+                                        </span>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={handleResend}
+                                            style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                color: 'var(--primary-600)',
+                                                cursor: 'pointer',
+                                                fontWeight: '600',
+                                                textDecoration: 'underline'
+                                            }}
+                                        >
+                                            Renvoyer le code
+                                        </button>
+                                    )}
+                                </div>
+                            </form>
+                        </div>
+                    )}
 
-                            <Button
-                                type="submit"
-                                variant="primary"
-                                size="lg"
-                                loading={loading}
-                                style={{ width: '100%' }}
-                            >
-                                Réinitialiser le mot de passe
-                            </Button>
-                        </form>
-                    </>
-                )}
+                    {/* Step 3: New Password */}
+                    {step === 'reset' && (
+                        <div className="animate-fade-in">
+                            <h2 className="auth-title" style={{ textAlign: 'center' }}>Nouveau mot de passe</h2>
+                            <p className="auth-subtitle" style={{ textAlign: 'center', marginBottom: 'var(--space-xl)' }}>
+                                Choisissez un mot de passe fort et sécurisé.
+                            </p>
 
-                {/* Back to login */}
-                <div className="auth-switch">
-                    <Link to="/login">← Retour à la connexion</Link>
+                            {error && <div className="alert alert-error" style={{ marginBottom: 'var(--space-md)' }}>{error}</div>}
+
+                            <form onSubmit={handleResetPassword} className="auth-form">
+                                <div className="form-row">
+                                    <Input
+                                        label="Nouveau mot de passe"
+                                        type="password"
+                                        value={newPassword}
+                                        onChange={(e) => { setNewPassword(e.target.value); setError(''); }}
+                                        placeholder="••••••••"
+                                        className="input-premium"
+                                        required
+                                    />
+                                </div>
+
+                                <div className="form-row" style={{ marginBottom: 0 }}>
+                                    <Input
+                                        label="Confirmer le mot de passe"
+                                        type="password"
+                                        value={confirmPassword}
+                                        onChange={(e) => { setConfirmPassword(e.target.value); setError(''); }}
+                                        placeholder="••••••••"
+                                        className="input-premium"
+                                        required
+                                    />
+                                </div>
+
+                                <Button
+                                    type="submit"
+                                    variant="primary"
+                                    size="lg"
+                                    loading={loading}
+                                    className="btn-premium"
+                                    style={{ marginTop: 'var(--space-lg)' }}
+                                >
+                                    Réinitialiser le mot de passe
+                                </Button>
+                            </form>
+                        </div>
+                    )}
+
+                    {/* Back to login */}
+                    <div className="auth-switch">
+                        <Link to="/login">← Retour à la connexion</Link>
+                    </div>
                 </div>
             </div>
         </div>

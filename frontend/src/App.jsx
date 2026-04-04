@@ -17,10 +17,10 @@ import './styles/global.css';
 import './styles/components.css';
 
 // Public Pages (loaded eagerly — small, always needed)
-import LandingPage from './pages/public/LandingPage';
-import LoginPage from './pages/public/LoginPage';
-import RegisterPage from './pages/public/RegisterPage';
-import ForgotPasswordPage from './pages/public/ForgotPasswordPage';
+import LandingPage from './pages/public/LandingPagePremium';
+import LoginPage from './pages/public/LoginPagePremium';
+import RegisterPage from './pages/public/RegisterPagePremium';
+import ForgotPasswordPage from './pages/public/ForgotPasswordPagePremium';
 
 // Lazy-loaded Pages (loaded on demand)
 const DoctorDashboard = lazy(() => import('./pages/doctor/DoctorDashboard'));
