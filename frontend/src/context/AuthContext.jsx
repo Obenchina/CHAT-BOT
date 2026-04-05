@@ -148,6 +148,9 @@ export function AuthProvider({ children }) {
      * Logout user
      */
     function logout() {
+        // Clear all persistent toasts
+        import('react-hot-toast').then(module => module.default.dismiss());
+        
         // Clear storage
         localStorage.removeItem('token');
 

@@ -61,7 +61,7 @@ async function analyzeCase(caseData, aiConfig = null) {
         return parseAnalysisResponse(response);
     } catch (error) {
         console.error('AI analysis error:', error.message);
-        
+
         // Propagate structural AI errors (keys/quota) up so they can be handled explicitly
         if (error.code === 'QUOTA_EXCEEDED' || error.code === 'API_ERROR' || error.code === 'MISSING_API_KEY') {
             throw error;
@@ -85,12 +85,12 @@ async function analyzeCase(caseData, aiConfig = null) {
 async function processCaseDocuments(caseData) {
     const fs = require('fs').promises;
     const path = require('path');
-    
-    let pdfParse = null;
+
+    let PDFParser = null;
     try {
-        pdfParse = require('pdf-parse');
+        PDFParser = require('pdf2json');
     } catch (e) {
-        console.warn('pdf-parse not installed, PDF text extraction will be disabled.');
+        console.warn('pdf2json not installed, PDF text extraction will be disabled.');
     }
 
     const result = {
@@ -132,12 +132,18 @@ async function processCaseDocuments(caseData) {
                         });
                         console.log(`Added raw PDF to Gemini payload: ${fileName}`);
 
-                        // 2. Extract text for OpenAI fallback
-                        if (pdfParse) {
+                        // 2. Extract text for OpenAI fallback (and general text parsing)
+                        if (PDFParser) {
                             try {
-                                const parseFunc = typeof pdfParse === 'function' ? pdfParse : (pdfParse.default || pdfParse.PDFParse);
-                                const pdfData = await parseFunc(fileBuffer);
-                                result.extractedText += `\n--- محتويات مستند PDF: ${fileName} ---\n${pdfData.text}\n`;
+                                const pdfData = await new Promise((resolve, reject) => {
+                                    const pdfParser = new PDFParser(this, 1);
+                                    pdfParser.on('pdfParser_dataError', errData => reject(new Error(errData.parserError)));
+                                    pdfParser.on('pdfParser_dataReady', () => {
+                                        resolve(pdfParser.getRawTextContent());
+                                    });
+                                    pdfParser.parseBuffer(fileBuffer);
+                                });
+                                result.extractedText += `\n--- محتويات مستند PDF: ${fileName} ---\n${pdfData}\n`;
                                 console.log(`Extracted text from PDF for OpenAI: ${fileName}`);
                             } catch (pdfErr) {
                                 console.error(`Failed to parse PDF ${fileName}:`, pdfErr.message);
@@ -163,7 +169,7 @@ async function processCaseDocuments(caseData) {
                                 url: `data:${mimeType};base64,${base64Data}`
                             }
                         });
-                        
+
                         console.log(`Added image to analysis payload: ${fileName} as ${mimeType}`);
                     }
                 } catch (error) {
@@ -182,18 +188,19 @@ async function processCaseDocuments(caseData) {
  * @returns {string} Formatted prompt
  */
 function buildAnalysisPrompt(caseData) {
-    const { patient, answers } = caseData;
+    const { patient, answers, documents } = caseData;
+    const hasDocs = documents && documents.length > 0;
 
-    let prompt = `أنت مساعد طبي متخصص يعمل مع طبيب في عيادته. الطبيب يستعرض حالة مريض وأنت تساعده بتحليل المعلومات المقدمة.
+    let prompt = `أنت طبيب مساعد ذكي (AI Medical Assistant).
+مهمتك تحليل البيانات الطبية المدخلة واستخراج ملخص تشخيصي دقيق للطبيب.
 
 ملاحظة ثقافية هامة: المريض جزائري ويتحدث بـ "الدارجة الجزائرية" (Algerian Darja) والتي قد تتضمن مزيجاً من العربية والفرنسية ومصطلحات محلية. يجب عليك فهم هذه المصطلحات بدقة عند تحليل الأعراض.
 
 مهمتك:
-1. تلخيص الحالة السريرية بناءً على إجابات المريض والمستندات/الصور المرفقة (إن وجدت)
+1. تلخيص الحالة السريرية بناءً على إجابات المريض. ${hasDocs ? 'هناك ملفات ومستندات مرفقة مع هذه الحالة، يجب عليك قراءتها بشدة وتلخيص كل محتوياتها داخل الملخص، مهما كانت بسيطة (مثل ترويسة طبيب أو وصفة بأدوية).' : 'لا توجد أي ملفات مرفقة مع المريض، لذلك اذكر بوضوح تام في الملخص: "لا توجد ملفات مرفقة".'}
 2. اقتراح تشخيصات محتملة مع درجة الاحتمالية والتفسير، مع الإشارة إلى أي علامات ظاهرة في الصور أو المستندات المرفقة (تحاليل، أشعة، وثائق PDF)
 3. اقتراح قائمة أدوية مناسبة (اسم الدواء، الجرعة، المدة، الملاحظات)
 
-⚠️ ملاحظة مهمة: قد يتم إرفاق مستندات طبية بصيغة PDF أو صور. إذا وُجدت مستندات مرفقة، قم بتحليل محتواها بدقة ودمج ملاحظاتك في التحليل. لا تقل "لا توجد صور" إذا كانت هناك مستندات PDF مرفقة.
 ⚠️ تذكر: المريض موجود بالفعل عند الطبيب ويتم فحصه. لا تقترح "زيارة طبيب" أو "استشارة متخصص" إلا في حالات الطوارئ الشديدة.
 
 ═══════════════════════════════
@@ -222,12 +229,12 @@ function buildAnalysisPrompt(caseData) {
 
 قدم تحليلك بصيغة JSON التالية (بالعربية، باستثناء قسم الأدوية يجب أن يكون بالفرنسية العلمية):
 {
-  "summary": "ملخص سريري شامل للحالة بناءً على الأعراض المذكورة والملاحظات من المستندات/الصور المرفقة",
+  "summary": "${hasDocs ? 'ملخص سريري شامل للإجابات، مع الإشارة بكل وضوح وتفصيل تام لكل ما ورد في الملفات المرفقة (مثل اسم الطبيب في الرشيتة، الأدوية، أو التحاليل).' : 'ملخص سريري شامل للإجابات. واكتب في نهاية الملخص حصراً: (لا توجد ملفات مرفقة).'}",
   "diagnoses": [
     {
-      "name": "اسم التشخيص المحتمل",
+      "name": "اسم التشخيص المحتمل مع النسبة المئوية للاعتمادية بجانبه (مثلا: حمى فيروسية 75%)",
       "probability": "عالية/متوسطة/منخفضة",
-      "reasoning": "التفسير المختصر لهذا التشخيص (اذكر أدلة من الصور إذا كانت ذات صلة)"
+      "reasoning": "التفسير المختصر لهذا التشخيص (اذكر أدلة من الصور أو الـ PDF إذا كانت ذات صلة)"
     }
   ],
   "medications": [
@@ -316,10 +323,10 @@ async function callGeminiAPI(promptParts, cfg = null) {
 
             // Other errors (400, 401, etc.) — don't retry
             const errorText = await response.text();
-            
+
             let errorMessage = "Erreur de l'API Gemini.";
             let errorCode = 'API_ERROR';
-            
+
             try {
                 const parsed = JSON.parse(errorText);
                 if (parsed.error && parsed.error.message) {
@@ -448,10 +455,10 @@ async function callOpenAIAPI(userContent, cfg) {
             }
 
             const errorText = await response.text();
-            
+
             let errorMessage = "Erreur de l'API OpenAI.";
             let errorCode = 'API_ERROR';
-            
+
             try {
                 const parsed = JSON.parse(errorText);
                 if (parsed.error && parsed.error.message) {
@@ -496,11 +503,11 @@ async function callOpenAIAPI(userContent, cfg) {
  */
 async function transcribeAudio(audioPath, aiConfig = null) {
     const cfg = aiConfig || { provider: 'gemini', apiKey: config.ai.apiKey, model: config.ai.model };
-    
+
     if (cfg.provider === 'openai') {
         return _transcribeAudioWhisper(audioPath, cfg);
     }
-    
+
     return _transcribeAudioGemini(audioPath, cfg);
 }
 
@@ -587,12 +594,12 @@ async function _transcribeAudioGemini(audioPath, cfg) {
 
     } catch (error) {
         console.error('Gemini transcription error:', error.message);
-        
+
         // Re-throw known API errors so the frontend UI can alert the user
         if (error.code === 'QUOTA_EXCEEDED' || error.code === 'API_ERROR' || error.code === 'MISSING_API_KEY') {
             throw error;
         }
-        
+
         // Check for specific Gemini API Rate Limit signatures
         if (error.message && (error.message.includes('Rate Limit') || error.message.includes('429'))) {
             const apiError = new Error("Crédit API épuisé ou limite atteinte (Rate Limit). Veuillez vérifier votre abonnement OpenAI/Gemini.");
@@ -625,7 +632,7 @@ async function _transcribeAudioWhisper(audioPath, cfg) {
         }
 
         const audioBuffer = await fs.readFile(absoluteAudioPath);
-        
+
         // Native FormData in Node 18+
         const formData = new FormData();
         const blob = new Blob([audioBuffer]);
@@ -648,12 +655,12 @@ async function _transcribeAudioWhisper(audioPath, cfg) {
                 return data.text;
             }
         }
-        
+
         // Handle explicit errors
         const errorText = await response.text();
         let errorMessage = "Erreur de l'API OpenAI Whisper.";
         let errorCode = 'API_ERROR';
-        
+
         try {
             const parsed = JSON.parse(errorText);
             if (parsed.error && parsed.error.message) {
