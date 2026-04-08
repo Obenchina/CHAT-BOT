@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -26,10 +26,13 @@ const t = translations;
 function QuestionnairePage() {
     const { patientId } = useParams();
     const navigate = useNavigate();
+    const [searchParams] = useSearchParams();
+    const selectedCatalogueId = searchParams.get('catalogueId');
 
     // State
     const [patient, setPatient] = useState(null);
     const [caseId, setCaseId] = useState(null);
+    const [catalogueName, setCatalogueName] = useState('');
     const [questions, setQuestions] = useState([]);
     const [currentIndex, setCurrentIndex] = useState(0);
     const [answers, setAnswers] = useState({}); // Stores all answers including audio blobs
@@ -46,7 +49,7 @@ function QuestionnairePage() {
     useEffect(() => {
         initializeQuestionnaire();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [patientId]);
+    }, [patientId, selectedCatalogueId]);
 
     // Warn user before leaving page during active questionnaire
     useEffect(() => {
@@ -63,6 +66,13 @@ function QuestionnairePage() {
     }, [answers]);
 
     async function initializeQuestionnaire() {
+        setLoading(true);
+        setCaseId(null);
+        setCatalogueName('');
+        setQuestions([]);
+        setAnswers({});
+        setCurrentIndex(0);
+
         try {
             // Load patient
             const patientResponse = await patientService.getById(patientId);
@@ -71,11 +81,12 @@ function QuestionnairePage() {
             }
 
             // Create new case or resume existing
-            const caseResponse = await caseService.create(patientId);
+            const caseResponse = await caseService.create(patientId, selectedCatalogueId);
             if (caseResponse.success) {
                 const caseData = caseResponse.data;
                 console.log('Case initialized:', caseData); // Debug log
                 setCaseId(caseData.id || caseData.caseId);
+                setCatalogueName(caseData.catalogueName || '');
                 const allQuestions = caseData.questions || [];
                 setQuestions(allQuestions);
 
@@ -134,6 +145,7 @@ function QuestionnairePage() {
             }
         } catch (error) {
             console.error('Initialize error:', error);
+            showError(error.message || 'Erreur lors du chargement du questionnaire');
         } finally {
             setLoading(false);
         }
@@ -414,12 +426,16 @@ function QuestionnairePage() {
 
             <main className="main-content">
                 <div className="page-header">
-                    <h1 className="page-title">{t.questionnaire.title}</h1>
-                    {patient && (
-                        <div style={{ color: 'var(--gray-600)' }}>
-                            {patient.firstName || patient.first_name} {patient.lastName || patient.last_name}
-                        </div>
-                    )}
+                    <div>
+                        <h1 className="page-title">{t.questionnaire.title}</h1>
+                        {(patient || catalogueName) && (
+                            <div style={{ color: 'var(--gray-600)' }}>
+                                {patient && `${patient.firstName || patient.first_name} ${patient.lastName || patient.last_name}`}
+                                {patient && catalogueName && ' · '}
+                                {catalogueName && `Catalogue: ${catalogueName}`}
+                            </div>
+                        )}
+                    </div>
                 </div>
 
                 <div className="page-content">

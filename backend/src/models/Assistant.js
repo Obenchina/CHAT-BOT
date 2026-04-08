@@ -12,12 +12,12 @@ const Assistant = {
      * @returns {Promise<Object>} Created assistant
      */
     async create(assistantData) {
-        const { userId, doctorId, firstName, lastName } = assistantData;
+        const { userId, doctorId } = assistantData;
 
         const [result] = await pool.execute(
-            `INSERT INTO assistants (user_id, doctor_id, first_name, last_name, is_active)
-       VALUES (?, ?, ?, ?, true)`,
-            [userId, doctorId, firstName, lastName]
+            `INSERT INTO assistants (user_id, doctor_id, is_active)
+       VALUES (?, ?, true)`,
+            [userId, doctorId]
         );
 
         return {
@@ -28,13 +28,16 @@ const Assistant = {
     },
 
     /**
-     * Find assistant by user ID
+     * Find assistant by user ID (with name from users table)
      * @param {number} userId - User ID
      * @returns {Promise<Object|null>} Assistant profile or null
      */
     async findByUserId(userId) {
         const [assistants] = await pool.execute(
-            'SELECT * FROM assistants WHERE user_id = ?',
+            `SELECT a.*, u.first_name, u.last_name, u.email
+       FROM assistants a
+       JOIN users u ON a.user_id = u.id
+       WHERE a.user_id = ?`,
             [userId]
         );
 
@@ -42,13 +45,16 @@ const Assistant = {
     },
 
     /**
-     * Find assistant by ID
+     * Find assistant by ID (with name from users table)
      * @param {number} id - Assistant ID
      * @returns {Promise<Object|null>} Assistant profile or null
      */
     async findById(id) {
         const [assistants] = await pool.execute(
-            'SELECT * FROM assistants WHERE id = ?',
+            `SELECT a.*, u.first_name, u.last_name, u.email
+       FROM assistants a
+       JOIN users u ON a.user_id = u.id
+       WHERE a.id = ?`,
             [id]
         );
 
@@ -56,17 +62,17 @@ const Assistant = {
     },
 
     /**
-     * Get all assistants for a doctor
+     * Get all assistants for a doctor (with name from users table)
      * @param {number} doctorId - Doctor ID
      * @returns {Promise<Array>} List of assistants
      */
     async findByDoctorId(doctorId) {
         const [assistants] = await pool.execute(
-            `SELECT a.*, u.email
+            `SELECT a.*, u.email, u.first_name, u.last_name
        FROM assistants a
        JOIN users u ON a.user_id = u.id
        WHERE a.doctor_id = ?
-       ORDER BY a.first_name, a.last_name`,
+       ORDER BY u.first_name, u.last_name`,
             [doctorId]
         );
 
@@ -74,23 +80,21 @@ const Assistant = {
     },
 
     /**
-     * Update assistant profile
+     * Update assistant profile (only is_active lives in assistants table now)
      * @param {number} id - Assistant ID
      * @param {Object} updateData - Fields to update
      * @returns {Promise<boolean>} Success status
      */
     async update(id, updateData) {
-        const { firstName, lastName, isActive, gender, phone } = updateData;
+        const { isActive } = updateData;
+
+        if (isActive === undefined) return true;
 
         const [result] = await pool.execute(
             `UPDATE assistants SET 
-        first_name = COALESCE(?, first_name),
-        last_name = COALESCE(?, last_name),
         is_active = COALESCE(?, is_active)
        WHERE id = ?`,
             [
-                firstName !== undefined ? firstName : null,
-                lastName !== undefined ? lastName : null,
                 isActive !== undefined ? isActive : null,
                 id
             ]

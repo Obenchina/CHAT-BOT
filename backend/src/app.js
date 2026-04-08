@@ -54,10 +54,10 @@ const apiLimiter = rateLimit({
     max: 1000,
     message: {
         success: false,
-        message: 'Trop de requêtes, veuillez réessayer plus tard.'
+        message: 'Trop de requetes, veuillez reessayer plus tard.'
     },
     standardHeaders: true,
-    legacyHeaders: false,
+    legacyHeaders: false
 });
 
 // Stricter rate limit for authentication: 200 requests per 15 minutes
@@ -66,10 +66,10 @@ const authLimiter = rateLimit({
     max: 200,
     message: {
         success: false,
-        message: 'Trop de tentatives de connexion, veuillez réessayer plus tard.'
+        message: 'Trop de tentatives de connexion, veuillez reessayer plus tard.'
     },
     standardHeaders: true,
-    legacyHeaders: false,
+    legacyHeaders: false
 });
 
 // Apply rate limiting to all API routes
@@ -114,7 +114,7 @@ app.get('/api/health', (req, res) => {
 // ======================
 
 // 404 handler for undefined routes
-app.use((req, res, next) => {
+app.use((req, res) => {
     res.status(404).json({
         success: false,
         message: 'Route not found'
@@ -137,41 +137,89 @@ app.use((err, req, res, next) => {
 
 const PORT = config.server.port;
 
+async function ensureColumn(pool, tableName, columnName, definition) {
+    const [rows] = await pool.execute(
+        `SELECT COUNT(*) as count
+         FROM information_schema.COLUMNS
+         WHERE TABLE_SCHEMA = DATABASE()
+           AND TABLE_NAME = ?
+           AND COLUMN_NAME = ?`,
+        [tableName, columnName]
+    );
+
+    if (!rows[0].count) {
+        await pool.execute(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${definition}`);
+        console.log(`Added column ${tableName}.${columnName}`);
+    }
+}
+
+async function runMigrations(pool) {
+    await pool.execute(`
+        CREATE TABLE IF NOT EXISTS pending_registrations (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            email VARCHAR(190) NOT NULL UNIQUE,
+            password_hash VARCHAR(255) NOT NULL,
+            first_name VARCHAR(100),
+            last_name VARCHAR(100),
+            gender ENUM('male','female') DEFAULT 'male',
+            phone VARCHAR(50),
+            address TEXT,
+            specialty VARCHAR(100),
+            otp_code VARCHAR(10) NOT NULL,
+            otp_expires_at DATETIME NOT NULL,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
+
+    await ensureColumn(pool, 'catalogues', 'name', "VARCHAR(150) NOT NULL DEFAULT 'Catalogue'");
+    await ensureColumn(pool, 'catalogues', 'is_active', 'BOOLEAN NOT NULL DEFAULT TRUE');
+    await ensureColumn(pool, 'case_answers', 'question_text_snapshot', 'TEXT NULL');
+    await ensureColumn(pool, 'case_answers', 'answer_type_snapshot', "ENUM('yes_no','voice','choices') NULL");
+    await ensureColumn(pool, 'case_answers', 'order_index_snapshot', 'INT NULL');
+
+    await pool.execute(`
+        UPDATE catalogues
+        SET
+            name = CASE
+                WHEN name IS NULL OR TRIM(name) = '' OR name = 'Catalogue' THEN CONCAT('Catalogue ', version)
+                ELSE name
+            END,
+            is_active = COALESCE(is_active, is_published, TRUE),
+            is_published = COALESCE(is_active, is_published, TRUE)
+    `);
+
+    await pool.execute(`
+        UPDATE case_answers ca
+        LEFT JOIN questions q ON q.id = ca.question_id
+        SET
+            ca.question_text_snapshot = COALESCE(ca.question_text_snapshot, q.question_text),
+            ca.answer_type_snapshot = COALESCE(ca.answer_type_snapshot, q.answer_type),
+            ca.order_index_snapshot = COALESCE(ca.order_index_snapshot, q.order_index)
+        WHERE
+            ca.question_text_snapshot IS NULL
+            OR ca.answer_type_snapshot IS NULL
+            OR ca.order_index_snapshot IS NULL
+    `);
+    console.log('Database migrations ready');
+}
+
 async function startServer() {
-    // Test database connection
     const dbConnected = await testConnection();
 
     if (!dbConnected) {
-        console.warn('⚠️  Starting server without database connection');
+        console.warn('Starting server without database connection');
     } else {
-        // Auto-migrate: create pending_registrations table if it doesn't exist
         try {
             const { pool } = require('./config/database');
-            await pool.execute(`
-                CREATE TABLE IF NOT EXISTS pending_registrations (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    email VARCHAR(190) NOT NULL UNIQUE,
-                    password_hash VARCHAR(255) NOT NULL,
-                    first_name VARCHAR(100),
-                    last_name VARCHAR(100),
-                    gender ENUM('male','female') DEFAULT 'male',
-                    phone VARCHAR(50),
-                    address TEXT,
-                    specialty VARCHAR(100),
-                    otp_code VARCHAR(10) NOT NULL,
-                    otp_expires_at DATETIME NOT NULL,
-                    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-                )
-            `);
-            console.log('✅ pending_registrations table ready');
+            await runMigrations(pool);
         } catch (err) {
-            console.warn('⚠️  Could not create pending_registrations table:', err.message);
+            console.warn('Could not run startup migrations:', err.message);
         }
     }
 
     app.listen(PORT, () => {
-        console.log(`🚀 Server running on http://localhost:${PORT}`);
-        console.log(`📍 Environment: ${config.server.env}`);
+        console.log(`Server running on http://localhost:${PORT}`);
+        console.log(`Environment: ${config.server.env}`);
     });
 }
 

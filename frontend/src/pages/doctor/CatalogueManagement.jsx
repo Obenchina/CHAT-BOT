@@ -1,42 +1,44 @@
 /**
  * Catalogue Management Page
- * Doctor can manage questionnaire questions with drag-and-drop reordering
+ * Doctor manages multiple named catalogues and their questions
  */
 
-import { useState, useEffect } from 'react';
+import { Fragment, useEffect, useState } from 'react';
 import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
 import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import catalogueService from '../../services/catalogueService';
 import translations from '../../constants/translations';
-import { showSuccess, showConfirm } from '../../utils/toast';
-import { ANSWER_TYPES } from '../../constants/config';
+import { showConfirm, showError, showSuccess } from '../../utils/toast';
 import '../../styles/dragdrop.css';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
-import CheckIcon from '@mui/icons-material/Check';
 import AddIcon from '@mui/icons-material/Add';
-import InboxIcon from '@mui/icons-material/Inbox';
+import ToggleOnIcon from '@mui/icons-material/ToggleOn';
+import ToggleOffIcon from '@mui/icons-material/ToggleOff';
+import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 
 const t = translations;
 
 function CatalogueManagement() {
-    // State
+    const [catalogues, setCatalogues] = useState([]);
+    const [selectedCatalogueId, setSelectedCatalogueId] = useState(null);
     const [catalogue, setCatalogue] = useState(null);
     const [questions, setQuestions] = useState([]);
     const [loading, setLoading] = useState(true);
-    const [showModal, setShowModal] = useState(false);
+    const [detailLoading, setDetailLoading] = useState(false);
+
+    const [showCatalogueModal, setShowCatalogueModal] = useState(false);
+    const [editingCatalogue, setEditingCatalogue] = useState(null);
+    const [savingCatalogue, setSavingCatalogue] = useState(false);
+    const [catalogueFormData, setCatalogueFormData] = useState({ name: '', isActive: true });
+    const [catalogueFormErrors, setCatalogueFormErrors] = useState({});
+
+    const [showQuestionModal, setShowQuestionModal] = useState(false);
     const [editingQuestion, setEditingQuestion] = useState(null);
-    const [saving, setSaving] = useState(false);
-
-    // Drag and drop state
-    const [draggedItem, setDraggedItem] = useState(null);
-    const [dragOverItem, setDragOverItem] = useState(null);
-    const [, setIsDragging] = useState(false);
-
-    // Form state
+    const [savingQuestion, setSavingQuestion] = useState(false);
     const [formData, setFormData] = useState({
         questionText: '',
         answerType: 'voice',
@@ -46,40 +48,210 @@ function CatalogueManagement() {
     });
     const [formErrors, setFormErrors] = useState({});
 
-    // Load catalogue
+    const [draggedItem, setDraggedItem] = useState(null);
+    const [dragOverItem, setDragOverItem] = useState(null);
+    const [, setIsDragging] = useState(false);
+
     useEffect(() => {
-        loadCatalogue();
+        loadCatalogues();
     }, []);
 
-    async function loadCatalogue() {
+    useEffect(() => {
+        if (selectedCatalogueId) {
+            loadSelectedCatalogue(selectedCatalogueId);
+        } else {
+            setCatalogue(null);
+            setQuestions([]);
+        }
+    }, [selectedCatalogueId]);
+
+    async function loadCatalogues(preferredId = null) {
         try {
-            const response = await catalogueService.getCatalogue();
+            const response = await catalogueService.getCatalogues();
             if (response.success) {
-                setCatalogue(response.data.catalogue);
-                setQuestions(response.data.questions || []);
+                const nextCatalogues = response.data.catalogues || [];
+                setCatalogues(nextCatalogues);
+                setSelectedCatalogueId((currentSelected) => {
+                    const requestedId = preferredId ?? currentSelected;
+                    if (requestedId && nextCatalogues.some((item) => item.id === requestedId)) {
+                        return requestedId;
+                    }
+                    return nextCatalogues[0]?.id || null;
+                });
             }
         } catch (error) {
-            console.error('Load catalogue error:', error);
+            console.error('Load catalogues error:', error);
+            showError(error.message || t.errors.serverError);
         } finally {
             setLoading(false);
         }
     }
 
-    // ==========================================
-    // DRAG AND DROP HANDLERS
-    // ==========================================
+    async function loadSelectedCatalogue(catalogueId) {
+        setDetailLoading(true);
+        try {
+            const response = await catalogueService.getCatalogue(catalogueId);
+            if (response.success) {
+                setCatalogue(response.data.catalogue);
+                setQuestions(response.data.questions || []);
+            }
+        } catch (error) {
+            console.error('Load selected catalogue error:', error);
+            showError(error.message || t.errors.serverError);
+        } finally {
+            setDetailLoading(false);
+        }
+    }
+
+    async function refreshSelectedCatalogue(catalogueId) {
+        await loadCatalogues(catalogueId);
+        if (catalogueId) {
+            await loadSelectedCatalogue(catalogueId);
+        }
+    }
+
+    function handleCatalogueFormChange(e) {
+        const { name, value, type, checked } = e.target;
+        setCatalogueFormData((prev) => ({
+            ...prev,
+            [name]: type === 'checkbox' ? checked : value
+        }));
+        setCatalogueFormErrors((prev) => ({ ...prev, [name]: '' }));
+    }
+
+    function validateCatalogueForm() {
+        const errors = {};
+        if (!catalogueFormData.name.trim()) {
+            errors.name = t.errors.required;
+        }
+        setCatalogueFormErrors(errors);
+        return Object.keys(errors).length === 0;
+    }
+
+    function openCreateCatalogueModal() {
+        setEditingCatalogue(null);
+        setCatalogueFormData({ name: '', isActive: true });
+        setCatalogueFormErrors({});
+        setShowCatalogueModal(true);
+    }
+
+    function toggleCatalogueRow(catalogueId) {
+        setSelectedCatalogueId((currentSelected) => (currentSelected === catalogueId ? null : catalogueId));
+    }
+
+    function openEditCatalogueModal(catalogueItem = catalogue) {
+        if (!catalogueItem) return;
+        setEditingCatalogue(catalogueItem);
+        setCatalogueFormData({
+            name: catalogueItem.name || '',
+            isActive: Boolean(catalogueItem.is_active)
+        });
+        setCatalogueFormErrors({});
+        setShowCatalogueModal(true);
+    }
+
+    function closeCatalogueModal() {
+        setShowCatalogueModal(false);
+        setEditingCatalogue(null);
+        setCatalogueFormData({ name: '', isActive: true });
+        setCatalogueFormErrors({});
+    }
+
+    async function handleCatalogueSubmit(e) {
+        e.preventDefault();
+        if (!validateCatalogueForm()) return;
+
+        setSavingCatalogue(true);
+        try {
+            if (editingCatalogue) {
+                const response = await catalogueService.updateCatalogue(editingCatalogue.id, {
+                    name: catalogueFormData.name,
+                    isActive: catalogueFormData.isActive
+                });
+                if (response.success) {
+                    showSuccess('Catalogue mis a jour avec succes');
+                    await refreshSelectedCatalogue(editingCatalogue.id);
+                    closeCatalogueModal();
+                }
+            } else {
+                const response = await catalogueService.createCatalogue({
+                    name: catalogueFormData.name,
+                    isActive: catalogueFormData.isActive
+                });
+                if (response.success) {
+                    showSuccess('Catalogue cree avec succes');
+                    await loadCatalogues(response.data.id);
+                    closeCatalogueModal();
+                }
+            }
+        } catch (error) {
+            console.error('Save catalogue error:', error);
+            setCatalogueFormErrors({ general: error.message || t.errors.serverError });
+        } finally {
+            setSavingCatalogue(false);
+        }
+    }
+
+    async function handleToggleCatalogueStatus(catalogueItem = catalogue) {
+        if (!catalogueItem) return;
+
+        try {
+            const response = await catalogueService.updateCatalogue(catalogueItem.id, {
+                isActive: !catalogueItem.is_active
+            });
+
+            if (response.success) {
+                showSuccess(catalogueItem.is_active ? 'Catalogue desactive' : 'Catalogue active');
+
+                if (selectedCatalogueId === catalogueItem.id) {
+                    await refreshSelectedCatalogue(catalogueItem.id);
+                } else {
+                    await loadCatalogues();
+                }
+            }
+        } catch (error) {
+            console.error('Toggle catalogue status error:', error);
+            showError(error.message || t.errors.serverError);
+        }
+    }
+
+    async function handleDeleteCatalogue(catalogueItem = catalogue) {
+        if (!catalogueItem) return;
+
+        const confirmed = await showConfirm(
+            `Supprimer le catalogue "${catalogueItem.name}" ? Cette action est definitive.`
+        );
+        if (!confirmed) return;
+
+        try {
+            const response = await catalogueService.deleteCatalogue(catalogueItem.id);
+            if (response.success) {
+                showSuccess('Catalogue supprime avec succes');
+
+                if (selectedCatalogueId === catalogueItem.id) {
+                    setSelectedCatalogueId(null);
+                    setCatalogue(null);
+                    setQuestions([]);
+                }
+
+                await loadCatalogues();
+            }
+        } catch (error) {
+            console.error('Delete catalogue error:', error);
+            showError(error.message || t.errors.serverError);
+        }
+    }
 
     function handleDragStart(e, index) {
         setDraggedItem(index);
         setIsDragging(true);
         e.dataTransfer.effectAllowed = 'move';
-        e.dataTransfer.setData('text/html', e.target.outerHTML);
-        // Add drag image
-        e.target.classList.add('dragging');
+        e.dataTransfer.setData('text/plain', String(index));
+        e.currentTarget.classList.add('dragging');
     }
 
     function handleDragEnd(e) {
-        e.target.classList.remove('dragging');
+        e.currentTarget.classList.remove('dragging');
         setDraggedItem(null);
         setDragOverItem(null);
         setIsDragging(false);
@@ -88,77 +260,57 @@ function CatalogueManagement() {
     function handleDragOver(e, index) {
         e.preventDefault();
         e.dataTransfer.dropEffect = 'move';
-        if (draggedItem !== index) {
-            setDragOverItem(index);
-        }
+        if (draggedItem !== index) setDragOverItem(index);
     }
 
     function handleDragEnter(e, index) {
         e.preventDefault();
-        if (draggedItem !== index) {
-            setDragOverItem(index);
-        }
+        if (draggedItem !== index) setDragOverItem(index);
     }
 
     function handleDragLeave(e) {
-        // Only reset if leaving the row entirely
-        if (!e.currentTarget.contains(e.relatedTarget)) {
-            setDragOverItem(null);
-        }
+        if (!e.currentTarget.contains(e.relatedTarget)) setDragOverItem(null);
     }
 
     async function handleDrop(e, dropIndex) {
         e.preventDefault();
 
-        if (draggedItem === null || draggedItem === dropIndex) {
+        const currentCatalogueId = catalogue?.id || selectedCatalogueId;
+        if (!currentCatalogueId || draggedItem === null || draggedItem === dropIndex) {
             setDragOverItem(null);
             return;
         }
 
-        // Reorder questions locally
         const newQuestions = [...questions];
         const [removed] = newQuestions.splice(draggedItem, 1);
         newQuestions.splice(dropIndex, 0, removed);
-
-        // Update state immediately for smooth UX
         setQuestions(newQuestions);
         setDragOverItem(null);
         setDraggedItem(null);
         setIsDragging(false);
 
-        // Save to backend
         try {
-            const orderData = newQuestions.map((q, idx) => ({
-                id: q.id,
-                orderIndex: idx + 1
-            }));
-
-            await catalogueService.reorderQuestions(catalogue.id, orderData);
+            const orderData = newQuestions.map((question, idx) => ({ id: question.id, orderIndex: idx + 1 }));
+            await catalogueService.reorderQuestions(currentCatalogueId, orderData);
         } catch (error) {
-            console.error('Reorder error:', error);
-            // Reload on error to restore original order
-            loadCatalogue();
+            console.error('Reorder questions error:', error);
+            showError(error.message || t.errors.serverError);
+            await loadSelectedCatalogue(currentCatalogueId);
         }
     }
 
-    // ==========================================
-    // FORM HANDLERS
-    // ==========================================
-
-    function handleFormChange(e) {
+    function handleQuestionFormChange(e) {
         const { name, value, type, checked } = e.target;
-        setFormData(prev => ({
+        setFormData((prev) => ({
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
-        setFormErrors(prev => ({ ...prev, [name]: '' }));
+        setFormErrors((prev) => ({ ...prev, [name]: '' }));
     }
 
-    function validateForm() {
+    function validateQuestionForm() {
         const errors = {};
-        if (!formData.questionText.trim()) {
-            errors.questionText = t.errors.required;
-        }
+        if (!formData.questionText.trim()) errors.questionText = t.errors.required;
         if (formData.answerType === 'choices' && !formData.choices.trim()) {
             errors.choices = 'Veuillez entrer les choix (un par ligne)';
         }
@@ -166,11 +318,39 @@ function CatalogueManagement() {
         return Object.keys(errors).length === 0;
     }
 
-    async function handleSubmit(e) {
-        e.preventDefault();
-        if (!validateForm()) return;
+    function openAddQuestionModal(catalogueItem = catalogue) {
+        if (!catalogueItem) return;
+        setEditingQuestion(null);
+        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '' });
+        setFormErrors({});
+        setShowQuestionModal(true);
+    }
 
-        setSaving(true);
+    function openEditQuestionModal(question) {
+        setEditingQuestion(question);
+        setFormData({
+            questionText: question.question_text || question.questionText,
+            answerType: question.answer_type || question.answerType,
+            isRequired: question.is_required ?? question.isRequired ?? true,
+            isActive: question.is_active ?? question.isActive ?? true,
+            choices: Array.isArray(question.choices) ? question.choices.join('\n') : ''
+        });
+        setFormErrors({});
+        setShowQuestionModal(true);
+    }
+
+    function closeQuestionModal() {
+        setShowQuestionModal(false);
+        setEditingQuestion(null);
+        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '' });
+        setFormErrors({});
+    }
+
+    async function handleQuestionSubmit(e) {
+        e.preventDefault();
+        if (!catalogue || !validateQuestionForm()) return;
+
+        setSavingQuestion(true);
         try {
             const payload = {
                 questionText: formData.questionText,
@@ -178,114 +358,67 @@ function CatalogueManagement() {
                 isRequired: formData.isRequired,
                 isActive: formData.isActive,
                 choices: formData.answerType === 'choices'
-                    ? formData.choices.split('\n').filter(c => c.trim())
+                    ? formData.choices.split('\n').map((choice) => choice.trim()).filter(Boolean)
                     : null
             };
 
             if (editingQuestion) {
                 const response = await catalogueService.updateQuestion(editingQuestion.id, payload);
                 if (response.success) {
-                    setQuestions(prev => prev.map(q =>
-                        q.id === editingQuestion.id ? {
-                            ...q,
-                            question_text: payload.questionText,
-                            answer_type: payload.answerType,
-                            is_required: payload.isRequired,
-                            is_active: payload.isActive,
-                            choices: payload.choices,
-                            // Verify camelCase properties are also updated/available if needed by other components
-                            questionText: payload.questionText,
-                            answerType: payload.answerType,
-                            isRequired: payload.isRequired,
-                            isActive: payload.isActive
-                        } : q
-                    ));
-                    closeModal();
+                    showSuccess('Question mise a jour');
+                    await refreshSelectedCatalogue(catalogue.id);
+                    closeQuestionModal();
                 }
             } else {
-                const catalogueId = catalogue?.id || null;
-                const response = await catalogueService.addQuestion(catalogueId, payload);
+                const response = await catalogueService.addQuestion(catalogue.id, payload);
                 if (response.success) {
-                    if (response.data.catalogue) {
-                        setCatalogue(response.data.catalogue);
-                    }
-                    setQuestions(prev => [...prev, response.data.question || response.data]);
-                    closeModal();
+                    showSuccess('Question ajoutee');
+                    await refreshSelectedCatalogue(catalogue.id);
+                    closeQuestionModal();
                 }
             }
         } catch (error) {
             console.error('Save question error:', error);
             setFormErrors({ general: error.message || t.errors.serverError });
         } finally {
-            setSaving(false);
+            setSavingQuestion(false);
         }
     }
 
-    async function handleDelete(questionId) {
-        const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cette question ?');
-        if (!confirmed) return;
+    async function handleToggleQuestionStatus(question) {
+        if (!catalogue) return;
+
+        const isQuestionActive = question.is_active ?? question.isActive;
+
+        try {
+            const response = await catalogueService.updateQuestion(question.id, {
+                isActive: !isQuestionActive
+            });
+
+            if (response.success) {
+                showSuccess(isQuestionActive ? 'Question desactivee' : 'Question activee');
+                await refreshSelectedCatalogue(catalogue.id);
+            }
+        } catch (error) {
+            console.error('Toggle question status error:', error);
+            showError(error.message || t.errors.serverError);
+        }
+    }
+
+    async function handleDeleteQuestion(questionId) {
+        const confirmed = await showConfirm('Supprimer cette question ?');
+        if (!confirmed || !catalogue) return;
 
         try {
             const response = await catalogueService.deleteQuestion(questionId);
             if (response.success) {
-                setQuestions(prev => prev.filter(q => q.id !== questionId));
+                showSuccess('Question supprimee');
+                await refreshSelectedCatalogue(catalogue.id);
             }
         } catch (error) {
             console.error('Delete question error:', error);
+            showError(error.message || t.errors.serverError);
         }
-    }
-
-    async function handlePublish() {
-        const confirmed = await showConfirm('Publier ce catalogue ? Les cas existants garderont l\'ancienne version.');
-        if (!confirmed) return;
-
-        try {
-            const response = await catalogueService.publish(catalogue.id);
-            if (response.success) {
-                setCatalogue(prev => ({ ...prev, is_published: true }));
-                showSuccess(t.catalogue.published);
-            }
-        } catch (error) {
-            console.error('Publish error:', error);
-        }
-    }
-
-    function openAddModal() {
-        setFormData({
-            questionText: '',
-            answerType: 'voice',
-            isRequired: true,
-            isActive: true,
-            choices: ''
-        });
-        setFormErrors({});
-        setEditingQuestion(null);
-        setShowModal(true);
-    }
-
-    function openEditModal(question) {
-        setFormData({
-            questionText: question.question_text || question.questionText,
-            answerType: question.answer_type || question.answerType,
-            isRequired: question.is_required ?? question.isRequired ?? true,
-            isActive: question.is_active ?? question.isActive ?? true,
-            choices: question.choices ? question.choices.join('\n') : ''
-        });
-        setFormErrors({});
-        setEditingQuestion(question);
-        setShowModal(true);
-    }
-
-    function closeModal() {
-        setShowModal(false);
-        setEditingQuestion(null);
-        setFormData({
-            questionText: '',
-            answerType: 'voice',
-            isRequired: true,
-            isActive: true,
-            choices: ''
-        });
     }
 
     function getAnswerTypeLabel(type) {
@@ -297,146 +430,93 @@ function CatalogueManagement() {
         return labels[type] || type;
     }
 
-    return (
-        <div className="layout internal-shell catalogue-shell">
-            <Sidebar />
+    function renderQuestionActions(question) {
+        const isQuestionActive = question.is_active ?? question.isActive;
 
-            <main className="main-content">
-                <div className="page-header">
-                    <div>
-                        <h1 className="page-title">{t.catalogue.title}</h1>
-                        <p style={{ margin: 0, fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
-                            Gérez les questions du questionnaire
-                        </p>
-                    </div>
-                    <div className="flex gap-md">
-                        {catalogue && !catalogue.is_published && (
-                            <Button variant="success" onClick={handlePublish}>
-                                <CheckIcon fontSize="small" /> {t.catalogue.publish}
-                            </Button>
-                        )}
-                        <Button variant="primary" onClick={openAddModal}>
-                            <AddIcon fontSize="small" /> {t.catalogue.addQuestion}
-                        </Button>
-                    </div>
+        return (
+            <div>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="btn-icon"
+                    title={t.common.edit}
+                    onClick={() => openEditQuestionModal(question)}
+                >
+                    <EditIcon fontSize="small" />
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="btn-icon"
+                    title={isQuestionActive ? 'Desactiver la question' : 'Activer la question'}
+                    onClick={() => handleToggleQuestionStatus(question)}
+                >
+                    {isQuestionActive ? <ToggleOffIcon fontSize="small" /> : <ToggleOnIcon fontSize="small" />}
+                </Button>
+                <Button
+                    variant="ghost"
+                    size="sm"
+                    className="btn-icon"
+                    title={t.common.delete}
+                    style={{ color: 'var(--error)' }}
+                    onClick={() => handleDeleteQuestion(question.id)}
+                >
+                    <DeleteIcon fontSize="small" />
+                </Button>
+            </div>
+        );
+    }
+
+    function renderExpandedCatalogueContent() {
+        if (detailLoading) {
+            return (
+                <div className="catalogue-expanded-loading">
+                    <LoadingSpinner size="md" text={t.common.loading} />
+                </div>
+            );
+        }
+
+        return (
+            <div className="catalogue-expanded-panel">
+                <div className="catalogue-expanded-toolbar">
+                    <Button variant="primary" onClick={() => openAddQuestionModal(catalogue)}>
+                        <AddIcon fontSize="small" /> {t.catalogue.addQuestion}
+                    </Button>
                 </div>
 
-                <div className="page-content">
-                    {loading ? (
-                        <div className="flex justify-center" style={{ padding: 'var(--space-2xl)' }}>
-                            <LoadingSpinner size="lg" text={t.common.loading} />
-                        </div>
-                    ) : (
-                        <>
-                            {/* Catalogue info */}
-                            {catalogue && (
-                                <div className="card toolbar-shell" style={{ marginBottom: 'var(--space-lg)' }}>
-                                    <div className="card-body flex justify-between items-center">
-                                        <div>
-                                            <strong>{t.catalogue.version}:</strong> {catalogue.version}
-                                        </div>
-                                        <span className={`badge ${catalogue.is_published ? 'badge-success' : 'badge-warning'}`}>
-                                            {catalogue.is_published ? 'Publié' : 'Brouillon'}
-                                        </span>
-                                    </div>
-                                </div>
-                            )}
+                {questions.length > 1 && (
+                    <div className="drag-hint">
+                        <span className="drag-hint-icon">
+                            <DragIndicatorIcon />
+                        </span>
+                        <span>Glissez-deposez les lignes pour reordonner les questions</span>
+                    </div>
+                )}
 
-                            {/* Drag and drop hint */}
-                            {questions.length > 1 && (
-                                <div className="drag-hint">
-                                    <span className="drag-hint-icon"><DragIndicatorIcon /></span>
-                                    <span>Glissez-déposez les lignes pour réorganiser les questions</span>
-                                </div>
-                            )}
+                {questions.length > 0 ? (
+                    <>
+                        <div className="table-container desktop-table-container">
+                            <table className="table drag-table catalogue-question-table">
+                                <thead>
+                                    <tr>
+                                        <th style={{ width: '64px' }}>#</th>
+                                        <th>Question</th>
+                                        <th style={{ width: '18%' }}>{t.catalogue.answerType}</th>
+                                        <th style={{ width: '14%' }}>{t.common.status}</th>
+                                        <th className="col-actions" style={{ width: '144px' }}>
+                                            {t.common.actions}
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {questions.map((question, index) => {
+                                        const isQuestionActive = question.is_active ?? question.isActive;
+                                        const questionText = question.question_text || question.questionText;
+                                        const isRequired = question.is_required ?? question.isRequired;
 
-                            {/* Questions list with drag and drop */}
-                            {questions.length > 0 ? (
-                                <div className="card">
-                                    {/* Desktop Table view */}
-                                    <div className="table-container desktop-table-container">
-                                        <table className="table drag-table">
-                                            <thead>
-                                                <tr>
-                                                    <th style={{ width: '50px' }}>#</th>
-                                                    <th>Question</th>
-                                                    <th style={{ width: '18%' }}>{t.catalogue.answerType}</th>
-                                                    <th style={{ width: '10%' }}>{t.common.status}</th>
-                                                    <th className="col-actions" style={{ width: '100px', textAlign: 'right' }}>{t.common.actions}</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {questions.map((question, index) => (
-                                                    <tr
-                                                        key={question.id}
-                                                        draggable
-                                                        onDragStart={(e) => handleDragStart(e, index)}
-                                                        onDragEnd={handleDragEnd}
-                                                        onDragOver={(e) => handleDragOver(e, index)}
-                                                        onDragEnter={(e) => handleDragEnter(e, index)}
-                                                        onDragLeave={handleDragLeave}
-                                                        onDrop={(e) => handleDrop(e, index)}
-                                                        className={`
-                                                            drag-row
-                                                            ${draggedItem === index ? 'dragging' : ''}
-                                                            ${dragOverItem === index ? 'drag-over' : ''}
-                                                            ${dragOverItem === index && draggedItem !== null && draggedItem < index ? 'drag-over-bottom' : ''}
-                                                            ${dragOverItem === index && draggedItem !== null && draggedItem > index ? 'drag-over-top' : ''}
-                                                        `}
-                                                    >
-                                                        <td data-label="#" className="drag-handle-cell">
-                                                            <div className="drag-handle" title="Glisser pour réordonner">
-                                                                <span className="drag-icon"><DragIndicatorIcon fontSize="small" /></span>
-                                                                <span className="question-number">{index + 1}</span>
-                                                            </div>
-                                                        </td>
-                                                        <td data-label="Question" className="col-truncate" title={question.question_text || question.questionText}>
-                                                            {question.question_text || question.questionText}
-                                                            {(question.is_required ?? question.isRequired) && (
-                                                                <span style={{ color: 'var(--error)', marginLeft: '4px' }}>*</span>
-                                                            )}
-                                                        </td>
-                                                        <td data-label={t.catalogue.answerType}>{getAnswerTypeLabel(question.answer_type || question.answerType)}</td>
-                                                        <td data-label={t.common.status}>
-                                                            <span className={`badge ${(question.is_active ?? question.isActive) ? 'badge-success' : 'badge-gray'}`}>
-                                                                {(question.is_active ?? question.isActive) ? 'Actif' : 'Inactif'}
-                                                            </span>
-                                                        </td>
-                                                        <td data-label={t.common.actions} className="col-actions text-right">
-                                                            <div className="flex gap-sm justify-end">
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="btn-icon"
-                                                                    onClick={() => openEditModal(question)}
-                                                                    title="Modifier"
-                                                                >
-                                                                    <EditIcon fontSize="small" />
-                                                                </Button>
-                                                                <Button
-                                                                    variant="ghost"
-                                                                    size="sm"
-                                                                    className="btn-icon"
-                                                                    onClick={() => handleDelete(question.id)}
-                                                                    title="Supprimer"
-                                                                    style={{ color: 'var(--error)' }}
-                                                                >
-                                                                    <DeleteIcon fontSize="small" />
-                                                                </Button>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
-                                    </div>
-
-                                    {/* Mobile List View */}
-                                    <div className="mobile-list-container" style={{ padding: 'var(--space-md)' }}>
-                                        {questions.map((question, index) => (
-                                            <div
-                                                key={`mob-${question.id}`}
-                                                className={`mobile-list-item drag-row ${draggedItem === index ? 'dragging' : ''} ${dragOverItem === index ? 'drag-over' : ''}`}
+                                        return (
+                                            <tr
+                                                key={question.id}
                                                 draggable
                                                 onDragStart={(e) => handleDragStart(e, index)}
                                                 onDragEnd={handleDragEnd}
@@ -444,162 +524,374 @@ function CatalogueManagement() {
                                                 onDragEnter={(e) => handleDragEnter(e, index)}
                                                 onDragLeave={handleDragLeave}
                                                 onDrop={(e) => handleDrop(e, index)}
+                                                className={`drag-row ${draggedItem === index ? 'dragging' : ''} ${dragOverItem === index ? 'drag-over' : ''}`}
                                             >
-                                                <div className="mobile-list-header" style={{ cursor: 'grab', paddingBottom: 'var(--space-sm)' }}>
-                                                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 'var(--space-md)', minWidth: 0, width: '100%' }}>
-                                                        <div className="drag-handle" style={{ padding: '4px', cursor: 'grab', color: 'var(--text-muted)' }}>
+                                                <td className="drag-handle-cell">
+                                                    <div className="drag-handle" title="Glisser pour reordonner">
+                                                        <span className="drag-icon">
                                                             <DragIndicatorIcon fontSize="small" />
-                                                        </div>
-                                                        <div style={{ flex: 1, minWidth: 0 }}>
-                                                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '4px' }}>
-                                                                <p style={{ margin: 0, fontWeight: 500, color: 'var(--text-primary)', display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                                                                    <span style={{ color: 'var(--text-muted)', marginRight: '8px' }}>#{index + 1}</span>
-                                                                    {question.question_text || question.questionText}
-                                                                    {(question.is_required ?? question.isRequired) && <span style={{ color: 'var(--error)', marginLeft: '4px' }}>*</span>}
-                                                                </p>
-                                                            </div>
-                                                            <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                                                                <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                                    {getAnswerTypeLabel(question.answer_type || question.answerType)}
-                                                                </span>
-                                                                <span style={{ color: 'var(--border-color)' }}>•</span>
-                                                                <span className={`badge ${(question.is_active ?? question.isActive) ? 'badge-success' : 'badge-gray'}`} style={{ transform: 'scale(0.8)', transformOrigin: 'left' }}>
-                                                                    {(question.is_active ?? question.isActive) ? 'Actif' : 'Inactif'}
-                                                                </span>
-                                                            </div>
-                                                        </div>
+                                                        </span>
+                                                        <span className="question-number">{index + 1}</span>
                                                     </div>
-                                                </div>
-                                                <div className="mobile-list-content" style={{ display: 'flex', gap: 'var(--space-sm)', paddingTop: 'var(--space-md)' }}>
-                                                    <Button variant="secondary" size="sm" style={{ flex: 1 }} onClick={() => openEditModal(question)}>
-                                                        <EditIcon fontSize="small" style={{ marginRight: '4px' }} /> Modifier
-                                                    </Button>
-                                                    <Button variant="ghost" size="sm" className="btn-icon" style={{ color: 'var(--error)' }} onClick={() => handleDelete(question.id)}>
-                                                        <DeleteIcon fontSize="small" />
-                                                    </Button>
-                                                </div>
+                                                </td>
+                                                <td className="col-truncate" title={questionText}>
+                                                    {questionText}
+                                                    {isRequired && <span style={{ color: 'var(--error)', marginLeft: '4px' }}>*</span>}
+                                                </td>
+                                                <td>{getAnswerTypeLabel(question.answer_type || question.answerType)}</td>
+                                                <td>
+                                                    <span className={`badge ${isQuestionActive ? 'badge-success' : 'badge-gray'}`}>
+                                                        {isQuestionActive ? 'Actif' : 'Inactif'}
+                                                    </span>
+                                                </td>
+                                                <td className="col-actions">{renderQuestionActions(question)}</td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        <div className="mobile-list-container catalogue-question-mobile-list">
+                            {questions.map((question, index) => {
+                                const isQuestionActive = question.is_active ?? question.isActive;
+                                const questionText = question.question_text || question.questionText;
+                                const isRequired = question.is_required ?? question.isRequired;
+
+                                return (
+                                    <div
+                                        key={`mobile-question-${question.id}`}
+                                        className={`mobile-list-item catalogue-question-mobile-item ${draggedItem === index ? 'dragging' : ''} ${dragOverItem === index ? 'drag-over' : ''}`}
+                                        draggable
+                                        onDragStart={(e) => handleDragStart(e, index)}
+                                        onDragEnd={handleDragEnd}
+                                        onDragOver={(e) => handleDragOver(e, index)}
+                                        onDragEnter={(e) => handleDragEnter(e, index)}
+                                        onDragLeave={handleDragLeave}
+                                        onDrop={(e) => handleDrop(e, index)}
+                                    >
+                                        <div className="catalogue-question-mobile-main">
+                                            <div className="drag-handle" title="Glisser pour reordonner">
+                                                <span className="drag-icon">
+                                                    <DragIndicatorIcon fontSize="small" />
+                                                </span>
+                                                <span className="question-number">{index + 1}</span>
                                             </div>
-                                        ))}
+                                            <div className="catalogue-question-mobile-copy">
+                                                <p className="catalogue-question-mobile-text">
+                                                    {questionText}
+                                                    {isRequired && <span style={{ color: 'var(--error)', marginLeft: '4px' }}>*</span>}
+                                                </p>
+                                                <p className="catalogue-question-mobile-meta">
+                                                    {getAnswerTypeLabel(question.answer_type || question.answerType)}
+                                                </p>
+                                            </div>
+                                            <span className={`badge ${isQuestionActive ? 'badge-success' : 'badge-gray'}`}>
+                                                {isQuestionActive ? 'Actif' : 'Inactif'}
+                                            </span>
+                                        </div>
+                                        <div className="catalogue-question-mobile-actions">
+                                            {renderQuestionActions(question)}
+                                        </div>
                                     </div>
-                                </div>
-                            ) : (
-                                <div className="card">
-                                    <div className="card-body" style={{ textAlign: 'center', padding: 'var(--space-2xl) var(--space-xl)' }}>
-                                        <div style={{
-                                            width: 56, height: 56, borderRadius: '50%',
-                                            background: 'var(--gray-100)', display: 'flex',
-                                            alignItems: 'center', justifyContent: 'center',
-                                            margin: '0 auto var(--space-md)'
-                                        }}>
-                                            <InboxIcon style={{ color: 'var(--gray-400)', fontSize: 28 }} />
-                                        </div>
-                                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', marginBottom: 4 }}>
-                                            {t.catalogue.noQuestions}
-                                        </div>
-                                        <div style={{ fontSize: '0.813rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                                            Ajoutez votre première question pour démarrer
-                                        </div>
-                                        <Button variant="primary" size="sm" onClick={openAddModal}>
-                                            <AddIcon fontSize="small" /> {t.catalogue.addQuestion}
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-                        </>
-                    )}
+                                );
+                            })}
+                        </div>
+                    </>
+                ) : (
+                    <div className="catalogue-empty-state">
+                        <p style={{ margin: 0, color: 'var(--text-secondary)' }}>{t.catalogue.noQuestions}</p>
+                    </div>
+                )}
+            </div>
+        );
+    }
+
+    return (
+        <div className="layout internal-shell catalogue-shell">
+            <Sidebar />
+            <main className="main-content">
+                <div className="page-header">
+                    <div>
+                        <h1 className="page-title">{t.catalogue.title}</h1>
+                        <p style={{ margin: 0, fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
+                            Creez plusieurs catalogues et choisissez celui qui correspond a chaque visite.
+                        </p>
+                    </div>
+                    <Button variant="primary" onClick={openCreateCatalogueModal}>
+                        <AddIcon fontSize="small" /> Nouveau catalogue
+                    </Button>
                 </div>
 
-                {/* Add/Edit Question Modal */}
-                <Modal
-                    isOpen={showModal}
-                    onClose={closeModal}
-                    title={editingQuestion ? t.catalogue.editQuestion : t.catalogue.addQuestion}
-                    footer={
-                        <>
-                            <Button variant="secondary" onClick={closeModal}>
-                                {t.common.cancel}
-                            </Button>
-                            <Button variant="primary" onClick={handleSubmit} loading={saving}>
-                                {t.common.save}
-                            </Button>
-                        </>
-                    }
-                >
-                    {formErrors.general && (
-                        <div className="alert alert-error">{formErrors.general}</div>
+                <div className="page-content">
+                    {loading ? (
+                        <div className="flex justify-center" style={{ padding: 'var(--space-2xl)' }}>
+                            <LoadingSpinner size="lg" text={t.common.loading} />
+                        </div>
+                    ) : catalogues.length === 0 ? (
+                        <div className="card empty-state-card" style={{ padding: 'var(--space-3xl)', textAlign: 'center' }}>
+                            <h3 style={{ marginBottom: 'var(--space-sm)' }}>Aucun catalogue</h3>
+                            <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                                Creez votre premier catalogue pour commencer.
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="card catalogue-list-shell">
+                            <div className="table-container desktop-table-container">
+                                <table className="table catalogue-master-table">
+                                    <thead>
+                                        <tr>
+                                            <th style={{ width: '48px' }}></th>
+                                            <th>Catalogue</th>
+                                            <th style={{ width: '16%' }}>{t.common.status}</th>
+                                            <th className="col-actions" style={{ width: '164px' }}>
+                                                {t.common.actions}
+                                            </th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {catalogues.map((item) => {
+                                            const isExpanded = item.id === selectedCatalogueId;
+
+                                            return (
+                                                <Fragment key={`catalogue-group-${item.id}`}>
+                                                    <tr
+                                                        className={`catalogue-master-row ${isExpanded ? 'is-expanded' : ''}`}
+                                                        onClick={() => toggleCatalogueRow(item.id)}
+                                                    >
+                                                        <td className="catalogue-expand-cell">
+                                                            <KeyboardArrowRightIcon
+                                                                className={`catalogue-chevron ${isExpanded ? 'is-open' : ''}`}
+                                                                fontSize="small"
+                                                            />
+                                                        </td>
+                                                        <td className="col-truncate" title={item.name}>
+                                                            <span className="catalogue-name-cell">{item.name}</span>
+                                                        </td>
+                                                        <td>
+                                                            <span className={`badge ${item.is_active ? 'badge-success' : 'badge-gray'}`}>
+                                                                {item.is_active ? 'Actif' : 'Desactive'}
+                                                            </span>
+                                                        </td>
+                                                        <td className="col-actions">
+                                                            <div>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="btn-icon"
+                                                                    title={t.common.edit}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        openEditCatalogueModal(item);
+                                                                    }}
+                                                                >
+                                                                    <EditIcon fontSize="small" />
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="btn-icon"
+                                                                    title={item.is_active ? 'Desactiver le catalogue' : 'Activer le catalogue'}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleToggleCatalogueStatus(item);
+                                                                    }}
+                                                                >
+                                                                    {item.is_active ? <ToggleOffIcon fontSize="small" /> : <ToggleOnIcon fontSize="small" />}
+                                                                </Button>
+                                                                <Button
+                                                                    variant="ghost"
+                                                                    size="sm"
+                                                                    className="btn-icon"
+                                                                    title={t.common.delete}
+                                                                    style={{ color: 'var(--error)' }}
+                                                                    onClick={(e) => {
+                                                                        e.stopPropagation();
+                                                                        handleDeleteCatalogue(item);
+                                                                    }}
+                                                                >
+                                                                    <DeleteIcon fontSize="small" />
+                                                                </Button>
+                                                            </div>
+                                                        </td>
+                                                    </tr>
+
+                                                    {isExpanded && (
+                                                        <tr className="catalogue-expanded-row">
+                                                            <td colSpan={4}>{renderExpandedCatalogueContent()}</td>
+                                                        </tr>
+                                                    )}
+                                                </Fragment>
+                                            );
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            <div className="mobile-list-container catalogue-mobile-list">
+                                {catalogues.map((item) => {
+                                    const isExpanded = item.id === selectedCatalogueId;
+
+                                    return (
+                                        <div key={`mobile-catalogue-${item.id}`} className="mobile-list-item catalogue-mobile-item">
+                                            <button
+                                                type="button"
+                                                className="mobile-list-header catalogue-mobile-header"
+                                                onClick={() => toggleCatalogueRow(item.id)}
+                                            >
+                                                <div className="catalogue-mobile-header-copy">
+                                                    <p className="catalogue-mobile-name">{item.name}</p>
+                                                </div>
+                                                <div className="catalogue-mobile-header-meta">
+                                                    <span className={`badge ${item.is_active ? 'badge-success' : 'badge-gray'}`}>
+                                                        {item.is_active ? 'Actif' : 'Desactive'}
+                                                    </span>
+                                                    <KeyboardArrowRightIcon
+                                                        className={`catalogue-chevron ${isExpanded ? 'is-open' : ''}`}
+                                                        fontSize="small"
+                                                    />
+                                                </div>
+                                            </button>
+
+                                            <div className="catalogue-mobile-actions">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="btn-icon"
+                                                    title={t.common.edit}
+                                                    onClick={() => openEditCatalogueModal(item)}
+                                                >
+                                                    <EditIcon fontSize="small" />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="btn-icon"
+                                                    title={item.is_active ? 'Desactiver le catalogue' : 'Activer le catalogue'}
+                                                    onClick={() => handleToggleCatalogueStatus(item)}
+                                                >
+                                                    {item.is_active ? <ToggleOffIcon fontSize="small" /> : <ToggleOnIcon fontSize="small" />}
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="btn-icon"
+                                                    title={t.common.delete}
+                                                    style={{ color: 'var(--error)' }}
+                                                    onClick={() => handleDeleteCatalogue(item)}
+                                                >
+                                                    <DeleteIcon fontSize="small" />
+                                                </Button>
+                                            </div>
+
+                                            {isExpanded && (
+                                                <div className="mobile-list-content catalogue-mobile-content">
+                                                    {renderExpandedCatalogueContent()}
+                                                </div>
+                                            )}
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </main>
+
+            <Modal
+                isOpen={showCatalogueModal}
+                onClose={closeCatalogueModal}
+                title={editingCatalogue ? 'Modifier le catalogue' : 'Nouveau catalogue'}
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={closeCatalogueModal}>{t.common.cancel}</Button>
+                        <Button variant="primary" onClick={handleCatalogueSubmit} loading={savingCatalogue}>{t.common.save}</Button>
+                    </>
+                }
+            >
+                {catalogueFormErrors.general && <div className="alert alert-error">{catalogueFormErrors.general}</div>}
+                <form onSubmit={handleCatalogueSubmit}>
+                    <div className="form-group">
+                        <label className="form-label">Nom du catalogue *</label>
+                        <input
+                            type="text"
+                            name="name"
+                            value={catalogueFormData.name}
+                            onChange={handleCatalogueFormChange}
+                            className={`form-input ${catalogueFormErrors.name ? 'error' : ''}`}
+                            placeholder="Ex: Suivi diabete"
+                        />
+                        {catalogueFormErrors.name && <span className="form-error">{catalogueFormErrors.name}</span>}
+                    </div>
+                    <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                        <input type="checkbox" name="isActive" checked={catalogueFormData.isActive} onChange={handleCatalogueFormChange} />
+                        Catalogue visible pour l'assistant
+                    </label>
+                </form>
+            </Modal>
+
+            <Modal
+                isOpen={showQuestionModal}
+                onClose={closeQuestionModal}
+                title={editingQuestion ? t.catalogue.editQuestion : t.catalogue.addQuestion}
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={closeQuestionModal}>{t.common.cancel}</Button>
+                        <Button variant="primary" onClick={handleQuestionSubmit} loading={savingQuestion}>{t.common.save}</Button>
+                    </>
+                }
+            >
+                {formErrors.general && <div className="alert alert-error">{formErrors.general}</div>}
+                <form onSubmit={handleQuestionSubmit}>
+                    <div className="form-group">
+                        <label className="form-label">{t.catalogue.questionText} *</label>
+                        <textarea
+                            name="questionText"
+                            value={formData.questionText}
+                            onChange={handleQuestionFormChange}
+                            className={`form-input ${formErrors.questionText ? 'error' : ''}`}
+                            rows={3}
+                            placeholder="Entrez votre question..."
+                        />
+                        {formErrors.questionText && <span className="form-error">{formErrors.questionText}</span>}
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">{t.catalogue.answerType}</label>
+                        <select name="answerType" value={formData.answerType} onChange={handleQuestionFormChange} className="form-input form-select">
+                            <option value="voice">{t.catalogue.voice}</option>
+                            <option value="yes_no">{t.catalogue.yesNo}</option>
+                            <option value="choices">{t.catalogue.choices}</option>
+                        </select>
+                    </div>
+
+                    {formData.answerType === 'choices' && (
+                        <div className="form-group">
+                            <label className="form-label">Choix (un par ligne)</label>
+                            <textarea
+                                name="choices"
+                                value={formData.choices}
+                                onChange={handleQuestionFormChange}
+                                className={`form-input ${formErrors.choices ? 'error' : ''}`}
+                                rows={4}
+                                placeholder={'Option 1\nOption 2\nOption 3'}
+                            />
+                            {formErrors.choices && <span className="form-error">{formErrors.choices}</span>}
+                        </div>
                     )}
 
-                    <form onSubmit={handleSubmit}>
-                        <div className="form-group">
-                            <label className="form-label">{t.catalogue.questionText} *</label>
-                            <textarea
-                                name="questionText"
-                                value={formData.questionText}
-                                onChange={handleFormChange}
-                                className={`form-input ${formErrors.questionText ? 'error' : ''}`}
-                                rows="3"
-                                placeholder="Entrez votre question..."
-                            />
-                            {formErrors.questionText && (
-                                <span className="form-error">{formErrors.questionText}</span>
-                            )}
-                        </div>
-
-                        <div className="form-group">
-                            <label className="form-label">{t.catalogue.answerType}</label>
-                            <select
-                                name="answerType"
-                                value={formData.answerType}
-                                onChange={handleFormChange}
-                                className="form-input form-select"
-                            >
-                                <option value="voice">{t.catalogue.voice}</option>
-                                <option value="yes_no">{t.catalogue.yesNo}</option>
-                                <option value="choices">{t.catalogue.choices}</option>
-                            </select>
-                        </div>
-
-                        {formData.answerType === 'choices' && (
-                            <div className="form-group">
-                                <label className="form-label">Choix (un par ligne) *</label>
-                                <textarea
-                                    name="choices"
-                                    value={formData.choices}
-                                    onChange={handleFormChange}
-                                    className={`form-input ${formErrors.choices ? 'error' : ''}`}
-                                    rows="4"
-                                    placeholder="Choix 1&#10;Choix 2&#10;Choix 3"
-                                />
-                                {formErrors.choices && (
-                                    <span className="form-error">{formErrors.choices}</span>
-                                )}
-                            </div>
-                        )}
-
-                        <div className="flex gap-lg">
-                            <label className="flex items-center gap-sm">
-                                <input
-                                    type="checkbox"
-                                    name="isRequired"
-                                    checked={formData.isRequired}
-                                    onChange={handleFormChange}
-                                />
-                                {t.catalogue.required}
-                            </label>
-
-                            <label className="flex items-center gap-sm">
-                                <input
-                                    type="checkbox"
-                                    name="isActive"
-                                    checked={formData.isActive}
-                                    onChange={handleFormChange}
-                                />
-                                {t.catalogue.active}
-                            </label>
-                        </div>
-                    </form>
-                </Modal>
-            </main>
+                    <div className="flex gap-md" style={{ marginTop: 'var(--space-md)' }}>
+                        <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input type="checkbox" name="isRequired" checked={formData.isRequired} onChange={handleQuestionFormChange} />
+                            {t.catalogue.required}
+                        </label>
+                        <label className="checkbox-label" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            <input type="checkbox" name="isActive" checked={formData.isActive} onChange={handleQuestionFormChange} />
+                            {t.catalogue.active}
+                        </label>
+                    </div>
+                </form>
+            </Modal>
         </div>
     );
 }

@@ -12,12 +12,12 @@ const Doctor = {
      * @returns {Promise<Object>} Created doctor profile
      */
     async create(doctorData) {
-        const { userId, firstName, lastName, gender, phone, email, address, specialty } = doctorData;
+        const { userId, gender, phone, address, specialty } = doctorData;
 
         const [result] = await pool.execute(
-            `INSERT INTO doctors (user_id, first_name, last_name, gender, phone, email, address, specialty)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-            [userId, firstName, lastName, gender || null, phone, email, address, specialty]
+            `INSERT INTO doctors (user_id, gender, phone, address, specialty)
+       VALUES (?, ?, ?, ?, ?)`,
+            [userId, gender || null, phone, address, specialty]
         );
 
         return {
@@ -27,13 +27,16 @@ const Doctor = {
     },
 
     /**
-     * Find doctor by user ID
+     * Find doctor by user ID (with name from users table)
      * @param {number} userId - User ID
      * @returns {Promise<Object|null>} Doctor profile or null
      */
     async findByUserId(userId) {
         const [doctors] = await pool.execute(
-            'SELECT * FROM doctors WHERE user_id = ?',
+            `SELECT d.*, u.first_name, u.last_name, u.email
+       FROM doctors d
+       JOIN users u ON d.user_id = u.id
+       WHERE d.user_id = ?`,
             [userId]
         );
 
@@ -41,13 +44,16 @@ const Doctor = {
     },
 
     /**
-     * Find doctor by ID
+     * Find doctor by ID (with name from users table)
      * @param {number} id - Doctor ID
      * @returns {Promise<Object|null>} Doctor profile or null
      */
     async findById(id) {
         const [doctors] = await pool.execute(
-            'SELECT * FROM doctors WHERE id = ?',
+            `SELECT d.*, u.first_name, u.last_name, u.email
+       FROM doctors d
+       JOIN users u ON d.user_id = u.id
+       WHERE d.id = ?`,
             [id]
         );
 
@@ -61,19 +67,16 @@ const Doctor = {
      * @returns {Promise<boolean>} Success status
      */
     async update(userId, updateData) {
-        const { firstName, lastName, gender, phone, email, address, specialty } = updateData;
+        const { gender, phone, address, specialty } = updateData;
 
         const [result] = await pool.execute(
             `UPDATE doctors SET 
-        first_name = COALESCE(?, first_name),
-        last_name = COALESCE(?, last_name),
         gender = COALESCE(?, gender),
         phone = COALESCE(?, phone),
-        email = COALESCE(?, email),
         address = COALESCE(?, address),
         specialty = COALESCE(?, specialty)
        WHERE user_id = ?`,
-            [firstName, lastName, gender, phone, email, address, specialty, userId]
+            [gender, phone, address, specialty, userId]
         );
 
         return result.affectedRows > 0;
@@ -86,7 +89,7 @@ const Doctor = {
      */
     async getFullProfile(userId) {
         const [results] = await pool.execute(
-            `SELECT d.*, u.email as login_email, u.created_at as account_created
+            `SELECT d.*, u.email, u.first_name, u.last_name, u.created_at as account_created
        FROM doctors d
        JOIN users u ON d.user_id = u.id
        WHERE d.user_id = ?`,

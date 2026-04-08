@@ -1,67 +1,73 @@
-/**
+﻿/**
  * Catalogue Model
  * Database operations for catalogues and questions tables
  */
 
 const { pool } = require('../config/database');
 
+function parseChoices(rawChoices) {
+    if (!rawChoices) {
+        return [];
+    }
+
+    if (Array.isArray(rawChoices)) {
+        return rawChoices;
+    }
+
+    if (typeof rawChoices === 'string') {
+        try {
+            return JSON.parse(rawChoices);
+        } catch (error) {
+            return [];
+        }
+    }
+
+    return [];
+}
+
+function normalizeQuestion(question) {
+    if (!question) {
+        return null;
+    }
+
+    return {
+        ...question,
+        choices: parseChoices(question.choices)
+    };
+}
+
 const Catalogue = {
     /**
-     * Create new catalogue version
-     * @param {number} doctorId - Doctor ID
+     * Create a new catalogue for a doctor
+     * @param {Object} catalogueData - Catalogue data
      * @returns {Promise<Object>} Created catalogue
      */
-    async create(doctorId) {
-        // Get current max version for this doctor
+    async create(catalogueData) {
+        const { doctorId, name, isActive = true } = catalogueData;
+
         const [versions] = await pool.execute(
             'SELECT MAX(version) as maxVersion FROM catalogues WHERE doctor_id = ?',
             [doctorId]
         );
 
         const newVersion = (versions[0].maxVersion || 0) + 1;
+        const trimmedName = String(name || '').trim() || `Catalogue ${newVersion}`;
+        const activeValue = Boolean(isActive);
 
         const [result] = await pool.execute(
-            `INSERT INTO catalogues (doctor_id, version, is_published, created_at)
-       VALUES (?, ?, false, NOW())`,
-            [doctorId, newVersion]
+            `INSERT INTO catalogues (doctor_id, name, version, is_active, is_published, created_at)
+             VALUES (?, ?, ?, ?, ?, NOW())`,
+            [doctorId, trimmedName, newVersion, activeValue, activeValue]
         );
 
         return {
             id: result.insertId,
-            doctorId,
+            doctor_id: doctorId,
+            name: trimmedName,
             version: newVersion,
-            isPublished: false
+            is_active: activeValue,
+            is_published: activeValue
         };
-    },
-
-    /**
-     * Get active catalogue for doctor
-     * @param {number} doctorId - Doctor ID
-     * @returns {Promise<Object|null>} Active catalogue or null
-     */
-    async getActive(doctorId) {
-        const [catalogues] = await pool.execute(
-            `SELECT * FROM catalogues 
-       WHERE doctor_id = ? AND is_published = true
-       ORDER BY version DESC LIMIT 1`,
-            [doctorId]
-        );
-
-        return catalogues.length > 0 ? catalogues[0] : null;
-    },
-
-    /**
-     * Get all catalogues for doctor
-     * @param {number} doctorId - Doctor ID
-     * @returns {Promise<Array>} List of catalogues
-     */
-    async findByDoctorId(doctorId) {
-        const [catalogues] = await pool.execute(
-            'SELECT * FROM catalogues WHERE doctor_id = ? ORDER BY version DESC',
-            [doctorId]
-        );
-
-        return catalogues;
     },
 
     /**
@@ -79,21 +85,108 @@ const Catalogue = {
     },
 
     /**
-     * Publish catalogue
-     * @param {number} id - Catalogue ID
+     * Get all catalogues for a doctor with question counts
      * @param {number} doctorId - Doctor ID
-     * @returns {Promise<boolean>} Success status
+     * @returns {Promise<Array>} List of catalogues
      */
-    async publish(id, doctorId) {
-        // Unpublish all other catalogues for this doctor
-        await pool.execute(
-            'UPDATE catalogues SET is_published = false WHERE doctor_id = ?',
+    async findByDoctorId(doctorId) {
+        const [catalogues] = await pool.execute(
+            `SELECT c.*,
+                    COUNT(q.id) AS question_count,
+                    SUM(CASE WHEN q.is_active = true THEN 1 ELSE 0 END) AS active_question_count,
+                    (
+                        SELECT COUNT(*)
+                        FROM cases cs
+                        WHERE cs.catalogue_version_id = c.id
+                    ) AS case_count
+             FROM catalogues c
+             LEFT JOIN questions q ON q.catalogue_id = c.id
+             WHERE c.doctor_id = ?
+             GROUP BY c.id
+             ORDER BY c.is_active DESC, c.created_at DESC, c.id DESC`,
             [doctorId]
         );
 
-        // Publish this catalogue
+        return catalogues;
+    },
+
+    /**
+     * Count cases using a catalogue
+     * @param {number} catalogueId - Catalogue ID
+     * @returns {Promise<number>} Number of linked cases
+     */
+    async countCasesUsing(catalogueId) {
+        const [rows] = await pool.execute(
+            'SELECT COUNT(*) AS case_count FROM cases WHERE catalogue_version_id = ?',
+            [catalogueId]
+        );
+
+        return Number(rows[0]?.case_count || 0);
+    },
+
+    /**
+     * Get active catalogues for a doctor that assistants can use
+     * @param {number} doctorId - Doctor ID
+     * @returns {Promise<Array>} Active catalogues with at least one active question
+     */
+    async findActiveByDoctorId(doctorId) {
+        const [catalogues] = await pool.execute(
+            `SELECT c.*,
+                    COUNT(q.id) AS active_question_count
+             FROM catalogues c
+             LEFT JOIN questions q ON q.catalogue_id = c.id AND q.is_active = true
+             WHERE c.doctor_id = ? AND c.is_active = true
+             GROUP BY c.id
+             HAVING COUNT(q.id) > 0
+             ORDER BY c.created_at DESC, c.id DESC`,
+            [doctorId]
+        );
+
+        return catalogues;
+    },
+
+    /**
+     * Update catalogue metadata
+     * @param {number} id - Catalogue ID
+     * @param {Object} updateData - Fields to update
+     * @returns {Promise<boolean>} Success status
+     */
+    async update(id, updateData) {
+        const updates = [];
+        const params = [];
+
+        if (updateData.name !== undefined) {
+            updates.push('name = ?');
+            params.push(String(updateData.name).trim());
+        }
+
+        if (updateData.isActive !== undefined) {
+            const activeValue = Boolean(updateData.isActive);
+            updates.push('is_active = ?');
+            updates.push('is_published = ?');
+            params.push(activeValue, activeValue);
+        }
+
+        if (updates.length === 0) {
+            return false;
+        }
+
         const [result] = await pool.execute(
-            'UPDATE catalogues SET is_published = true WHERE id = ?',
+            `UPDATE catalogues SET ${updates.join(', ')} WHERE id = ?`,
+            [...params, id]
+        );
+
+        return result.affectedRows > 0;
+    },
+
+    /**
+     * Delete catalogue
+     * @param {number} id - Catalogue ID
+     * @returns {Promise<boolean>} Success status
+     */
+    async delete(id) {
+        const [result] = await pool.execute(
+            'DELETE FROM catalogues WHERE id = ?',
             [id]
         );
 
@@ -101,45 +194,21 @@ const Catalogue = {
     },
 
     /**
-     * Get catalogue with questions
+     * Get catalogue with all questions
      * @param {number} id - Catalogue ID
      * @returns {Promise<Object|null>} Catalogue with questions
      */
     async getWithQuestions(id) {
         const catalogue = await this.findById(id);
-        if (!catalogue) return null;
+        if (!catalogue) {
+            return null;
+        }
 
-        const [questions] = await pool.execute(
-            `SELECT * FROM questions 
-       WHERE catalogue_id = ?
-       ORDER BY order_index`,
-            [id]
-        );
-
-        // Parse JSON choices for each question safely
-        // Parse JSON choices for each question safely
-        const parsedQuestions = questions.map(q => {
-            let parsedChoices = [];
-            if (q.choices) {
-                if (typeof q.choices === 'string') {
-                    try {
-                        parsedChoices = JSON.parse(q.choices);
-                    } catch (e) {
-                        parsedChoices = [];
-                    }
-                } else if (Array.isArray(q.choices)) {
-                    parsedChoices = q.choices;
-                }
-            }
-            return {
-                ...q,
-                choices: parsedChoices
-            };
-        });
+        const questions = await this.getQuestions(id);
 
         return {
             ...catalogue,
-            questions: parsedQuestions
+            questions
         };
     },
 
@@ -157,14 +226,19 @@ const Catalogue = {
 
         const [result] = await pool.execute(
             `INSERT INTO questions (catalogue_id, question_text, answer_type, choices, is_required, is_active, order_index)
-       VALUES (?, ?, ?, ?, ?, true, ?)`,
+             VALUES (?, ?, ?, ?, ?, true, ?)`,
             [catalogueId, questionText, answerType, JSON.stringify(choices || []), isRequired, orderIndex]
         );
 
         return {
             id: result.insertId,
-            ...questionData,
-            isActive: true
+            catalogue_id: catalogueId,
+            question_text: questionText,
+            answer_type: answerType,
+            choices: choices || [],
+            is_required: isRequired,
+            is_active: true,
+            order_index: orderIndex
         };
     },
 
@@ -178,14 +252,14 @@ const Catalogue = {
         const { questionText, answerType, choices, isRequired, isActive, orderIndex } = updateData;
 
         const [result] = await pool.execute(
-            `UPDATE questions SET 
-        question_text = COALESCE(?, question_text),
-        answer_type = COALESCE(?, answer_type),
-        choices = COALESCE(?, choices),
-        is_required = COALESCE(?, is_required),
-        is_active = COALESCE(?, is_active),
-        order_index = COALESCE(?, order_index)
-       WHERE id = ?`,
+            `UPDATE questions SET
+                 question_text = COALESCE(?, question_text),
+                 answer_type = COALESCE(?, answer_type),
+                 choices = COALESCE(?, choices),
+                 is_required = COALESCE(?, is_required),
+                 is_active = COALESCE(?, is_active),
+                 order_index = COALESCE(?, order_index)
+             WHERE id = ?`,
             [
                 questionText !== undefined ? questionText : null,
                 answerType !== undefined ? answerType : null,
@@ -215,35 +289,49 @@ const Catalogue = {
     },
 
     /**
+     * Get a question by ID
+     * @param {number} questionId - Question ID
+     * @returns {Promise<Object|null>} Question or null
+     */
+    async getQuestionById(questionId) {
+        const [questions] = await pool.execute(
+            'SELECT * FROM questions WHERE id = ? LIMIT 1',
+            [questionId]
+        );
+
+        return questions.length > 0 ? normalizeQuestion(questions[0]) : null;
+    },
+
+    /**
+     * Get question with catalogue ownership details
+     * @param {number} questionId - Question ID
+     * @returns {Promise<Object|null>} Question with doctor ownership
+     */
+    async getQuestionWithCatalogue(questionId) {
+        const [questions] = await pool.execute(
+            `SELECT q.*, c.doctor_id
+             FROM questions q
+             JOIN catalogues c ON c.id = q.catalogue_id
+             WHERE q.id = ?
+             LIMIT 1`,
+            [questionId]
+        );
+
+        return questions.length > 0 ? normalizeQuestion(questions[0]) : null;
+    },
+
+    /**
      * Get questions for catalogue
      * @param {number} catalogueId - Catalogue ID
      * @returns {Promise<Array>} List of questions
      */
     async getQuestions(catalogueId) {
         const [questions] = await pool.execute(
-            'SELECT * FROM questions WHERE catalogue_id = ? ORDER BY order_index',
+            'SELECT * FROM questions WHERE catalogue_id = ? ORDER BY order_index, id',
             [catalogueId]
         );
 
-        // Parse JSON choices safely
-        return questions.map(q => {
-            let parsedChoices = [];
-            if (q.choices) {
-                if (typeof q.choices === 'string') {
-                    try {
-                        parsedChoices = JSON.parse(q.choices);
-                    } catch (e) {
-                        parsedChoices = [];
-                    }
-                } else if (Array.isArray(q.choices)) {
-                    parsedChoices = q.choices;
-                }
-            }
-            return {
-                ...q,
-                choices: parsedChoices
-            };
-        });
+        return questions.map(normalizeQuestion);
     },
 
     /**

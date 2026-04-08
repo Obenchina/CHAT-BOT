@@ -180,21 +180,18 @@ async function verifyRegistration(req, res) {
 
         // Create user account (password is already hashed)
         const [userResult] = await pool.execute(
-            `INSERT INTO users (email, password, role, is_active, created_at, updated_at)
-             VALUES (?, ?, 'doctor', true, NOW(), NOW())`,
-            [pending.email, pending.password_hash]
+            `INSERT INTO users (email, password, first_name, last_name, role, is_active, created_at, updated_at)
+             VALUES (?, ?, ?, ?, 'doctor', true, NOW(), NOW())`,
+            [pending.email, pending.password_hash, pending.first_name, pending.last_name]
         );
 
         const userId = userResult.insertId;
 
-        // Create doctor profile
+        // Create doctor profile (names are now in users table)
         const doctor = await Doctor.create({
             userId,
-            firstName: pending.first_name,
-            lastName: pending.last_name,
             gender: pending.gender,
             phone: pending.phone,
-            email: pending.email,
             address: pending.address,
             specialty: pending.specialty
         });

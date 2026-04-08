@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Catalogue Service
  * Handles catalogue and question-related API calls
  */
@@ -8,53 +8,74 @@ import { ENDPOINTS } from '../constants/config';
 
 const catalogueService = {
     /**
-     * Get catalogue
+     * Get all catalogues for the current doctor
      * @returns {Promise<Object>} API response
      */
-    async getCatalogue() {
+    async getCatalogues() {
         return api.get(ENDPOINTS.CATALOGUE);
     },
 
     /**
-     * Create new catalogue version
+     * Get a catalogue with its questions
+     * @param {number} catalogueId - Catalogue ID
      * @returns {Promise<Object>} API response
      */
-    async createCatalogue() {
-        return api.post(ENDPOINTS.CATALOGUE);
+    async getCatalogue(catalogueId) {
+        return api.get(`${ENDPOINTS.CATALOGUE}/${catalogueId}`);
     },
 
     /**
-     * Publish catalogue
-     * @param {number} id - Catalogue ID
+     * Get active catalogues visible to assistants
      * @returns {Promise<Object>} API response
      */
-    async publish(id) {
-        return api.post(`${ENDPOINTS.CATALOGUE}/${id}/publish`);
+    async getActiveCatalogues() {
+        return api.get(`${ENDPOINTS.CATALOGUE}/active/list`);
     },
 
     /**
-     * Add question
-     * @param {number|null} catalogueId - Catalogue ID (will create new if null)
+     * Create new catalogue
+     * @param {Object} data - Catalogue data
+     * @returns {Promise<Object>} API response
+     */
+    async createCatalogue(data) {
+        return api.post(ENDPOINTS.CATALOGUE, data);
+    },
+
+    /**
+     * Update catalogue metadata
+     * @param {number} catalogueId - Catalogue ID
+     * @param {Object} data - Update data
+     * @returns {Promise<Object>} API response
+     */
+    async updateCatalogue(catalogueId, data) {
+        return api.put(`${ENDPOINTS.CATALOGUE}/${catalogueId}`, data);
+    },
+
+    /**
+     * Delete catalogue
+     * @param {number} catalogueId - Catalogue ID
+     * @returns {Promise<Object>} API response
+     */
+    async deleteCatalogue(catalogueId) {
+        return api.delete(`${ENDPOINTS.CATALOGUE}/${catalogueId}`);
+    },
+
+    /**
+     * Backward-compatible activate action
+     * @param {number} catalogueId - Catalogue ID
+     * @returns {Promise<Object>} API response
+     */
+    async publish(catalogueId) {
+        return api.post(`${ENDPOINTS.CATALOGUE}/${catalogueId}/publish`);
+    },
+
+    /**
+     * Add question to catalogue
+     * @param {number} catalogueId - Catalogue ID
      * @param {Object} data - Question data
      * @returns {Promise<Object>} API response
      */
     async addQuestion(catalogueId, data) {
-        // If no catalogue exists, create one first
-        if (!catalogueId) {
-            const createResponse = await api.post(ENDPOINTS.CATALOGUE);
-            if (createResponse.success) {
-                catalogueId = createResponse.data.id;
-                const addResponse = await api.post(`${ENDPOINTS.CATALOGUE}/${catalogueId}/questions`, data);
-                return {
-                    success: addResponse.success,
-                    data: {
-                        catalogue: createResponse.data,
-                        question: addResponse.data
-                    }
-                };
-            }
-            return createResponse;
-        }
         return api.post(`${ENDPOINTS.CATALOGUE}/${catalogueId}/questions`, data);
     },
 

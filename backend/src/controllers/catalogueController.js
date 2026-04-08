@@ -1,16 +1,31 @@
-/**
+﻿/**
  * Catalogue Controller
- * Handles catalogue and question management for doctors
+ * Handles catalogue and question management
  */
 
 const Catalogue = require('../models/Catalogue');
 const Doctor = require('../models/Doctor');
+const Assistant = require('../models/Assistant');
+
+async function getDoctorIdFromUser(user) {
+    if (user.role === 'doctor') {
+        const doctor = await Doctor.findByUserId(user.id);
+        return doctor ? doctor.id : null;
+    }
+
+    if (user.role === 'assistant') {
+        const assistant = await Assistant.findByUserId(user.id);
+        return assistant ? assistant.doctor_id : null;
+    }
+
+    return null;
+}
 
 /**
- * Get or create catalogue for doctor
+ * Get all catalogues for doctor
  * GET /api/catalogue
  */
-async function getCatalogue(req, res) {
+async function getCatalogues(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
 
@@ -21,41 +36,82 @@ async function getCatalogue(req, res) {
             });
         }
 
-        // Get latest catalogue for doctor (published or draft)
         const catalogues = await Catalogue.findByDoctorId(doctor.id);
-
-        // Get the latest catalogue (draft first, then published)
-        let catalogue = catalogues.find(c => !c.is_published) || catalogues[0] || null;
-        let questions = [];
-
-        if (catalogue) {
-            const catalogueWithQuestions = await Catalogue.getWithQuestions(catalogue.id);
-            if (catalogueWithQuestions && catalogueWithQuestions.questions) {
-                questions = catalogueWithQuestions.questions;
-            }
-        }
 
         res.json({
             success: true,
             data: {
-                catalogue: catalogue ? {
+                catalogues: catalogues.map(catalogue => ({
                     id: catalogue.id,
+                    name: catalogue.name,
                     version: catalogue.version,
-                    is_published: catalogue.is_published
-                } : null,
-                questions: questions.map(q => ({
-                    id: q.id,
-                    question_text: q.question_text,
-                    answer_type: q.answer_type,
-                    choices: q.choices,
-                    is_required: q.is_required,
-                    is_active: q.is_active,
-                    order_index: q.order_index
+                    is_active: Boolean(catalogue.is_active),
+                    question_count: Number(catalogue.question_count || 0),
+                    active_question_count: Number(catalogue.active_question_count || 0),
+                    case_count: Number(catalogue.case_count || 0),
+                    created_at: catalogue.created_at
                 }))
             }
         });
     } catch (error) {
-        console.error('Get catalogue error:', error);
+        console.error('Get catalogues error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get catalogues'
+        });
+    }
+}
+
+/**
+ * Get catalogue by ID with questions
+ * GET /api/catalogue/:id
+ */
+async function getCatalogueById(req, res) {
+    try {
+        const { id } = req.params;
+        const doctor = await Doctor.findByUserId(req.user.id);
+
+        if (!doctor) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor not found'
+            });
+        }
+
+        const catalogue = await Catalogue.findById(id);
+        if (!catalogue || catalogue.doctor_id !== doctor.id) {
+            return res.status(404).json({
+                success: false,
+                message: 'Catalogue not found'
+            });
+        }
+
+        const catalogueWithQuestions = await Catalogue.getWithQuestions(id);
+        const caseCount = await Catalogue.countCasesUsing(id);
+
+        res.json({
+            success: true,
+            data: {
+                catalogue: {
+                    id: catalogueWithQuestions.id,
+                    name: catalogueWithQuestions.name,
+                    version: catalogueWithQuestions.version,
+                    is_active: Boolean(catalogueWithQuestions.is_active),
+                    case_count: caseCount
+                },
+                questions: (catalogueWithQuestions.questions || []).map(question => ({
+                    id: question.id,
+                    question_text: question.question_text,
+                    answer_type: question.answer_type,
+                    choices: question.choices,
+                    is_required: Boolean(question.is_required),
+                    is_active: Boolean(question.is_active),
+                    order_index: question.order_index
+                }))
+            }
+        });
+    } catch (error) {
+        console.error('Get catalogue by ID error:', error);
         res.status(500).json({
             success: false,
             message: 'Failed to get catalogue'
@@ -64,11 +120,48 @@ async function getCatalogue(req, res) {
 }
 
 /**
- * Create new catalogue version
+ * Get active catalogues for assistant selection
+ * GET /api/catalogue/active/list
+ */
+async function getActiveCatalogues(req, res) {
+    try {
+        const doctorId = await getDoctorIdFromUser(req.user);
+
+        if (!doctorId) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor not found'
+            });
+        }
+
+        const catalogues = await Catalogue.findActiveByDoctorId(doctorId);
+
+        res.json({
+            success: true,
+            data: {
+                catalogues: catalogues.map(catalogue => ({
+                    id: catalogue.id,
+                    name: catalogue.name,
+                    active_question_count: Number(catalogue.active_question_count || 0)
+                }))
+            }
+        });
+    } catch (error) {
+        console.error('Get active catalogues error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get active catalogues'
+        });
+    }
+}
+
+/**
+ * Create new catalogue
  * POST /api/catalogue
  */
 async function createCatalogue(req, res) {
     try {
+        const { name, isActive = true } = req.body;
         const doctor = await Doctor.findByUserId(req.user.id);
 
         if (!doctor) {
@@ -78,15 +171,27 @@ async function createCatalogue(req, res) {
             });
         }
 
-        const catalogue = await Catalogue.create(doctor.id);
+        if (!String(name || '').trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Catalogue name is required'
+            });
+        }
+
+        const catalogue = await Catalogue.create({
+            doctorId: doctor.id,
+            name,
+            isActive
+        });
 
         res.status(201).json({
             success: true,
             message: 'Catalogue created successfully',
             data: {
                 id: catalogue.id,
+                name: catalogue.name,
                 version: catalogue.version,
-                isPublished: false
+                is_active: catalogue.is_active
             }
         });
     } catch (error) {
@@ -99,13 +204,13 @@ async function createCatalogue(req, res) {
 }
 
 /**
- * Publish catalogue
- * POST /api/catalogue/:id/publish
+ * Update catalogue metadata
+ * PUT /api/catalogue/:id
  */
-async function publishCatalogue(req, res) {
+async function updateCatalogue(req, res) {
     try {
         const { id } = req.params;
-
+        const { name, isActive } = req.body;
         const doctor = await Doctor.findByUserId(req.user.id);
 
         if (!doctor) {
@@ -115,7 +220,6 @@ async function publishCatalogue(req, res) {
             });
         }
 
-        // Verify ownership
         const catalogue = await Catalogue.findById(id);
         if (!catalogue || catalogue.doctor_id !== doctor.id) {
             return res.status(404).json({
@@ -124,17 +228,95 @@ async function publishCatalogue(req, res) {
             });
         }
 
-        await Catalogue.publish(id, doctor.id);
+        if (name !== undefined && !String(name).trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Catalogue name is required'
+            });
+        }
+
+        await Catalogue.update(id, { name, isActive });
+        const updatedCatalogue = await Catalogue.findById(id);
 
         res.json({
             success: true,
-            message: 'Catalogue published successfully'
+            message: 'Catalogue updated successfully',
+            data: {
+                id: updatedCatalogue.id,
+                name: updatedCatalogue.name,
+                version: updatedCatalogue.version,
+                is_active: Boolean(updatedCatalogue.is_active)
+            }
         });
     } catch (error) {
-        console.error('Publish catalogue error:', error);
+        console.error('Update catalogue error:', error);
         res.status(500).json({
             success: false,
-            message: 'Failed to publish catalogue'
+            message: 'Failed to update catalogue'
+        });
+    }
+}
+
+/**
+ * Backward-compatible activation endpoint
+ * POST /api/catalogue/:id/publish
+ */
+async function publishCatalogue(req, res) {
+    try {
+        req.body.isActive = true;
+        return updateCatalogue(req, res);
+    } catch (error) {
+        console.error('Activate catalogue error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to activate catalogue'
+        });
+    }
+}
+
+/**
+ * Delete catalogue
+ * DELETE /api/catalogue/:id
+ */
+async function deleteCatalogue(req, res) {
+    try {
+        const { id } = req.params;
+        const doctor = await Doctor.findByUserId(req.user.id);
+
+        if (!doctor) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor not found'
+            });
+        }
+
+        const catalogue = await Catalogue.findById(id);
+        if (!catalogue || catalogue.doctor_id !== doctor.id) {
+            return res.status(404).json({
+                success: false,
+                message: 'Catalogue not found'
+            });
+        }
+
+        const caseCount = await Catalogue.countCasesUsing(id);
+        if (caseCount > 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Impossible de supprimer ce catalogue car il est deja utilise dans des cas existants.'
+            });
+        }
+
+        await Catalogue.delete(id);
+
+        res.json({
+            success: true,
+            message: 'Catalogue deleted successfully'
+        });
+    } catch (error) {
+        console.error('Delete catalogue error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to delete catalogue'
         });
     }
 }
@@ -148,7 +330,6 @@ async function addQuestion(req, res) {
         const { id } = req.params;
         const { questionText, answerType, choices, isRequired } = req.body;
 
-        // Validate input
         if (!questionText || !answerType) {
             return res.status(400).json({
                 success: false,
@@ -156,7 +337,6 @@ async function addQuestion(req, res) {
             });
         }
 
-        // Validate answer type
         if (!['yes_no', 'voice', 'choices'].includes(answerType)) {
             return res.status(400).json({
                 success: false,
@@ -165,7 +345,6 @@ async function addQuestion(req, res) {
         }
 
         const doctor = await Doctor.findByUserId(req.user.id);
-
         if (!doctor) {
             return res.status(404).json({
                 success: false,
@@ -173,7 +352,6 @@ async function addQuestion(req, res) {
             });
         }
 
-        // Verify ownership
         const catalogue = await Catalogue.findById(id);
         if (!catalogue || catalogue.doctor_id !== doctor.id) {
             return res.status(404).json({
@@ -182,9 +360,8 @@ async function addQuestion(req, res) {
             });
         }
 
-        // Get max order index
         const questions = await Catalogue.getQuestions(id);
-        const maxOrder = questions.length > 0 ? Math.max(...questions.map(q => q.order_index)) : 0;
+        const maxOrder = questions.length > 0 ? Math.max(...questions.map(question => question.order_index)) : 0;
 
         const question = await Catalogue.addQuestion({
             catalogueId: id,
@@ -198,15 +375,7 @@ async function addQuestion(req, res) {
         res.status(201).json({
             success: true,
             message: 'Question added successfully',
-            data: {
-                id: question.id,
-                question_text: questionText,
-                answer_type: answerType,
-                choices: choices || [],
-                is_required: question.isRequired,
-                is_active: true,
-                order_index: question.orderIndex
-            }
+            data: question
         });
     } catch (error) {
         console.error('Add question error:', error);
@@ -225,6 +394,22 @@ async function updateQuestion(req, res) {
     try {
         const { questionId } = req.params;
         const { questionText, answerType, choices, isRequired, isActive } = req.body;
+        const doctor = await Doctor.findByUserId(req.user.id);
+
+        if (!doctor) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor not found'
+            });
+        }
+
+        const question = await Catalogue.getQuestionWithCatalogue(questionId);
+        if (!question || question.doctor_id !== doctor.id) {
+            return res.status(404).json({
+                success: false,
+                message: 'Question not found'
+            });
+        }
 
         await Catalogue.updateQuestion(questionId, {
             questionText,
@@ -254,6 +439,22 @@ async function updateQuestion(req, res) {
 async function deleteQuestion(req, res) {
     try {
         const { questionId } = req.params;
+        const doctor = await Doctor.findByUserId(req.user.id);
+
+        if (!doctor) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor not found'
+            });
+        }
+
+        const question = await Catalogue.getQuestionWithCatalogue(questionId);
+        if (!question || question.doctor_id !== doctor.id) {
+            return res.status(404).json({
+                success: false,
+                message: 'Question not found'
+            });
+        }
 
         await Catalogue.deleteQuestion(questionId);
 
@@ -277,7 +478,8 @@ async function deleteQuestion(req, res) {
 async function reorderQuestions(req, res) {
     try {
         const { id } = req.params;
-        const { order } = req.body; // Array of {id, orderIndex}
+        const { order } = req.body;
+        const doctor = await Doctor.findByUserId(req.user.id);
 
         if (!Array.isArray(order)) {
             return res.status(400).json({
@@ -286,8 +488,6 @@ async function reorderQuestions(req, res) {
             });
         }
 
-        const doctor = await Doctor.findByUserId(req.user.id);
-
         if (!doctor) {
             return res.status(404).json({
                 success: false,
@@ -295,7 +495,6 @@ async function reorderQuestions(req, res) {
             });
         }
 
-        // Verify ownership
         const catalogue = await Catalogue.findById(id);
         if (!catalogue || catalogue.doctor_id !== doctor.id) {
             return res.status(404).json({
@@ -320,9 +519,13 @@ async function reorderQuestions(req, res) {
 }
 
 module.exports = {
-    getCatalogue,
+    getCatalogues,
+    getCatalogueById,
+    getActiveCatalogues,
     createCatalogue,
+    updateCatalogue,
     publishCatalogue,
+    deleteCatalogue,
     addQuestion,
     updateQuestion,
     deleteQuestion,

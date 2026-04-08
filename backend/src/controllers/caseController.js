@@ -9,7 +9,6 @@ const Patient = require('../models/Patient');
 const Doctor = require('../models/Doctor');
 const Assistant = require('../models/Assistant');
 const Catalogue = require('../models/Catalogue');
-const AuditLog = require('../models/AuditLog');
 const AiConfig = require('../models/AiConfig');
 const aiService = require('../services/aiService');
 const pdfService = require('../services/pdfService');
@@ -26,6 +25,40 @@ async function getDoctorIdFromUser(user) {
         return assistant ? assistant.doctor_id : null;
     }
     return null;
+}
+
+function mapQuestionForQuestionnaire(question) {
+    return {
+        id: question.id,
+        questionText: question.question_text,
+        answerType: question.answer_type,
+        choices: question.choices,
+        isRequired: question.is_required,
+        orderIndex: question.order_index
+    };
+}
+
+async function getQuestionSnapshotForCase(caseId, questionId) {
+    const caseRecord = await Case.findById(caseId);
+
+    if (!caseRecord) {
+        return { error: 'Case not found' };
+    }
+
+    const question = await Catalogue.getQuestionById(questionId);
+    if (!question || question.catalogue_id !== caseRecord.catalogue_version_id) {
+        return { error: 'Question does not belong to this case' };
+    }
+
+    return {
+        caseRecord,
+        question,
+        snapshot: {
+            questionTextSnapshot: question.question_text,
+            answerTypeSnapshot: question.answer_type,
+            orderIndexSnapshot: question.order_index
+        }
+    };
 }
 
 /**
@@ -148,6 +181,8 @@ async function getById(req, res) {
                 aiAnalysis: caseData.aiAnalysis,
                 doctorDiagnosis: caseData.doctor_diagnosis,
                 doctorPrescription: caseData.doctor_prescription,
+                catalogueId: caseData.catalogue?.id || caseData.catalogue_version_id || null,
+                catalogueName: caseData.catalogue?.name || '',
                 createdAt: caseData.created_at,
                 submittedAt: caseData.submitted_at,
                 reviewedAt: caseData.reviewed_at
@@ -170,7 +205,7 @@ async function getById(req, res) {
  */
 async function create(req, res) {
     try {
-        const { patientId } = req.body;
+        const { patientId, catalogueId } = req.body;
 
         if (!patientId) {
             return res.status(400).json({
@@ -198,15 +233,6 @@ async function create(req, res) {
             });
         }
 
-        // Get active catalogue
-        const catalogue = await Catalogue.getActive(assistant.doctor_id);
-        if (!catalogue) {
-            return res.status(400).json({
-                success: false,
-                message: 'No active catalogue found'
-            });
-        }
-
         // Check for existing in_progress case for this patient
         const existingCases = await Case.findByPatientId(patientId); // Returns array ordered by created_at DESC
 
@@ -220,6 +246,7 @@ async function create(req, res) {
 
             // Get questions for this case's catalogue version
             const questions = await Catalogue.getQuestions(latestCase.catalogue_version_id);
+            const selectedCatalogue = await Catalogue.findById(latestCase.catalogue_version_id);
 
             return res.status(200).json({
                 success: true,
@@ -229,15 +256,42 @@ async function create(req, res) {
                     patientId,
                     status: 'in_progress',
                     isResumed: true,
-                    questions: questions.filter(q => q.is_active).map(q => ({
-                        id: q.id,
-                        questionText: q.question_text,
-                        answerType: q.answer_type,
-                        choices: q.choices,
-                        isRequired: q.is_required,
-                        orderIndex: q.order_index
-                    }))
+                    catalogueId: selectedCatalogue?.id || latestCase.catalogue_version_id,
+                    catalogueName: selectedCatalogue?.name || '',
+                    questions: questions.filter(q => q.is_active).map(mapQuestionForQuestionnaire)
                 }
+            });
+        }
+
+        if (!catalogueId) {
+            return res.status(400).json({
+                success: false,
+                message: 'Catalogue ID is required'
+            });
+        }
+
+        const catalogue = await Catalogue.findById(catalogueId);
+        if (!catalogue || catalogue.doctor_id !== assistant.doctor_id) {
+            return res.status(404).json({
+                success: false,
+                message: 'Catalogue not found'
+            });
+        }
+
+        if (!catalogue.is_active) {
+            return res.status(400).json({
+                success: false,
+                message: 'Selected catalogue is not active'
+            });
+        }
+
+        const questions = await Catalogue.getQuestions(catalogue.id);
+        const activeQuestions = questions.filter(q => q.is_active);
+
+        if (activeQuestions.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'Selected catalogue has no active questions'
             });
         }
 
@@ -248,12 +302,6 @@ async function create(req, res) {
             catalogueVersionId: catalogue.id
         });
 
-        // Log creation
-        await AuditLog.logCaseCreated(req.user.id, newCase.id, { patientId });
-
-        // Get catalogue questions
-        const questions = await Catalogue.getQuestions(catalogue.id);
-
         res.status(201).json({
             success: true,
             message: 'Case created successfully',
@@ -261,14 +309,9 @@ async function create(req, res) {
                 id: newCase.id,
                 patientId,
                 status: 'in_progress',
-                questions: questions.filter(q => q.is_active).map(q => ({
-                    id: q.id,
-                    questionText: q.question_text,
-                    answerType: q.answer_type,
-                    choices: q.choices,
-                    isRequired: q.is_required,
-                    orderIndex: q.order_index
-                }))
+                catalogueId: catalogue.id,
+                catalogueName: catalogue.name,
+                questions: activeQuestions.map(mapQuestionForQuestionnaire)
             }
         });
     } catch (error) {
@@ -288,6 +331,7 @@ async function addAnswer(req, res) {
     try {
         const { id } = req.params;
         let { questionId, transcribedText } = req.body;
+        questionId = parseInt(questionId, 10);
 
         console.log('addAnswer called:', { caseId: id, questionId, hasFile: !!req.file });
 
@@ -331,24 +375,36 @@ async function addAnswer(req, res) {
             }
         }
 
+        const questionContext = await getQuestionSnapshotForCase(parseInt(id, 10), questionId);
+        if (questionContext.error) {
+            return res.status(400).json({
+                success: false,
+                message: questionContext.error
+            });
+        }
+
         // Check if answer already exists to prevent duplicates (Upsert logic)
         const currentAnswers = await Case.getAnswers(parseInt(id));
-        const existingAnswer = currentAnswers.find(a => a.question_id === parseInt(questionId));
+        const existingAnswer = currentAnswers.find(a => a.question_id === questionId);
 
         let answer;
         if (existingAnswer) {
             console.log(`Updating existing answer ${existingAnswer.id} for question ${questionId}`);
             await Case.updateAnswer(existingAnswer.id, {
                 audioPath,
-                transcribedText: transcribedText || null
+                transcribedText: transcribedText || null,
+                questionTextSnapshot: existingAnswer.question_text_snapshot || questionContext.snapshot.questionTextSnapshot,
+                answerTypeSnapshot: existingAnswer.answer_type_snapshot || questionContext.snapshot.answerTypeSnapshot,
+                orderIndexSnapshot: existingAnswer.order_index_snapshot ?? questionContext.snapshot.orderIndexSnapshot
             });
             answer = { ...existingAnswer, audioPath, transcribedText };
         } else {
             answer = await Case.addAnswer({
                 caseId: parseInt(id),
-                questionId: parseInt(questionId),
+                questionId,
                 audioPath,
-                transcribedText: transcribedText || null
+                transcribedText: transcribedText || null,
+                ...questionContext.snapshot
             });
         }
 
@@ -359,7 +415,7 @@ async function addAnswer(req, res) {
             message: 'Answer saved successfully',
             data: {
                 id: answer.id,
-                questionId: parseInt(questionId),
+                questionId,
                 audioPath,
                 transcribedText
             }
@@ -531,13 +587,6 @@ async function submit(req, res) {
         await Case.submit(id);
         console.log('Case status updated to submitted');
 
-        // Log submission (non-blocking)
-        try {
-            await AuditLog.logCaseSubmitted(req.user.id, id);
-        } catch (logError) {
-            console.error('Audit log error (non-blocking):', logError.message);
-        }
-
         // ========================================
         // STEP 4: AI Analysis with transcriptions
         // ========================================
@@ -554,12 +603,6 @@ async function submit(req, res) {
             if (analysis) {
                 await Case.saveAiAnalysis(id, analysis);
                 console.log('AI analysis saved successfully');
-
-                try {
-                    await AuditLog.logAiAnalysis(id);
-                } catch (logError) {
-                    console.error('AI audit log error (non-blocking):', logError.message);
-                }
             }
         } catch (aiError) {
             console.error('AI analysis error during submit:', aiError);
@@ -603,7 +646,8 @@ async function submit(req, res) {
 async function addTextAnswer(req, res) {
     try {
         const { id } = req.params;
-        const { questionId, answer } = req.body;
+        let { questionId, answer } = req.body;
+        questionId = parseInt(questionId, 10);
 
         if (!questionId || !answer) {
             return res.status(400).json({
@@ -612,15 +656,26 @@ async function addTextAnswer(req, res) {
             });
         }
 
+        const questionContext = await getQuestionSnapshotForCase(parseInt(id, 10), questionId);
+        if (questionContext.error) {
+            return res.status(400).json({
+                success: false,
+                message: questionContext.error
+            });
+        }
+
         // Check if answer already exists
         const currentAnswers = await Case.getAnswers(parseInt(id));
-        const existingAnswer = currentAnswers.find(a => a.question_id === parseInt(questionId));
+        const existingAnswer = currentAnswers.find(a => a.question_id === questionId);
 
         let savedAnswer;
         if (existingAnswer) {
             await Case.updateAnswer(existingAnswer.id, {
                 audioPath: null,
-                transcribedText: answer
+                transcribedText: answer,
+                questionTextSnapshot: existingAnswer.question_text_snapshot || questionContext.snapshot.questionTextSnapshot,
+                answerTypeSnapshot: existingAnswer.answer_type_snapshot || questionContext.snapshot.answerTypeSnapshot,
+                orderIndexSnapshot: existingAnswer.order_index_snapshot ?? questionContext.snapshot.orderIndexSnapshot
             });
             savedAnswer = { ...existingAnswer, transcribed_text: answer };
         } else {
@@ -628,7 +683,8 @@ async function addTextAnswer(req, res) {
                 caseId: id,
                 questionId,
                 audioPath: null,
-                transcribedText: answer
+                transcribedText: answer,
+                ...questionContext.snapshot
             });
         }
 

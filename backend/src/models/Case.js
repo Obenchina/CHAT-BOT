@@ -16,7 +16,7 @@ const Case = {
 
         const [result] = await pool.execute(
             `INSERT INTO cases (patient_id, assistant_id, catalogue_version_id, status, created_at)
-       VALUES (?, ?, ?, 'in_progress', NOW())`,
+             VALUES (?, ?, ?, 'in_progress', NOW())`,
             [patientId, assistantId, catalogueVersionId]
         );
 
@@ -49,13 +49,14 @@ const Case = {
      */
     async findByDoctorId(doctorId, status = null) {
         let query = `
-      SELECT c.*, p.first_name as patient_first_name, p.last_name as patient_last_name,
-             a.first_name as assistant_first_name, a.last_name as assistant_last_name
-      FROM cases c
-      JOIN patients p ON c.patient_id = p.id
-      JOIN assistants a ON c.assistant_id = a.id
-      WHERE p.doctor_id = ?
-    `;
+            SELECT c.*, p.first_name as patient_first_name, p.last_name as patient_last_name,
+                   u_a.first_name as assistant_first_name, u_a.last_name as assistant_last_name
+            FROM cases c
+            JOIN patients p ON c.patient_id = p.id
+            JOIN assistants a ON c.assistant_id = a.id
+            JOIN users u_a ON a.user_id = u_a.id
+            WHERE p.doctor_id = ?
+        `;
 
         const params = [doctorId];
 
@@ -63,7 +64,6 @@ const Case = {
             query += ' AND c.status = ?';
             params.push(status);
         } else {
-            // For general list (All), exclude in_progress (drafts)
             query += " AND c.status != 'in_progress'";
         }
 
@@ -80,7 +80,7 @@ const Case = {
      */
     async findByPatientId(patientId) {
         const [cases] = await pool.execute(
-            `SELECT * FROM cases WHERE patient_id = ? ORDER BY created_at DESC`,
+            'SELECT * FROM cases WHERE patient_id = ? ORDER BY created_at DESC',
             [patientId]
         );
 
@@ -109,21 +109,10 @@ const Case = {
         return result.affectedRows > 0;
     },
 
-    /**
-     * Submit case for review
-     * @param {number} id - Case ID
-     * @returns {Promise<boolean>} Success status
-     */
     async submit(id) {
         return this.updateStatus(id, 'submitted');
     },
 
-    /**
-     * Save AI analysis
-     * @param {number} id - Case ID
-     * @param {Object} analysis - AI analysis data
-     * @returns {Promise<boolean>} Success status
-     */
     async saveAiAnalysis(id, analysis) {
         const [result] = await pool.execute(
             'UPDATE cases SET ai_analysis = ? WHERE id = ?',
@@ -133,33 +122,22 @@ const Case = {
         return result.affectedRows > 0;
     },
 
-    /**
-     * Save doctor's diagnosis and prescription
-     * @param {number} id - Case ID
-     * @param {Object} doctorData - Diagnosis and prescription
-     * @returns {Promise<boolean>} Success status
-     */
     async saveDoctorReview(id, doctorData) {
         const { diagnosis, prescription } = doctorData;
 
         const [result] = await pool.execute(
-            `UPDATE cases SET 
-        doctor_diagnosis = ?,
-        doctor_prescription = ?,
-        status = 'reviewed',
-        reviewed_at = NOW()
-       WHERE id = ?`,
+            `UPDATE cases SET
+                 doctor_diagnosis = ?,
+                 doctor_prescription = ?,
+                 status = 'reviewed',
+                 reviewed_at = NOW()
+             WHERE id = ?`,
             [diagnosis, prescription, id]
         );
 
         return result.affectedRows > 0;
     },
 
-    /**
-     * Close case
-     * @param {number} id - Case ID
-     * @returns {Promise<boolean>} Success status
-     */
     async close(id) {
         return this.updateStatus(id, 'closed');
     },
@@ -177,9 +155,7 @@ const Case = {
                 console.log('Case not found in database');
                 return null;
             }
-            console.log('Case found, patient_id:', caseData.patient_id);
 
-            // Get patient info
             let patient = null;
             try {
                 const [patients] = await pool.execute(
@@ -187,29 +163,28 @@ const Case = {
                     [caseData.patient_id]
                 );
                 patient = patients[0] || null;
-                console.log('Patient found:', patient ? 'yes' : 'no');
             } catch (err) {
                 console.error('Error fetching patient:', err.message);
             }
 
-            // Get answers (use LEFT JOIN to avoid failures)
             let answers = [];
             try {
                 const [answerRows] = await pool.execute(
-                    `SELECT ca.*, q.question_text, q.answer_type
+                    `SELECT ca.*,
+                            COALESCE(ca.question_text_snapshot, q.question_text) AS question_text,
+                            COALESCE(ca.answer_type_snapshot, q.answer_type) AS answer_type,
+                            COALESCE(ca.order_index_snapshot, q.order_index, ca.id) AS display_order
                      FROM case_answers ca
                      LEFT JOIN questions q ON ca.question_id = q.id
                      WHERE ca.case_id = ?
-                     ORDER BY q.order_index`,
+                     ORDER BY display_order, ca.id`,
                     [id]
                 );
                 answers = answerRows || [];
-                console.log('Answers found:', answers.length);
             } catch (err) {
                 console.error('Error fetching answers:', err.message);
             }
 
-            // Get documents
             let documents = [];
             try {
                 const [docRows] = await pool.execute(
@@ -217,16 +192,24 @@ const Case = {
                     [id]
                 );
                 documents = docRows || [];
-                console.log('Documents found:', documents.length);
             } catch (err) {
                 console.error('Error fetching documents:', err.message);
             }
 
-            // Safely parse ai_analysis
+            let catalogue = null;
+            try {
+                const [catalogues] = await pool.execute(
+                    'SELECT id, name FROM catalogues WHERE id = ?',
+                    [caseData.catalogue_version_id]
+                );
+                catalogue = catalogues[0] || null;
+            } catch (err) {
+                console.error('Error fetching catalogue:', err.message);
+            }
+
             let aiAnalysis = null;
             if (caseData.ai_analysis) {
                 try {
-                    // Check if it's already an object
                     if (typeof caseData.ai_analysis === 'object') {
                         aiAnalysis = caseData.ai_analysis;
                     } else if (typeof caseData.ai_analysis === 'string') {
@@ -243,7 +226,8 @@ const Case = {
                 aiAnalysis,
                 patient,
                 answers,
-                documents
+                documents,
+                catalogue
             };
         } catch (error) {
             console.error('getFullDetails error:', error);
@@ -261,12 +245,36 @@ const Case = {
      * @returns {Promise<Object>} Created answer
      */
     async addAnswer(answerData) {
-        const { caseId, questionId, audioPath, transcribedText } = answerData;
+        const {
+            caseId,
+            questionId,
+            audioPath,
+            transcribedText,
+            questionTextSnapshot,
+            answerTypeSnapshot,
+            orderIndexSnapshot
+        } = answerData;
 
         const [result] = await pool.execute(
-            `INSERT INTO case_answers (case_id, question_id, audio_path, transcribed_text)
-       VALUES (?, ?, ?, ?)`,
-            [caseId, questionId, audioPath, transcribedText]
+            `INSERT INTO case_answers (
+                case_id,
+                question_id,
+                audio_path,
+                transcribed_text,
+                question_text_snapshot,
+                answer_type_snapshot,
+                order_index_snapshot
+            )
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+                caseId,
+                questionId,
+                audioPath,
+                transcribedText,
+                questionTextSnapshot || null,
+                answerTypeSnapshot || null,
+                orderIndexSnapshot ?? null
+            ]
         );
 
         return {
@@ -282,7 +290,13 @@ const Case = {
      * @returns {Promise<boolean>} Success status
      */
     async updateAnswer(id, updateData) {
-        const { audioPath, transcribedText } = updateData;
+        const {
+            audioPath,
+            transcribedText,
+            questionTextSnapshot,
+            answerTypeSnapshot,
+            orderIndexSnapshot
+        } = updateData;
 
         const updates = [];
         const params = [];
@@ -295,6 +309,21 @@ const Case = {
         if (transcribedText !== undefined) {
             updates.push('transcribed_text = ?');
             params.push(transcribedText);
+        }
+
+        if (questionTextSnapshot !== undefined) {
+            updates.push('question_text_snapshot = ?');
+            params.push(questionTextSnapshot);
+        }
+
+        if (answerTypeSnapshot !== undefined) {
+            updates.push('answer_type_snapshot = ?');
+            params.push(answerTypeSnapshot);
+        }
+
+        if (orderIndexSnapshot !== undefined) {
+            updates.push('order_index_snapshot = ?');
+            params.push(orderIndexSnapshot);
         }
 
         if (updates.length === 0) {
@@ -315,57 +344,43 @@ const Case = {
      */
     async getAnswers(caseId) {
         const [answers] = await pool.execute(
-            `SELECT ca.*, q.question_text, q.answer_type
-       FROM case_answers ca
-       JOIN questions q ON ca.question_id = q.id
-       WHERE ca.case_id = ?
-       ORDER BY q.order_index`,
+            `SELECT ca.*,
+                    COALESCE(ca.question_text_snapshot, q.question_text) AS question_text,
+                    COALESCE(ca.answer_type_snapshot, q.answer_type) AS answer_type,
+                    COALESCE(ca.order_index_snapshot, q.order_index, ca.id) AS display_order
+             FROM case_answers ca
+             LEFT JOIN questions q ON ca.question_id = q.id
+             WHERE ca.case_id = ?
+             ORDER BY display_order, ca.id`,
             [caseId]
         );
 
         return answers;
     },
 
-    /**
-     * Update case with doctor review
-     * @param {number} id - Case ID
-     * @param {Object} reviewData - Review data
-     * @returns {Promise<boolean>} Success status
-     */
     async updateReview(id, reviewData) {
         const { doctorDiagnosis, doctorPrescription, status, reviewedAt } = reviewData;
 
         const [result] = await pool.execute(
-            `UPDATE cases SET 
-        doctor_diagnosis = ?,
-        doctor_prescription = ?,
-        status = ?,
-        reviewed_at = ?
-       WHERE id = ?`,
+            `UPDATE cases SET
+                 doctor_diagnosis = ?,
+                 doctor_prescription = ?,
+                 status = ?,
+                 reviewed_at = ?
+             WHERE id = ?`,
             [doctorDiagnosis, doctorPrescription, status, reviewedAt, id]
         );
 
         return result.affectedRows > 0;
     },
 
-    /**
-     * Delete a case and its related data
-     * @param {number} id - Case ID
-     * @returns {Promise<boolean>} Success status
-     */
     async delete(id) {
-        // Delete answers first
         await pool.execute('DELETE FROM case_answers WHERE case_id = ?', [id]);
-
-        // Delete documents
         await pool.execute('DELETE FROM documents WHERE case_id = ?', [id]);
 
-        // Delete case
         const [result] = await pool.execute('DELETE FROM cases WHERE id = ?', [id]);
-
         return result.affectedRows > 0;
     }
 };
 
 module.exports = Case;
-

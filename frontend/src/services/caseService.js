@@ -29,10 +29,14 @@ const caseService = {
     /**
      * Create new case
      * @param {number} patientId - Patient ID
+     * @param {number|string|null} catalogueId - Selected catalogue ID
      * @returns {Promise<Object>} API response
      */
-    async create(patientId) {
-        return api.post(ENDPOINTS.CASES, { patientId });
+    async create(patientId, catalogueId = null) {
+        return api.post(ENDPOINTS.CASES, {
+            patientId,
+            ...(catalogueId ? { catalogueId: Number(catalogueId) } : {})
+        });
     },
 
     /**

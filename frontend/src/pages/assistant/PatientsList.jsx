@@ -12,8 +12,9 @@ import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import patientService from '../../services/patientService';
 import caseService from '../../services/caseService';
+import catalogueService from '../../services/catalogueService';
 import translations from '../../constants/translations';
-import { showError, showConfirm } from '../../utils/toast';
+import { showError, showConfirm, showWarning } from '../../utils/toast';
 import { GENDER_OPTIONS } from '../../constants/config';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import EditIcon from '@mui/icons-material/Edit';
@@ -35,6 +36,11 @@ function PatientsList() {
     const [showModal, setShowModal] = useState(false);
     const [modalLoading, setModalLoading] = useState(false);
     const [selectedPatient, setSelectedPatient] = useState(null);
+    const [showCatalogueModal, setShowCatalogueModal] = useState(false);
+    const [startingPatient, setStartingPatient] = useState(null);
+    const [cataloguesLoading, setCataloguesLoading] = useState(false);
+    const [availableCatalogues, setAvailableCatalogues] = useState([]);
+    const [selectedCatalogueId, setSelectedCatalogueId] = useState('');
 
     // Filter/Sort/Pagination State
     const [genderFilter, setGenderFilter] = useState('all');
@@ -220,8 +226,51 @@ function PatientsList() {
         setSelectedPatient(null);
     }
 
-    function startCase(patient) {
-        navigate(`/assistant/case/new/${patient.id}`);
+    async function startCase(patient) {
+        setStartingPatient(patient);
+        setSelectedCatalogueId('');
+        setAvailableCatalogues([]);
+        setShowCatalogueModal(true);
+        setCataloguesLoading(true);
+
+        try {
+            const response = await catalogueService.getActiveCatalogues();
+            if (response.success) {
+                const catalogues = response.data.catalogues || [];
+                setAvailableCatalogues(catalogues);
+
+                if (catalogues.length === 1) {
+                    setSelectedCatalogueId(String(catalogues[0].id));
+                }
+            }
+        } catch (error) {
+            console.error('Load active catalogues error:', error);
+            showError(error.message || 'Erreur lors du chargement des catalogues');
+        } finally {
+            setCataloguesLoading(false);
+        }
+    }
+
+    function closeCatalogueModal() {
+        setShowCatalogueModal(false);
+        setStartingPatient(null);
+        setSelectedCatalogueId('');
+        setAvailableCatalogues([]);
+        setCataloguesLoading(false);
+    }
+
+    function continueToQuestionnaire() {
+        if (!startingPatient) {
+            return;
+        }
+
+        if (!selectedCatalogueId) {
+            showWarning('Veuillez selectionner un catalogue.');
+            return;
+        }
+
+        navigate(`/assistant/case/new/${startingPatient.id}?catalogueId=${selectedCatalogueId}`);
+        closeCatalogueModal();
     }
 
     // Toggle History
@@ -678,6 +727,78 @@ function PatientsList() {
                     )}
                 </div>
             </main>
+
+            <Modal
+                isOpen={showCatalogueModal}
+                onClose={closeCatalogueModal}
+                title="Choisir un catalogue"
+                footer={
+                    <>
+                        <Button variant="ghost" onClick={closeCatalogueModal}>
+                            {t.common.cancel}
+                        </Button>
+                        <Button
+                            variant="primary"
+                            onClick={continueToQuestionnaire}
+                            disabled={!selectedCatalogueId || cataloguesLoading || availableCatalogues.length === 0}
+                        >
+                            Continuer
+                        </Button>
+                    </>
+                }
+            >
+                {startingPatient && (
+                    <p style={{ marginTop: 0, color: 'var(--text-secondary)' }}>
+                        Patient: <strong>{startingPatient.firstName || startingPatient.first_name} {startingPatient.lastName || startingPatient.last_name}</strong>
+                    </p>
+                )}
+
+                {cataloguesLoading ? (
+                    <div className="flex justify-center" style={{ padding: 'var(--space-lg)' }}>
+                        <LoadingSpinner size="sm" text={t.common.loading} />
+                    </div>
+                ) : availableCatalogues.length === 0 ? (
+                    <div className="card empty-state-card" style={{ padding: 'var(--space-xl)', textAlign: 'center' }}>
+                        <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                            Aucun catalogue actif avec des questions disponibles.
+                        </p>
+                    </div>
+                ) : (
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                        {availableCatalogues.map(catalogue => {
+                            const isSelected = String(catalogue.id) === selectedCatalogueId;
+                            return (
+                                <button
+                                    key={catalogue.id}
+                                    type="button"
+                                    onClick={() => setSelectedCatalogueId(String(catalogue.id))}
+                                    style={{
+                                        width: '100%',
+                                        border: isSelected ? '1px solid rgba(59, 130, 246, 0.45)' : '1px solid var(--border-color)',
+                                        background: isSelected ? 'rgba(59, 130, 246, 0.10)' : 'var(--bg-card)',
+                                        color: 'var(--text-primary)',
+                                        borderRadius: 'var(--radius-lg)',
+                                        padding: '0.95rem 1rem',
+                                        textAlign: 'left',
+                                        cursor: 'pointer',
+                                        transition: 'all var(--transition-base)'
+                                    }}
+                                >
+                                    <div className="flex justify-between items-center gap-md">
+                                        <div>
+                                            <div style={{ fontWeight: 600 }}>{catalogue.name}</div>
+                                            <div style={{ marginTop: '4px', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
+                                                {catalogue.active_question_count || 0} question(s) active(s)
+                                            </div>
+                                        </div>
+                                        {isSelected && <span className="badge badge-success">Selectionne</span>}
+                                    </div>
+                                </button>
+                            );
+                        })}
+                    </div>
+                )}
+            </Modal>
 
             {/* Patient Modal (Create/Edit) - Updated 2 column Layout */}
             <Modal

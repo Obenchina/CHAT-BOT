@@ -79,19 +79,19 @@ async function create(req, res) {
             });
         }
 
-        // Create user account for assistant
+        // Create user account for assistant (with firstName and lastName)
         const user = await User.create({
             email,
             password,
-            role: 'assistant'
-        });
-
-        // Create assistant profile
-        const assistant = await Assistant.create({
-            userId: user.id,
-            doctorId: doctor.id,
+            role: 'assistant',
             firstName,
             lastName
+        });
+
+        // Create assistant profile (no names here, they live in users)
+        const assistant = await Assistant.create({
+            userId: user.id,
+            doctorId: doctor.id
         });
 
         res.status(201).json({
@@ -143,8 +143,15 @@ async function update(req, res) {
             });
         }
 
-        // Update assistant
-        await Assistant.update(id, { firstName, lastName, isActive });
+        // Update name in users table
+        if (firstName || lastName) {
+            await User.updateName(assistant.user_id, firstName, lastName);
+        }
+
+        // Update assistant-specific fields (only is_active)
+        if (isActive !== undefined) {
+            await Assistant.update(id, { isActive });
+        }
 
         // Also update user active status if changing isActive
         if (isActive !== undefined) {
@@ -336,8 +343,10 @@ async function updateProfile(req, res) {
             await User.updateEmail(req.user.id, email);
         }
 
-        // Update assistant
-        await Assistant.update(assistant.id, { firstName, lastName, gender, phone });
+        // Update name in users table
+        if (firstName || lastName) {
+            await User.updateName(req.user.id, firstName, lastName);
+        }
 
         res.json({
             success: true,

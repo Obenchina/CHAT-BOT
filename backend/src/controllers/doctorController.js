@@ -4,6 +4,7 @@
  */
 
 const Doctor = require('../models/Doctor');
+const User = require('../models/User');
 const Assistant = require('../models/Assistant');
 const Case = require('../models/Case');
 const Catalogue = require('../models/Catalogue');
@@ -105,12 +106,20 @@ async function updateProfile(req, res) {
     try {
         const { firstName, lastName, gender, phone, email, address, specialty } = req.body;
 
+        // Update name in users table
+        if (firstName || lastName) {
+            await User.updateName(req.user.id, firstName, lastName);
+        }
+
+        // Update email in users table if changed
+        if (email) {
+            await User.updateEmail(req.user.id, email);
+        }
+
+        // Update doctor-specific fields
         const updated = await Doctor.update(req.user.id, {
-            firstName,
-            lastName,
             gender,
             phone,
-            email,
             address,
             specialty
         });

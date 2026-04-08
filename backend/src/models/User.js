@@ -13,20 +13,22 @@ const User = {
      * @returns {Promise<Object>} Created user
      */
     async create(userData) {
-        const { email, password, role } = userData;
+        const { email, password, role, firstName, lastName } = userData;
 
         // Hash password
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const [result] = await pool.execute(
-            `INSERT INTO users (email, password, role, is_active, created_at, updated_at)
-       VALUES (?, ?, ?, true, NOW(), NOW())`,
-            [email, hashedPassword, role]
+            `INSERT INTO users (email, password, first_name, last_name, role, is_active, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, true, NOW(), NOW())`,
+            [email, hashedPassword, firstName || '', lastName || '', role]
         );
 
         return {
             id: result.insertId,
             email,
+            firstName,
+            lastName,
             role
         };
     },
@@ -52,7 +54,7 @@ const User = {
      */
     async findById(id) {
         const [users] = await pool.execute(
-            'SELECT id, email, role, is_active, created_at FROM users WHERE id = ?',
+            'SELECT id, email, first_name, last_name, role, is_active, created_at FROM users WHERE id = ?',
             [id]
         );
 
@@ -125,6 +127,22 @@ const User = {
         const [result] = await pool.execute(
             'UPDATE users SET email = ?, updated_at = NOW() WHERE id = ?',
             [email, id]
+        );
+
+        return result.affectedRows > 0;
+    },
+
+    /**
+     * Update user name
+     * @param {number} id - User ID
+     * @param {string} firstName - First name
+     * @param {string} lastName - Last name
+     * @returns {Promise<boolean>} Success status
+     */
+    async updateName(id, firstName, lastName) {
+        const [result] = await pool.execute(
+            'UPDATE users SET first_name = COALESCE(?, first_name), last_name = COALESCE(?, last_name), updated_at = NOW() WHERE id = ?',
+            [firstName, lastName, id]
         );
 
         return result.affectedRows > 0;
