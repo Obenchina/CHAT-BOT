@@ -97,6 +97,63 @@ const Doctor = {
         );
 
         return results.length > 0 ? results[0] : null;
+    },
+
+    /**
+     * Get prescription PDF customization config
+     * @param {number} userId - User ID
+     * @returns {Promise<Object|null>} Prescription config
+     */
+    async getPrescriptionConfig(userId) {
+        const [results] = await pool.execute(
+            `SELECT
+                d.prescription_logo_path,
+                d.prescription_primary_color,
+                d.prescription_accent_color,
+                d.prescription_header_note,
+                d.prescription_footer_text
+             FROM doctors d
+             WHERE d.user_id = ?`,
+            [userId]
+        );
+
+        return results.length > 0 ? results[0] : null;
+    },
+
+    /**
+     * Update prescription PDF customization config
+     * @param {number} userId - User ID
+     * @param {Object} configData - Prescription config data
+     * @returns {Promise<boolean>} Success status
+     */
+    async updatePrescriptionConfig(userId, configData) {
+        const {
+            logoPath,
+            primaryColor,
+            accentColor,
+            headerNote,
+            footerText
+        } = configData;
+
+        const [result] = await pool.execute(
+            `UPDATE doctors SET
+                prescription_logo_path = ?,
+                prescription_primary_color = ?,
+                prescription_accent_color = ?,
+                prescription_header_note = ?,
+                prescription_footer_text = ?
+             WHERE user_id = ?`,
+            [
+                logoPath,
+                primaryColor,
+                accentColor,
+                headerNote,
+                footerText,
+                userId
+            ]
+        );
+
+        return result.affectedRows > 0;
     }
 };
 

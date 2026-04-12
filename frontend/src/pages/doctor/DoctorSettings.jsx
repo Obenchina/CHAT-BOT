@@ -15,13 +15,14 @@ import doctorService from '../../services/doctorService';
 import authService from '../../services/authService';
 import translations from '../../constants/translations';
 import { showSuccess, showError, showConfirm } from '../../utils/toast';
-import { SPECIALTY_OPTIONS, GENDER_OPTIONS } from '../../constants/config';
+import { SPECIALTY_OPTIONS, GENDER_OPTIONS, UPLOAD_URL } from '../../constants/config';
 import '../../styles/profile.css';
 
 // MUI Icons
 import PersonIcon from '@mui/icons-material/Person';
 import GroupIcon from '@mui/icons-material/Group';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
+import DescriptionIcon from '@mui/icons-material/Description';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import AddIcon from '@mui/icons-material/Add';
@@ -32,6 +33,25 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SaveIcon from '@mui/icons-material/Save';
 
 const t = translations;
+const DEFAULT_PRESCRIPTION_CONFIG = {
+    logoPath: '',
+    primaryColor: '#163A5F',
+    accentColor: '#67C7D8',
+    headerNote: '',
+    footerText: ''
+};
+
+function getUploadAssetUrl(filePath) {
+    if (!filePath) {
+        return '';
+    }
+
+    const normalizedPath = String(filePath)
+        .replace(/^uploads[\\/]/, '')
+        .replace(/\\/g, '/');
+
+    return `${UPLOAD_URL}/${normalizedPath}`;
+}
 
 // ============================================================
 // AI MODEL OPTIONS
@@ -83,6 +103,7 @@ const TABS = [
     { id: 'profile', label: 'Profil', icon: <PersonIcon fontSize="small" /> },
     { id: 'assistants', label: 'Assistants', icon: <GroupIcon fontSize="small" /> },
     { id: 'ai', label: 'Configuration IA', icon: <SmartToyIcon fontSize="small" /> },
+    { id: 'prescription', label: 'Ordonnance PDF', icon: <DescriptionIcon fontSize="small" /> },
 ];
 
 function DoctorSettings() {
@@ -99,6 +120,8 @@ function DoctorSettings() {
             nextTab = 'assistants';
         } else if (hash === '#ai' || tab === 'ai') {
             nextTab = 'ai';
+        } else if (hash === '#prescription' || tab === 'prescription') {
+            nextTab = 'prescription';
         }
 
         if (!nextTab) {
@@ -160,6 +183,7 @@ function DoctorSettings() {
                     {activeTab === 'profile' && <ProfileTab />}
                     {activeTab === 'assistants' && <AssistantsTab />}
                     {activeTab === 'ai' && <AiConfigTab />}
+                    {activeTab === 'prescription' && <PrescriptionPdfTab />}
                 </div>
             </main>
         </div>
@@ -537,6 +561,302 @@ function AssistantsTab() {
                 </Modal>
             )}
         </>
+    );
+}
+
+// ============================================================
+// PRESCRIPTION PDF CUSTOMIZATION TAB
+// ============================================================
+function PrescriptionPdfTab() {
+    const [loading, setLoading] = useState(true);
+    const [saving, setSaving] = useState(false);
+    const [message, setMessage] = useState({ type: '', text: '' });
+    const [logoFile, setLogoFile] = useState(null);
+    const [logoPreview, setLogoPreview] = useState('');
+    const [formData, setFormData] = useState(DEFAULT_PRESCRIPTION_CONFIG);
+
+    useEffect(() => {
+        loadConfig();
+    }, []);
+
+    async function loadConfig() {
+        try {
+            const response = await doctorService.getPrescriptionConfig();
+            if (response.success && response.data) {
+                const nextConfig = {
+                    ...DEFAULT_PRESCRIPTION_CONFIG,
+                    ...response.data,
+                    primaryColor: response.data.primaryColor || DEFAULT_PRESCRIPTION_CONFIG.primaryColor,
+                    accentColor: response.data.accentColor || DEFAULT_PRESCRIPTION_CONFIG.accentColor
+                };
+
+                setFormData(nextConfig);
+                setLogoPreview(getUploadAssetUrl(nextConfig.logoPath));
+            }
+        } catch (error) {
+            console.error('Load prescription config error:', error);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    function handleFieldChange(field, value) {
+        setFormData(prev => ({
+            ...prev,
+            [field]: value
+        }));
+    }
+
+    function handleLogoChange(event) {
+        const file = event.target.files?.[0];
+        if (!file) {
+            return;
+        }
+
+        if (logoPreview.startsWith('blob:')) {
+            URL.revokeObjectURL(logoPreview);
+        }
+
+        setLogoFile(file);
+        setLogoPreview(URL.createObjectURL(file));
+    }
+
+    async function handleSave(event) {
+        event.preventDefault();
+        setSaving(true);
+        setMessage({ type: '', text: '' });
+
+        try {
+            const payload = new FormData();
+            payload.append('primaryColor', formData.primaryColor);
+            payload.append('accentColor', formData.accentColor);
+            payload.append('headerNote', formData.headerNote);
+            payload.append('footerText', formData.footerText);
+
+            if (logoFile) {
+                payload.append('logo', logoFile);
+            }
+
+            const response = await doctorService.updatePrescriptionConfig(payload);
+            if (response.success) {
+                const nextConfig = {
+                    ...DEFAULT_PRESCRIPTION_CONFIG,
+                    ...response.data,
+                    primaryColor: response.data.primaryColor || DEFAULT_PRESCRIPTION_CONFIG.primaryColor,
+                    accentColor: response.data.accentColor || DEFAULT_PRESCRIPTION_CONFIG.accentColor
+                };
+
+                if (logoPreview.startsWith('blob:')) {
+                    URL.revokeObjectURL(logoPreview);
+                }
+
+                setFormData(nextConfig);
+                setLogoFile(null);
+                setLogoPreview(getUploadAssetUrl(nextConfig.logoPath));
+                setMessage({ type: 'success', text: 'Configuration de l ordonnance enregistree avec succes.' });
+            }
+        } catch (error) {
+            setMessage({ type: 'danger', text: error.message || 'Erreur lors de la sauvegarde de l ordonnance.' });
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    if (loading) {
+        return (
+            <div className="flex justify-center" style={{ padding: 'var(--space-2xl)' }}>
+                <LoadingSpinner size="lg" text={t.common.loading} />
+            </div>
+        );
+    }
+
+    return (
+        <div className="prescription-settings-grid">
+            <div className="profile-section-card">
+                <div className="section-header">
+                    <div className="section-title">
+                        <span>PDF</span> Personnalisation de l ordonnance
+                    </div>
+                </div>
+
+                {message.text && (
+                    <div className={`alert alert-${message.type}`} style={{ marginBottom: 'var(--space-md)' }}>
+                        {message.text}
+                    </div>
+                )}
+
+                <form onSubmit={handleSave}>
+                    <div className="prescription-form-stack">
+                        <div className="input-group">
+                            <label>Logo du cabinet</label>
+                            <div className="prescription-logo-field">
+                                <div className="prescription-logo-preview">
+                                    {logoPreview ? (
+                                        <img src={logoPreview} alt="Logo ordonnance" />
+                                    ) : (
+                                        <span>MC</span>
+                                    )}
+                                </div>
+                                <div className="prescription-logo-inputs">
+                                    <input
+                                        type="file"
+                                        accept="image/png,image/jpeg,image/webp"
+                                        onChange={handleLogoChange}
+                                        className="input-field"
+                                    />
+                                    <p className="prescription-help-text">
+                                        JPG, PNG ou WebP. Le nouveau logo remplacera celui utilise dans le PDF.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="form-grid">
+                            <div className="input-group">
+                                <label>Couleur principale</label>
+                                <div className="prescription-color-row">
+                                    <input
+                                        type="color"
+                                        value={formData.primaryColor}
+                                        onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
+                                        className="prescription-color-input"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={formData.primaryColor}
+                                        onChange={(e) => handleFieldChange('primaryColor', e.target.value)}
+                                        className="input-field"
+                                        placeholder="#163A5F"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="input-group">
+                                <label>Couleur secondaire</label>
+                                <div className="prescription-color-row">
+                                    <input
+                                        type="color"
+                                        value={formData.accentColor}
+                                        onChange={(e) => handleFieldChange('accentColor', e.target.value)}
+                                        className="prescription-color-input"
+                                    />
+                                    <input
+                                        type="text"
+                                        value={formData.accentColor}
+                                        onChange={(e) => handleFieldChange('accentColor', e.target.value)}
+                                        className="input-field"
+                                        placeholder="#67C7D8"
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="input-group">
+                            <label>Texte sous le nom du medecin</label>
+                            <input
+                                type="text"
+                                value={formData.headerNote}
+                                onChange={(e) => handleFieldChange('headerNote', e.target.value)}
+                                className="input-field"
+                                maxLength={180}
+                                placeholder="Cabinet medical, rendez-vous, slogan..."
+                            />
+                        </div>
+
+                        <div className="input-group">
+                            <label>Texte du pied de page</label>
+                            <textarea
+                                value={formData.footerText}
+                                onChange={(e) => handleFieldChange('footerText', e.target.value)}
+                                className="input-field"
+                                rows="4"
+                                maxLength={500}
+                                placeholder="Informations legales, horaires, message de suivi..."
+                            />
+                        </div>
+                    </div>
+
+                    <div className="form-actions">
+                        <button type="submit" className="btn-save" disabled={saving}>
+                            {saving ? 'Enregistrement...' : 'Enregistrer la personnalisation'}
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <div className="profile-section-card">
+                <div className="section-header">
+                    <div className="section-title">
+                        <span>Vue</span> Apercu rapide
+                    </div>
+                </div>
+
+                <div
+                    className="prescription-preview-card"
+                    style={{
+                        '--preview-primary': formData.primaryColor,
+                        '--preview-accent': formData.accentColor
+                    }}
+                >
+                    <div className="prescription-preview-sheet">
+                        <div className="prescription-preview-topline" />
+
+                        <div className="prescription-preview-header">
+                            <div className="prescription-preview-brand">
+                                <div className="prescription-preview-brand-logo">
+                                    {logoPreview ? (
+                                        <img src={logoPreview} alt="Logo preview" />
+                                    ) : (
+                                        <span>MC</span>
+                                    )}
+                                </div>
+                                <div>
+                                    <strong>Dr Votre Nom</strong>
+                                    <span>Medecine generale</span>
+                                    {formData.headerNote && <small>{formData.headerNote}</small>}
+                                </div>
+                            </div>
+                            <div className="prescription-preview-date">12/04/2026</div>
+                        </div>
+
+                        <div className="prescription-preview-patient">
+                            <div>
+                                <span>Nom</span>
+                                <strong>PATIENT</strong>
+                            </div>
+                            <div>
+                                <span>Prenom</span>
+                                <strong>EXEMPLE</strong>
+                            </div>
+                            <div>
+                                <span>Age</span>
+                                <strong>45 ans</strong>
+                            </div>
+                        </div>
+
+                        <h3>ORDONNANCE</h3>
+
+                        <div className="prescription-preview-med">
+                            <strong>1. Paracetamol</strong>
+                            <span>500mg - 3x/jour - 5 jours</span>
+                        </div>
+
+                        <div className="prescription-preview-med">
+                            <strong>2. Ibuprofene</strong>
+                            <span>400mg - 2x/jour - 3 jours</span>
+                        </div>
+
+                        <div className="prescription-preview-footer">
+                            <p>{formData.footerText || 'Le texte de pied de page apparaitra ici.'}</p>
+                            <div>
+                                <span>Signature</span>
+                                <strong>Dr Votre Nom</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     );
 }
 

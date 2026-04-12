@@ -1,4 +1,4 @@
-/**
+﻿/**
  * PDF Service
  * Generate medical documents (Ordonnance, Rapport)
  */
@@ -45,6 +45,48 @@ function normalizeText(value, fallback = '') {
     return text || fallback;
 }
 
+function normalizeHexColor(value, fallback) {
+    const raw = normalizeText(value);
+    if (!raw) {
+        return fallback;
+    }
+
+    const normalized = raw.startsWith('#') ? raw : `#${raw}`;
+    return /^#[0-9A-Fa-f]{6}$/.test(normalized) ? normalized.toUpperCase() : fallback;
+}
+
+function mixWithWhite(hex, ratio = 0.82) {
+    const color = normalizeHexColor(hex, BRAND.primary).replace('#', '');
+    const r = parseInt(color.slice(0, 2), 16);
+    const g = parseInt(color.slice(2, 4), 16);
+    const b = parseInt(color.slice(4, 6), 16);
+    const mix = (channel) => Math.round(channel + (255 - channel) * ratio);
+
+    return `#${[mix(r), mix(g), mix(b)]
+        .map((channel) => channel.toString(16).padStart(2, '0'))
+        .join('')
+        .toUpperCase()}`;
+}
+
+function buildTheme(doctor) {
+    const primary = normalizeHexColor(
+        doctor?.prescriptionPrimaryColor || doctor?.prescription_primary_color,
+        BRAND.primary
+    );
+    const secondary = normalizeHexColor(
+        doctor?.prescriptionAccentColor || doctor?.prescription_accent_color,
+        BRAND.secondary
+    );
+
+    return {
+        ...BRAND,
+        primary,
+        secondary,
+        soft: mixWithWhite(secondary, 0.86),
+        border: mixWithWhite(primary, 0.82)
+    };
+}
+
 function formatDateFr(value) {
     return new Date(value || Date.now()).toLocaleDateString('fr-FR', {
         day: '2-digit',
@@ -88,6 +130,27 @@ function getDoctorDisplayName(doctor) {
     return `Dr ${`${firstName} ${lastName}`.trim()}`.trim();
 }
 
+function getDoctorLogoPath(doctor) {
+    return normalizeText(
+        doctor?.prescriptionLogoPath ||
+        doctor?.prescription_logo_path ||
+        doctor?.logoPath ||
+        doctor?.logo_path
+    );
+}
+
+function getDoctorHeaderNote(doctor) {
+    return normalizeText(
+        doctor?.prescriptionHeaderNote || doctor?.prescription_header_note
+    );
+}
+
+function getDoctorFooterText(doctor) {
+    return normalizeText(
+        doctor?.prescriptionFooterText || doctor?.prescription_footer_text
+    );
+}
+
 function getPatientFirstName(patient) {
     return normalizeText(patient.firstName || patient.first_name);
 }
@@ -112,22 +175,22 @@ function getPageBounds(doc) {
     };
 }
 
-function drawDefaultLogo(doc, x, y) {
+function drawDefaultLogo(doc, theme, x, y) {
     const size = 48;
 
     doc.save();
-    doc.roundedRect(x, y, size, size, 14).fill(BRAND.secondary);
-    doc.fillColor(BRAND.primary).font('Helvetica-Bold').fontSize(18);
+    doc.roundedRect(x, y, size, size, 14).fill(theme.secondary);
+    doc.fillColor(theme.primary).font('Helvetica-Bold').fontSize(18);
     doc.text('MC', x, y + 15, { width: size, align: 'center' });
     doc.restore();
 
     return size;
 }
 
-function drawLogo(doc, doctor, x, y) {
-    const rawLogoPath = normalizeText(doctor.logoPath || doctor.logo_path);
+function drawLogo(doc, doctor, theme, x, y) {
+    const rawLogoPath = getDoctorLogoPath(doctor);
     if (!rawLogoPath) {
-        return drawDefaultLogo(doc, x, y);
+        return drawDefaultLogo(doc, theme, x, y);
     }
 
     const resolvedLogoPath = path.isAbsolute(rawLogoPath)
@@ -143,31 +206,41 @@ function drawLogo(doc, doctor, x, y) {
         console.warn('Failed to load doctor logo for PDF:', error.message);
     }
 
-    return drawDefaultLogo(doc, x, y);
+    return drawDefaultLogo(doc, theme, x, y);
 }
 
-function drawHeader(doc, doctor, date) {
+function drawHeader(doc, doctor, date, theme) {
     const bounds = getPageBounds(doc);
     const headerTop = 36;
     const headerHeight = 112;
+    const headerNote = getDoctorHeaderNote(doctor);
 
-    doc.roundedRect(bounds.left, headerTop, bounds.width, 10, 5).fill(BRAND.primary);
-    doc.roundedRect(bounds.left, headerTop + 8, bounds.width, headerHeight, 18).fill(BRAND.soft);
+    doc.roundedRect(bounds.left, headerTop, bounds.width, 10, 5).fill(theme.primary);
+    doc.roundedRect(bounds.left, headerTop + 8, bounds.width, headerHeight, 18).fill(theme.soft);
 
-    const logoSize = drawLogo(doc, doctor, bounds.left + 18, headerTop + 28);
+    const logoSize = drawLogo(doc, doctor, theme, bounds.left + 18, headerTop + 28);
     const doctorInfoX = bounds.left + 18 + logoSize + 16;
     const dateBoxWidth = 116;
     const doctorInfoWidth = bounds.width - (doctorInfoX - bounds.left) - dateBoxWidth - 36;
 
-    doc.fillColor(BRAND.text).font('Helvetica-Bold').fontSize(18);
+    doc.fillColor(theme.text).font('Helvetica-Bold').fontSize(18);
     doc.text(getDoctorDisplayName(doctor), doctorInfoX, headerTop + 28, {
         width: doctorInfoWidth
     });
 
-    doc.fillColor(BRAND.primary).font('Helvetica').fontSize(11);
+    doc.fillColor(theme.primary).font('Helvetica').fontSize(11);
     doc.text(formatSpecialtyLabel(doctor.specialty), doctorInfoX, headerTop + 54, {
         width: doctorInfoWidth
     });
+
+    let contactY = headerTop + 76;
+    if (headerNote) {
+        doc.fillColor(theme.muted).font('Helvetica-Oblique').fontSize(9);
+        doc.text(headerNote, doctorInfoX, contactY, {
+            width: doctorInfoWidth
+        });
+        contactY += 12;
+    }
 
     const contactLines = [
         doctor.phone ? `Mobile: ${doctor.phone}` : null,
@@ -175,30 +248,28 @@ function drawHeader(doc, doctor, date) {
         doctor.address ? `Adresse: ${doctor.address}` : null
     ].filter(Boolean);
 
-    doc.fillColor(BRAND.muted).font('Helvetica').fontSize(9.5);
-
-    let contactY = headerTop + 76;
+    doc.fillColor(theme.muted).font('Helvetica').fontSize(9.5);
     contactLines.forEach((line) => {
         doc.text(line, doctorInfoX, contactY, { width: doctorInfoWidth });
         contactY += 12;
     });
 
     const dateBoxX = bounds.right - dateBoxWidth - 18;
-    doc.roundedRect(dateBoxX, headerTop + 32, dateBoxWidth, 44, 14).fill(BRAND.white);
-    doc.fillColor(BRAND.muted).font('Helvetica').fontSize(8);
+    doc.roundedRect(dateBoxX, headerTop + 32, dateBoxWidth, 44, 14).fill(theme.white);
+    doc.fillColor(theme.muted).font('Helvetica').fontSize(8);
     doc.text('Date', dateBoxX, headerTop + 44, { width: dateBoxWidth, align: 'center' });
-    doc.fillColor(BRAND.text).font('Helvetica-Bold').fontSize(11);
+    doc.fillColor(theme.text).font('Helvetica-Bold').fontSize(11);
     doc.text(formatDateFr(date), dateBoxX, headerTop + 56, { width: dateBoxWidth, align: 'center' });
 
     return headerTop + headerHeight + 26;
 }
 
-function drawPatientCard(doc, patient, y) {
+function drawPatientCard(doc, patient, y, theme) {
     const bounds = getPageBounds(doc);
     const cardHeight = 60;
     const columnWidth = bounds.width / 3;
 
-    doc.roundedRect(bounds.left, y, bounds.width, cardHeight, 16).fillAndStroke(BRAND.white, BRAND.border);
+    doc.roundedRect(bounds.left, y, bounds.width, cardHeight, 16).fillAndStroke(theme.white, theme.border);
 
     const fields = [
         { label: 'Nom', value: getPatientLastName(patient).toUpperCase() || '-' },
@@ -209,38 +280,38 @@ function drawPatientCard(doc, patient, y) {
     fields.forEach((field, index) => {
         const fieldX = bounds.left + index * columnWidth + 16;
 
-        doc.fillColor(BRAND.muted).font('Helvetica').fontSize(9);
+        doc.fillColor(theme.muted).font('Helvetica').fontSize(9);
         doc.text(field.label, fieldX, y + 14, { width: columnWidth - 24 });
 
-        doc.fillColor(BRAND.text).font('Helvetica-Bold').fontSize(12);
+        doc.fillColor(theme.text).font('Helvetica-Bold').fontSize(12);
         doc.text(field.value, fieldX, y + 28, { width: columnWidth - 24 });
     });
 
     return y + cardHeight + 26;
 }
 
-function drawTitle(doc, title, y) {
+function drawTitle(doc, title, y, theme) {
     const bounds = getPageBounds(doc);
 
-    doc.fillColor(BRAND.text).font('Helvetica-Bold').fontSize(24);
+    doc.fillColor(theme.text).font('Helvetica-Bold').fontSize(24);
     doc.text(title, bounds.left, y, { width: bounds.width, align: 'center' });
 
-    doc.roundedRect(bounds.left + (bounds.width / 2) - 34, y + 34, 68, 4, 2).fill(BRAND.secondary);
+    doc.roundedRect(bounds.left + (bounds.width / 2) - 34, y + 34, 68, 4, 2).fill(theme.secondary);
 
     return y + 54;
 }
 
-function drawContinuationHeader(doc, doctor, title) {
+function drawContinuationHeader(doc, doctor, title, theme) {
     const bounds = getPageBounds(doc);
     const y = 40;
 
-    doc.roundedRect(bounds.left, y, bounds.width, 52, 16).fill(BRAND.soft);
-    doc.fillColor(BRAND.text).font('Helvetica-Bold').fontSize(13);
+    doc.roundedRect(bounds.left, y, bounds.width, 52, 16).fill(theme.soft);
+    doc.fillColor(theme.text).font('Helvetica-Bold').fontSize(13);
     doc.text(getDoctorDisplayName(doctor), bounds.left + 18, y + 18, {
         width: bounds.width / 2
     });
 
-    doc.fillColor(BRAND.primary).font('Helvetica-Bold').fontSize(12);
+    doc.fillColor(theme.primary).font('Helvetica-Bold').fontSize(12);
     doc.text(`${title} - suite`, bounds.left, y + 18, {
         width: bounds.width - 18,
         align: 'right'
@@ -249,7 +320,7 @@ function drawContinuationHeader(doc, doctor, title) {
     return y + 76;
 }
 
-function drawMedicationItem(doc, medication, index, y) {
+function drawMedicationItem(doc, medication, index, y, theme) {
     const bounds = getPageBounds(doc);
     const name = normalizeText(medication.name, 'Medicament');
     const quantity = normalizeText(medication.quantity);
@@ -260,19 +331,19 @@ function drawMedicationItem(doc, medication, index, y) {
 
     const itemHeight = details || quantity ? 60 : 48;
 
-    doc.roundedRect(bounds.left, y, bounds.width, itemHeight, 14).fillAndStroke(BRAND.white, BRAND.border);
+    doc.roundedRect(bounds.left, y, bounds.width, itemHeight, 14).fillAndStroke(theme.white, theme.border);
 
-    doc.roundedRect(bounds.left + 14, y + 14, 28, 28, 10).fill(BRAND.soft);
-    doc.fillColor(BRAND.primary).font('Helvetica-Bold').fontSize(11);
+    doc.roundedRect(bounds.left + 14, y + 14, 28, 28, 10).fill(theme.soft);
+    doc.fillColor(theme.primary).font('Helvetica-Bold').fontSize(11);
     doc.text(String(index + 1), bounds.left + 14, y + 21, { width: 28, align: 'center' });
 
-    doc.fillColor(BRAND.text).font('Helvetica-Bold').fontSize(12);
+    doc.fillColor(theme.text).font('Helvetica-Bold').fontSize(12);
     doc.text(name, bounds.left + 56, y + 14, {
         width: bounds.width - 140
     });
 
     if (quantity) {
-        doc.fillColor(BRAND.muted).font('Helvetica').fontSize(10);
+        doc.fillColor(theme.muted).font('Helvetica').fontSize(10);
         doc.text(quantity, bounds.left + bounds.width - 110, y + 16, {
             width: 90,
             align: 'right'
@@ -280,7 +351,7 @@ function drawMedicationItem(doc, medication, index, y) {
     }
 
     if (details) {
-        doc.fillColor(BRAND.muted).font('Helvetica').fontSize(10);
+        doc.fillColor(theme.muted).font('Helvetica').fontSize(10);
         doc.text(details, bounds.left + 56, y + 33, {
             width: bounds.width - 80
         });
@@ -289,22 +360,36 @@ function drawMedicationItem(doc, medication, index, y) {
     return y + itemHeight + 14;
 }
 
-function drawSignature(doc, doctor, y) {
+function drawFooterText(doc, doctor, y, theme) {
+    const footerText = getDoctorFooterText(doctor);
+    if (!footerText) {
+        return;
+    }
+
+    const bounds = getPageBounds(doc);
+
+    doc.fillColor(theme.muted).font('Helvetica').fontSize(8.5);
+    doc.text(footerText, bounds.left, y, {
+        width: bounds.width - 210
+    });
+}
+
+function drawSignature(doc, doctor, y, theme) {
     const bounds = getPageBounds(doc);
     const blockWidth = 180;
     const blockX = bounds.right - blockWidth;
 
-    doc.fillColor(BRAND.muted).font('Helvetica').fontSize(8);
+    doc.fillColor(theme.muted).font('Helvetica').fontSize(8);
     doc.text('Signature', blockX, y - 12, { width: blockWidth, align: 'center' });
 
-    doc.strokeColor(BRAND.border).lineWidth(1);
+    doc.strokeColor(theme.border).lineWidth(1);
     doc.moveTo(blockX + 18, y).lineTo(blockX + blockWidth - 18, y).stroke();
 
-    doc.fillColor(BRAND.text).font('Helvetica-Bold').fontSize(10);
+    doc.fillColor(theme.text).font('Helvetica-Bold').fontSize(10);
     doc.text(getDoctorDisplayName(doctor), blockX, y + 8, { width: blockWidth, align: 'center' });
 }
 
-function drawSection(doc, title, body, y) {
+function drawSection(doc, title, body, y, theme) {
     const bounds = getPageBounds(doc);
 
     doc.font('Helvetica').fontSize(10);
@@ -318,14 +403,14 @@ function drawSection(doc, title, body, y) {
         y = 40;
     }
 
-    doc.roundedRect(bounds.left, y, bounds.width, sectionHeight, 14).fillAndStroke(BRAND.white, BRAND.border);
+    doc.roundedRect(bounds.left, y, bounds.width, sectionHeight, 14).fillAndStroke(theme.white, theme.border);
 
-    doc.fillColor(BRAND.primary).font('Helvetica-Bold').fontSize(11);
+    doc.fillColor(theme.primary).font('Helvetica-Bold').fontSize(11);
     doc.text(title, bounds.left + 16, y + 14, {
         width: bounds.width - 32
     });
 
-    doc.fillColor(BRAND.text).font('Helvetica').fontSize(10);
+    doc.fillColor(theme.text).font('Helvetica').fontSize(10);
     doc.text(body, bounds.left + 16, y + 31, {
         width: bounds.width - 32
     });
@@ -340,6 +425,7 @@ function drawSection(doc, title, body, y) {
  */
 async function generatePrescription(data) {
     const { doctor, patient, prescription, date } = data;
+    const theme = buildTheme(doctor);
 
     return new Promise((resolve, reject) => {
         try {
@@ -356,9 +442,9 @@ async function generatePrescription(data) {
             const stream = fs.createWriteStream(filepath);
             doc.pipe(stream);
 
-            let yPos = drawHeader(doc, doctor, date);
-            yPos = drawPatientCard(doc, patient, yPos);
-            yPos = drawTitle(doc, 'ORDONNANCE', yPos);
+            let yPos = drawHeader(doc, doctor, date, theme);
+            yPos = drawPatientCard(doc, patient, yPos, theme);
+            yPos = drawTitle(doc, 'ORDONNANCE', yPos, theme);
             yPos += 18;
 
             if (Array.isArray(prescription) && prescription.length > 0) {
@@ -366,15 +452,15 @@ async function generatePrescription(data) {
                     const bounds = getPageBounds(doc);
                     if (yPos + 74 > bounds.bottom - 80) {
                         doc.addPage();
-                        yPos = drawContinuationHeader(doc, doctor, 'ORDONNANCE');
+                        yPos = drawContinuationHeader(doc, doctor, 'ORDONNANCE', theme);
                     }
 
-                    yPos = drawMedicationItem(doc, medication, index, yPos);
+                    yPos = drawMedicationItem(doc, medication, index, yPos, theme);
                 });
             } else if (typeof prescription === 'string' && prescription.trim()) {
-                yPos = drawSection(doc, 'Traitement', prescription.trim(), yPos);
+                yPos = drawSection(doc, 'Traitement', prescription.trim(), yPos, theme);
             } else {
-                yPos = drawSection(doc, 'Traitement', 'Aucun traitement renseigne.', yPos);
+                yPos = drawSection(doc, 'Traitement', 'Aucun traitement renseigne.', yPos, theme);
             }
 
             const bounds = getPageBounds(doc);
@@ -385,7 +471,8 @@ async function generatePrescription(data) {
                 yPos = Math.max(yPos + 22, bounds.bottom - 70);
             }
 
-            drawSignature(doc, doctor, yPos);
+            drawFooterText(doc, doctor, yPos + 10, theme);
+            drawSignature(doc, doctor, yPos, theme);
 
             doc.end();
 
@@ -407,6 +494,7 @@ async function generatePrescription(data) {
  */
 async function generateReport(data) {
     const { doctor, patient, caseData, aiAnalysis, date } = data;
+    const theme = buildTheme(doctor);
 
     return new Promise((resolve, reject) => {
         try {
@@ -423,31 +511,31 @@ async function generateReport(data) {
             const stream = fs.createWriteStream(filepath);
             doc.pipe(stream);
 
-            let yPos = drawHeader(doc, doctor, date);
-            yPos = drawPatientCard(doc, patient, yPos);
-            yPos = drawTitle(doc, 'RAPPORT MEDICAL', yPos);
+            let yPos = drawHeader(doc, doctor, date, theme);
+            yPos = drawPatientCard(doc, patient, yPos, theme);
+            yPos = drawTitle(doc, 'RAPPORT MEDICAL', yPos, theme);
             yPos += 18;
 
             yPos = drawSection(doc, 'Informations du patient', [
                 `Nom: ${getPatientFirstName(patient)} ${getPatientLastName(patient)}`.trim(),
                 `Age: ${patient.age || '-'} ans`,
                 `Genre: ${formatGenderLabel(patient.gender)}`
-            ].join('\n'), yPos);
+            ].join('\n'), yPos, theme);
 
             if (caseData?.summary) {
-                yPos = drawSection(doc, 'Resume de la consultation', caseData.summary, yPos);
+                yPos = drawSection(doc, 'Resume de la consultation', caseData.summary, yPos, theme);
             }
 
             if (aiAnalysis?.summary) {
-                yPos = drawSection(doc, 'Analyse', aiAnalysis.summary, yPos);
+                yPos = drawSection(doc, 'Analyse', aiAnalysis.summary, yPos, theme);
             }
 
             if (caseData?.doctorDiagnosis) {
-                yPos = drawSection(doc, 'Diagnostic final', caseData.doctorDiagnosis, yPos);
+                yPos = drawSection(doc, 'Diagnostic final', caseData.doctorDiagnosis, yPos, theme);
             }
 
             if (caseData?.doctorPrescription) {
-                yPos = drawSection(doc, 'Traitement prescrit', caseData.doctorPrescription, yPos);
+                yPos = drawSection(doc, 'Traitement prescrit', caseData.doctorPrescription, yPos, theme);
             }
 
             const bounds = getPageBounds(doc);
@@ -458,7 +546,8 @@ async function generateReport(data) {
                 yPos = Math.max(yPos + 22, bounds.bottom - 70);
             }
 
-            drawSignature(doc, doctor, yPos);
+            drawFooterText(doc, doctor, yPos + 10, theme);
+            drawSignature(doc, doctor, yPos, theme);
 
             doc.end();
 

@@ -898,7 +898,12 @@ async function generatePrescriptionPdf(req, res) {
                 specialty: doctor.specialty || 'Médecin Généraliste',
                 phone: doctor.phone || '',
                 email: doctor.email || '',
-                address: doctor.address || ''
+                address: doctor.address || '',
+                prescriptionLogoPath: doctor.prescription_logo_path || '',
+                prescriptionPrimaryColor: doctor.prescription_primary_color || '',
+                prescriptionAccentColor: doctor.prescription_accent_color || '',
+                prescriptionHeaderNote: doctor.prescription_header_note || '',
+                prescriptionFooterText: doctor.prescription_footer_text || ''
             },
             diagnosis: caseData.doctor_diagnosis,
             prescription: typeof caseData.doctor_prescription === 'string'

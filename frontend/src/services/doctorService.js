@@ -32,6 +32,18 @@ const doctorService = {
         return api.put(ENDPOINTS.DOCTOR_PROFILE, data);
     },
 
+    async getPrescriptionConfig() {
+        return api.get(ENDPOINTS.DOCTOR_PRESCRIPTION_CONFIG);
+    },
+
+    async updatePrescriptionConfig(data) {
+        return api.put(ENDPOINTS.DOCTOR_PRESCRIPTION_CONFIG, data, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+    },
+
     // ======================
     // AI CONFIGURATION
     // ======================

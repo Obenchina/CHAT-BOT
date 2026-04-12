@@ -11,6 +11,43 @@ const Catalogue = require('../models/Catalogue');
 const Patient = require('../models/Patient');
 const AiConfig = require('../models/AiConfig');
 
+function normalizeOptionalText(value, maxLength) {
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    const trimmed = String(value).trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    return trimmed.slice(0, maxLength);
+}
+
+function normalizeHexColor(value) {
+    if (value === undefined || value === null) {
+        return null;
+    }
+
+    const trimmed = String(value).trim();
+    if (!trimmed) {
+        return null;
+    }
+
+    const normalized = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
+    return /^#[0-9A-Fa-f]{6}$/.test(normalized) ? normalized.toUpperCase() : null;
+}
+
+function serializePrescriptionConfig(config) {
+    return {
+        logoPath: config?.prescription_logo_path || '',
+        primaryColor: config?.prescription_primary_color || '',
+        accentColor: config?.prescription_accent_color || '',
+        headerNote: config?.prescription_header_note || '',
+        footerText: config?.prescription_footer_text || ''
+    };
+}
+
 /**
  * Get doctor dashboard statistics
  * GET /api/doctor/dashboard
@@ -153,6 +190,101 @@ async function updateProfile(req, res) {
         res.status(500).json({
             success: false,
             message: 'Failed to update profile'
+        });
+    }
+}
+
+/**
+ * Get doctor's prescription PDF customization
+ * GET /api/doctor/prescription-config
+ */
+async function getPrescriptionConfig(req, res) {
+    try {
+        const config = await Doctor.getPrescriptionConfig(req.user.id);
+
+        if (!config) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor profile not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: serializePrescriptionConfig(config)
+        });
+    } catch (error) {
+        console.error('Get prescription config error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get prescription config'
+        });
+    }
+}
+
+/**
+ * Update doctor's prescription PDF customization
+ * PUT /api/doctor/prescription-config
+ */
+async function updatePrescriptionConfig(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+
+        if (!doctor) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor profile not found'
+            });
+        }
+
+        const primaryColor = normalizeHexColor(req.body.primaryColor);
+        const accentColor = normalizeHexColor(req.body.accentColor);
+
+        if (req.body.primaryColor && !primaryColor) {
+            return res.status(400).json({
+                success: false,
+                message: 'Primary color must be a valid hex color'
+            });
+        }
+
+        if (req.body.accentColor && !accentColor) {
+            return res.status(400).json({
+                success: false,
+                message: 'Accent color must be a valid hex color'
+            });
+        }
+
+        const logoPath = req.file
+            ? `uploads/logos/${req.file.filename}`
+            : (doctor.prescription_logo_path || null);
+
+        const saved = await Doctor.updatePrescriptionConfig(req.user.id, {
+            logoPath,
+            primaryColor,
+            accentColor,
+            headerNote: normalizeOptionalText(req.body.headerNote, 180),
+            footerText: normalizeOptionalText(req.body.footerText, 500)
+        });
+
+        if (!saved) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor profile not found'
+            });
+        }
+
+        const updatedConfig = await Doctor.getPrescriptionConfig(req.user.id);
+
+        res.json({
+            success: true,
+            message: 'Prescription configuration updated successfully',
+            data: serializePrescriptionConfig(updatedConfig)
+        });
+    } catch (error) {
+        console.error('Update prescription config error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update prescription config'
         });
     }
 }
@@ -319,6 +451,8 @@ module.exports = {
     getDashboard,
     getProfile,
     updateProfile,
+    getPrescriptionConfig,
+    updatePrescriptionConfig,
     getAiConfig,
     updateAiConfig,
     activateAiConfig,

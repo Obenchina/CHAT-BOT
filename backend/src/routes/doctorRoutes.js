@@ -8,6 +8,7 @@ const router = express.Router();
 const doctorController = require('../controllers/doctorController');
 const { authenticate } = require('../middleware/authMiddleware');
 const { doctorOnly } = require('../middleware/roleMiddleware');
+const { uploadLogo, handleUploadError } = require('../middleware/uploadMiddleware');
 
 // All routes require authentication and doctor role
 router.use(authenticate);
@@ -19,6 +20,15 @@ router.get('/dashboard', doctorController.getDashboard);
 // Profile
 router.get('/profile', doctorController.getProfile);
 router.put('/profile', doctorController.updateProfile);
+
+// Prescription PDF customization
+router.get('/prescription-config', doctorController.getPrescriptionConfig);
+router.put(
+    '/prescription-config',
+    uploadLogo.single('logo'),
+    handleUploadError,
+    doctorController.updatePrescriptionConfig
+);
 
 // AI Configuration
 router.get('/ai-config', doctorController.getAiConfig);

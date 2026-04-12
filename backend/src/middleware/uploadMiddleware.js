@@ -3,6 +3,7 @@
  * Handles file uploads using Multer with custom configuration
  */
 
+const fs = require('fs');
 const multer = require('multer');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
@@ -32,6 +33,20 @@ const audioStorage = multer.diskStorage({
     },
     filename: (req, file, cb) => {
         const ext = path.extname(file.originalname) || '.webm';
+        const uniqueName = `${uuidv4()}${ext}`;
+        cb(null, uniqueName);
+    }
+});
+
+// Configure storage for doctor logos
+const logoStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadDir = path.join(__dirname, '../../uploads/logos');
+        fs.mkdirSync(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname) || '.png';
         const uniqueName = `${uuidv4()}${ext}`;
         cb(null, uniqueName);
     }
@@ -75,6 +90,18 @@ const audioFilter = (req, file, cb) => {
     }
 };
 
+// Filter for clinic logo uploads
+const logoFilter = (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
+    const allowedExtensions = /\.(jpg|jpeg|png|webp)$/i;
+
+    if (allowedTypes.includes(file.mimetype) || allowedExtensions.test(file.originalname)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Type de logo non autorise. Formats acceptes: JPG, PNG, WebP'), false);
+    }
+};
+
 // ======================
 // MULTER INSTANCES
 // ======================
@@ -92,6 +119,15 @@ const uploadDocument = multer({
 const uploadAudio = multer({
     storage: audioStorage,
     fileFilter: audioFilter,
+    limits: {
+        fileSize: config.upload.maxFileSize
+    }
+});
+
+// Upload handler for doctor logos
+const uploadLogo = multer({
+    storage: logoStorage,
+    fileFilter: logoFilter,
     limits: {
         fileSize: config.upload.maxFileSize
     }
@@ -135,5 +171,6 @@ function handleUploadError(err, req, res, next) {
 module.exports = {
     uploadDocument,
     uploadAudio,
+    uploadLogo,
     handleUploadError
 };

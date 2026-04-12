@@ -23,6 +23,7 @@ export const ENDPOINTS = {
     DOCTOR_DASHBOARD: '/doctor/dashboard',
     DOCTOR_PROFILE: '/doctor/profile',
     DOCTOR_AI_CONFIG: '/doctor/ai-config',
+    DOCTOR_PRESCRIPTION_CONFIG: '/doctor/prescription-config',
 
     // Assistant
     ASSISTANTS: '/assistant',

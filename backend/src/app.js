@@ -176,6 +176,11 @@ async function runMigrations(pool) {
     await ensureColumn(pool, 'case_answers', 'question_text_snapshot', 'TEXT NULL');
     await ensureColumn(pool, 'case_answers', 'answer_type_snapshot', "ENUM('yes_no','voice','choices') NULL");
     await ensureColumn(pool, 'case_answers', 'order_index_snapshot', 'INT NULL');
+    await ensureColumn(pool, 'doctors', 'prescription_logo_path', 'VARCHAR(500) NULL');
+    await ensureColumn(pool, 'doctors', 'prescription_primary_color', 'VARCHAR(20) NULL');
+    await ensureColumn(pool, 'doctors', 'prescription_accent_color', 'VARCHAR(20) NULL');
+    await ensureColumn(pool, 'doctors', 'prescription_header_note', 'VARCHAR(255) NULL');
+    await ensureColumn(pool, 'doctors', 'prescription_footer_text', 'TEXT NULL');
 
     await pool.execute(`
         UPDATE catalogues
