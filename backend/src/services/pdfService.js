@@ -139,16 +139,28 @@ function getDoctorLogoPath(doctor) {
     );
 }
 
-function getDoctorHeaderNote(doctor) {
-    return normalizeText(
-        doctor?.prescriptionHeaderNote || doctor?.prescription_header_note
+function getDoctorSpecialtyText(doctor) {
+    const customText = normalizeText(
+        doctor?.prescriptionSpecialtyText || doctor?.prescription_specialty_text
     );
+
+    return customText || formatSpecialtyLabel(doctor?.specialty);
 }
 
-function getDoctorFooterText(doctor) {
-    return normalizeText(
-        doctor?.prescriptionFooterText || doctor?.prescription_footer_text
+function getDoctorServices(doctor) {
+    const servicesText = normalizeText(
+        doctor?.prescriptionServicesText || doctor?.prescription_services_text
     );
+
+    if (!servicesText) {
+        return [];
+    }
+
+    return servicesText
+        .split(/\r?\n/)
+        .map((line) => normalizeText(line))
+        .filter(Boolean)
+        .slice(0, 6);
 }
 
 function getPatientFirstName(patient) {
@@ -212,8 +224,16 @@ function drawLogo(doc, doctor, theme, x, y) {
 function drawHeader(doc, doctor, date, theme) {
     const bounds = getPageBounds(doc);
     const headerTop = 36;
-    const headerHeight = 112;
-    const headerNote = getDoctorHeaderNote(doctor);
+    const specialtyText = getDoctorSpecialtyText(doctor);
+    const services = getDoctorServices(doctor);
+    const servicesHeight = services.length ? (services.length * 12) + 6 : 0;
+    const contactLines = [
+        doctor.phone ? `Mobile: ${doctor.phone}` : null,
+        doctor.email ? `Email: ${doctor.email}` : null,
+        doctor.address ? `Adresse: ${doctor.address}` : null
+    ].filter(Boolean);
+    const contactBlockHeight = contactLines.length ? 26 : 0;
+    const headerHeight = 112 + servicesHeight + contactBlockHeight;
 
     doc.roundedRect(bounds.left, headerTop, bounds.width, 10, 5).fill(theme.primary);
     doc.roundedRect(bounds.left, headerTop + 8, bounds.width, headerHeight, 18).fill(theme.soft);
@@ -228,31 +248,21 @@ function drawHeader(doc, doctor, date, theme) {
         width: doctorInfoWidth
     });
 
-    doc.fillColor(theme.primary).font('Helvetica').fontSize(11);
-    doc.text(formatSpecialtyLabel(doctor.specialty), doctorInfoX, headerTop + 54, {
+    doc.fillColor(theme.primary).font('Helvetica-Bold').fontSize(12);
+    doc.text(specialtyText, doctorInfoX, headerTop + 54, {
         width: doctorInfoWidth
     });
 
-    let contactY = headerTop + 76;
-    if (headerNote) {
-        doc.fillColor(theme.muted).font('Helvetica-Oblique').fontSize(9);
-        doc.text(headerNote, doctorInfoX, contactY, {
-            width: doctorInfoWidth
+    let servicesY = headerTop + 74;
+    if (services.length) {
+        doc.fillColor(theme.text).font('Helvetica').fontSize(9.5);
+        services.forEach((service) => {
+            doc.text(`- ${service}`, doctorInfoX, servicesY, {
+                width: doctorInfoWidth
+            });
+            servicesY += 12;
         });
-        contactY += 12;
     }
-
-    const contactLines = [
-        doctor.phone ? `Mobile: ${doctor.phone}` : null,
-        doctor.email ? `Email: ${doctor.email}` : null,
-        doctor.address ? `Adresse: ${doctor.address}` : null
-    ].filter(Boolean);
-
-    doc.fillColor(theme.muted).font('Helvetica').fontSize(9.5);
-    contactLines.forEach((line) => {
-        doc.text(line, doctorInfoX, contactY, { width: doctorInfoWidth });
-        contactY += 12;
-    });
 
     const dateBoxX = bounds.right - dateBoxWidth - 18;
     doc.roundedRect(dateBoxX, headerTop + 32, dateBoxWidth, 44, 14).fill(theme.white);
@@ -260,6 +270,18 @@ function drawHeader(doc, doctor, date, theme) {
     doc.text('Date', dateBoxX, headerTop + 44, { width: dateBoxWidth, align: 'center' });
     doc.fillColor(theme.text).font('Helvetica-Bold').fontSize(11);
     doc.text(formatDateFr(date), dateBoxX, headerTop + 56, { width: dateBoxWidth, align: 'center' });
+
+    if (contactLines.length) {
+        const dividerY = headerTop + headerHeight - 34;
+        doc.strokeColor(theme.border).lineWidth(1);
+        doc.moveTo(bounds.left + 18, dividerY).lineTo(bounds.right - 18, dividerY).stroke();
+
+        doc.fillColor(theme.muted).font('Helvetica').fontSize(9);
+        doc.text(contactLines.join('   |   '), bounds.left + 18, dividerY + 10, {
+            width: bounds.width - 36,
+            align: 'center'
+        });
+    }
 
     return headerTop + headerHeight + 26;
 }
@@ -360,20 +382,6 @@ function drawMedicationItem(doc, medication, index, y, theme) {
     return y + itemHeight + 14;
 }
 
-function drawFooterText(doc, doctor, y, theme) {
-    const footerText = getDoctorFooterText(doctor);
-    if (!footerText) {
-        return;
-    }
-
-    const bounds = getPageBounds(doc);
-
-    doc.fillColor(theme.muted).font('Helvetica').fontSize(8.5);
-    doc.text(footerText, bounds.left, y, {
-        width: bounds.width - 210
-    });
-}
-
 function drawSignature(doc, doctor, y, theme) {
     const bounds = getPageBounds(doc);
     const blockWidth = 180;
@@ -471,7 +479,6 @@ async function generatePrescription(data) {
                 yPos = Math.max(yPos + 22, bounds.bottom - 70);
             }
 
-            drawFooterText(doc, doctor, yPos + 10, theme);
             drawSignature(doc, doctor, yPos, theme);
 
             doc.end();
@@ -546,7 +553,6 @@ async function generateReport(data) {
                 yPos = Math.max(yPos + 22, bounds.bottom - 70);
             }
 
-            drawFooterText(doc, doctor, yPos + 10, theme);
             drawSignature(doc, doctor, yPos, theme);
 
             doc.end();

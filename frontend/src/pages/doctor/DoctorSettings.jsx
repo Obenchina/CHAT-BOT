@@ -37,8 +37,8 @@ const DEFAULT_PRESCRIPTION_CONFIG = {
     logoPath: '',
     primaryColor: '#163A5F',
     accentColor: '#67C7D8',
-    headerNote: '',
-    footerText: ''
+    specialtyText: '',
+    servicesText: ''
 };
 
 function getUploadAssetUrl(filePath) {
@@ -630,8 +630,8 @@ function PrescriptionPdfTab() {
             const payload = new FormData();
             payload.append('primaryColor', formData.primaryColor);
             payload.append('accentColor', formData.accentColor);
-            payload.append('headerNote', formData.headerNote);
-            payload.append('footerText', formData.footerText);
+            payload.append('specialtyText', formData.specialtyText);
+            payload.append('servicesText', formData.servicesText);
 
             if (logoFile) {
                 payload.append('logo', logoFile);
@@ -752,27 +752,30 @@ function PrescriptionPdfTab() {
                         </div>
 
                         <div className="input-group">
-                            <label>Texte sous le nom du medecin</label>
+                            <label>Specialite affichee</label>
                             <input
                                 type="text"
-                                value={formData.headerNote}
-                                onChange={(e) => handleFieldChange('headerNote', e.target.value)}
+                                value={formData.specialtyText}
+                                onChange={(e) => handleFieldChange('specialtyText', e.target.value)}
                                 className="input-field"
                                 maxLength={180}
-                                placeholder="Cabinet medical, rendez-vous, slogan..."
+                                placeholder="Urologue, Medecin generaliste, Nutritionniste..."
                             />
                         </div>
 
                         <div className="input-group">
-                            <label>Texte du pied de page</label>
+                            <label>Liste des services</label>
                             <textarea
-                                value={formData.footerText}
-                                onChange={(e) => handleFieldChange('footerText', e.target.value)}
+                                value={formData.servicesText}
+                                onChange={(e) => handleFieldChange('servicesText', e.target.value)}
                                 className="input-field"
-                                rows="4"
-                                maxLength={500}
-                                placeholder="Informations legales, horaires, message de suivi..."
+                                rows="6"
+                                maxLength={1200}
+                                placeholder={'Un service par ligne\\nEchographie\\nTraitement des calculs urinaires\\nSuivi nutritionnel'}
                             />
+                            <p className="prescription-help-text">
+                                Ecrivez chaque service sur une ligne separee. Ils apparaitront dans l entete du PDF.
+                            </p>
                         </div>
                     </div>
 
@@ -812,8 +815,15 @@ function PrescriptionPdfTab() {
                                 </div>
                                 <div>
                                     <strong>Dr Votre Nom</strong>
-                                    <span>Medecine generale</span>
-                                    {formData.headerNote && <small>{formData.headerNote}</small>}
+                                    <span>{formData.specialtyText || 'Medecine generale'}</span>
+                                    {(formData.servicesText || 'Echographie\nSuivi nutritionnel')
+                                        .split('\n')
+                                        .map(line => line.trim())
+                                        .filter(Boolean)
+                                        .slice(0, 3)
+                                        .map(service => (
+                                            <small key={service}>- {service}</small>
+                                        ))}
                                 </div>
                             </div>
                             <div className="prescription-preview-date">12/04/2026</div>
@@ -846,12 +856,13 @@ function PrescriptionPdfTab() {
                             <span>400mg - 2x/jour - 3 jours</span>
                         </div>
 
-                        <div className="prescription-preview-footer">
-                            <p>{formData.footerText || 'Le texte de pied de page apparaitra ici.'}</p>
-                            <div>
-                                <span>Signature</span>
-                                <strong>Dr Votre Nom</strong>
-                            </div>
+                        <div className="prescription-preview-contact">
+                            Mobile: 06 00 00 00 00 | Email: cabinet@example.com | Adresse: Votre cabinet
+                        </div>
+
+                        <div className="prescription-preview-signature">
+                            <span>Signature</span>
+                            <strong>Dr Votre Nom</strong>
                         </div>
                     </div>
                 </div>

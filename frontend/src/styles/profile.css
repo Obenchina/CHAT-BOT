@@ -505,7 +505,7 @@
 .prescription-preview-brand small {
     margin-top: 4px;
     font-size: 0.78rem;
-    color: #6a7a8d;
+    color: #45566b;
 }
 
 .prescription-preview-patient {
@@ -558,36 +558,35 @@
     color: #546579;
 }
 
-.prescription-preview-footer {
+.prescription-preview-contact {
+    margin-top: 22px;
+    padding-top: 14px;
+    border-top: 1px solid #e3edf4;
+    font-size: 0.76rem;
+    line-height: 1.8;
+    color: #6a7a8d;
+    text-align: center;
+}
+
+.prescription-preview-signature {
     display: flex;
-    justify-content: space-between;
-    gap: 18px;
+    flex-direction: column;
     align-items: flex-end;
     margin-top: 22px;
-    padding-top: 18px;
-    border-top: 1px solid #e3edf4;
 }
 
-.prescription-preview-footer p {
-    margin: 0;
-    flex: 1;
-    font-size: 0.78rem;
-    line-height: 1.6;
-    color: #6a7a8d;
-}
-
-.prescription-preview-footer span,
-.prescription-preview-footer strong {
+.prescription-preview-signature span,
+.prescription-preview-signature strong {
     display: block;
     text-align: right;
 }
 
-.prescription-preview-footer span {
+.prescription-preview-signature span {
     font-size: 0.72rem;
     color: #6a7a8d;
 }
 
-.prescription-preview-footer strong {
+.prescription-preview-signature strong {
     margin-top: 8px;
     font-size: 0.9rem;
 }
@@ -608,7 +607,7 @@
     }
 
     .prescription-preview-header,
-    .prescription-preview-footer {
+    .prescription-preview-signature {
         flex-direction: column;
         align-items: flex-start;
     }
@@ -617,8 +616,8 @@
         grid-template-columns: 1fr;
     }
 
-    .prescription-preview-footer span,
-    .prescription-preview-footer strong {
+    .prescription-preview-signature span,
+    .prescription-preview-signature strong {
         text-align: left;
     }
 }

@@ -43,8 +43,8 @@ function serializePrescriptionConfig(config) {
         logoPath: config?.prescription_logo_path || '',
         primaryColor: config?.prescription_primary_color || '',
         accentColor: config?.prescription_accent_color || '',
-        headerNote: config?.prescription_header_note || '',
-        footerText: config?.prescription_footer_text || ''
+        specialtyText: config?.prescription_specialty_text || '',
+        servicesText: config?.prescription_services_text || ''
     };
 }
 
@@ -262,8 +262,8 @@ async function updatePrescriptionConfig(req, res) {
             logoPath,
             primaryColor,
             accentColor,
-            headerNote: normalizeOptionalText(req.body.headerNote, 180),
-            footerText: normalizeOptionalText(req.body.footerText, 500)
+            specialtyText: normalizeOptionalText(req.body.specialtyText, 180),
+            servicesText: normalizeOptionalText(req.body.servicesText, 1200)
         });
 
         if (!saved) {

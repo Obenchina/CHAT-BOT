@@ -902,8 +902,8 @@ async function generatePrescriptionPdf(req, res) {
                 prescriptionLogoPath: doctor.prescription_logo_path || '',
                 prescriptionPrimaryColor: doctor.prescription_primary_color || '',
                 prescriptionAccentColor: doctor.prescription_accent_color || '',
-                prescriptionHeaderNote: doctor.prescription_header_note || '',
-                prescriptionFooterText: doctor.prescription_footer_text || ''
+                prescriptionSpecialtyText: doctor.prescription_specialty_text || '',
+                prescriptionServicesText: doctor.prescription_services_text || ''
             },
             diagnosis: caseData.doctor_diagnosis,
             prescription: typeof caseData.doctor_prescription === 'string'

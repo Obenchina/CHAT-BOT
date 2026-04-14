@@ -110,8 +110,8 @@ const Doctor = {
                 d.prescription_logo_path,
                 d.prescription_primary_color,
                 d.prescription_accent_color,
-                d.prescription_header_note,
-                d.prescription_footer_text
+                d.prescription_specialty_text,
+                d.prescription_services_text
              FROM doctors d
              WHERE d.user_id = ?`,
             [userId]
@@ -131,8 +131,8 @@ const Doctor = {
             logoPath,
             primaryColor,
             accentColor,
-            headerNote,
-            footerText
+            specialtyText,
+            servicesText
         } = configData;
 
         const [result] = await pool.execute(
@@ -140,15 +140,15 @@ const Doctor = {
                 prescription_logo_path = ?,
                 prescription_primary_color = ?,
                 prescription_accent_color = ?,
-                prescription_header_note = ?,
-                prescription_footer_text = ?
+                prescription_specialty_text = ?,
+                prescription_services_text = ?
              WHERE user_id = ?`,
             [
                 logoPath,
                 primaryColor,
                 accentColor,
-                headerNote,
-                footerText,
+                specialtyText,
+                servicesText,
                 userId
             ]
         );
