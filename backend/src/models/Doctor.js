@@ -154,6 +154,64 @@ const Doctor = {
         );
 
         return result.affectedRows > 0;
+    },
+
+    /**
+     * Get analyses PDF configuration
+     * @param {number} userId - User ID
+     * @returns {Promise<Object|null>} Analyses config
+     */
+    async getAnalysesConfig(userId) {
+        const [results] = await pool.execute(
+            `SELECT analyses_list FROM doctors WHERE user_id = ?`,
+            [userId]
+        );
+
+        return results.length > 0 ? results[0] : null;
+    },
+
+    /**
+     * Update analyses PDF configuration
+     * @param {number} userId - User ID
+     * @param {string} analysesList - JSON string of analyses list
+     * @returns {Promise<boolean>} Success status
+     */
+    async updateAnalysesConfig(userId, analysesList) {
+        const [result] = await pool.execute(
+            `UPDATE doctors SET analyses_list = ? WHERE user_id = ?`,
+            [analysesList, userId]
+        );
+
+        return result.affectedRows > 0;
+    },
+
+    /**
+     * Get letter template configuration
+     * @param {number} userId - User ID
+     * @returns {Promise<Object|null>} Letter config
+     */
+    async getLetterConfig(userId) {
+        const [results] = await pool.execute(
+            `SELECT letter_template FROM doctors WHERE user_id = ?`,
+            [userId]
+        );
+
+        return results.length > 0 ? results[0] : null;
+    },
+
+    /**
+     * Update letter template configuration
+     * @param {number} userId - User ID
+     * @param {string} letterTemplate - Letter template text
+     * @returns {Promise<boolean>} Success status
+     */
+    async updateLetterConfig(userId, letterTemplate) {
+        const [result] = await pool.execute(
+            `UPDATE doctors SET letter_template = ? WHERE user_id = ?`,
+            [letterTemplate, userId]
+        );
+
+        return result.affectedRows > 0;
     }
 };
 

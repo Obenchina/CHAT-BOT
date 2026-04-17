@@ -1018,3 +1018,120 @@
         justify-content: flex-start;
     }
 }
+
+
+/* ======================
+   SIDEBAR COLLAPSED STATE (ChatGPT Style)
+   ====================== */
+
+.internal-shell .sidebar {
+    transition: width var(--transition-base), transform var(--transition-base);
+    z-index: 100;
+}
+
+body.sidebar-collapsed .sidebar {
+    width: 80px !important;
+}
+
+body.sidebar-collapsed .main-content {
+    margin-left: 80px !important;
+}
+
+body.sidebar-collapsed .sidebar-brand-name,
+body.sidebar-collapsed .sidebar-brand-subtitle,
+body.sidebar-collapsed .sidebar-section-label,
+body.sidebar-collapsed .sidebar-link-text,
+body.sidebar-collapsed .sidebar-user-meta {
+    display: none !important;
+    opacity: 0;
+}
+
+body.sidebar-collapsed .sidebar-user-card,
+body.sidebar-collapsed .sidebar-link,
+body.sidebar-collapsed .theme-toggle-btn {
+    justify-content: center;
+    padding-left: 0;
+    padding-right: 0;
+    width: 100%;
+}
+
+body.sidebar-collapsed .sidebar-logo {
+    justify-content: center;
+}
+
+body.sidebar-collapsed .sidebar-header {
+    padding-left: 0;
+    padding-right: 0;
+}
+
+.internal-shell .main-content {
+    transition: margin-left var(--transition-base);
+}
+
+/* Sidebar Header layout */
+.internal-shell .sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: var(--space-md) var(--space-md) !important;
+}
+
+.internal-shell .sidebar-brand-subtitle {
+    white-space: nowrap;
+}
+
+/* Fix dropdown contrast in dark mode */
+.form-select option, select.form-select option {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+}
+
+.chatgpt-toggle-btn {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 6px;
+    padding: 6px;
+    transition: background var(--transition-fast), color var(--transition-fast);
+}
+
+.chatgpt-toggle-btn:hover {
+    background: rgba(255, 255, 255, 0.1);
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.collapsed-logo-toggle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 42px;
+    height: 42px;
+    border-radius: 14px;
+    cursor: pointer;
+    background: rgba(255, 255, 255, 0.05);
+    transition: background var(--transition-fast);
+    position: relative;
+    margin: 0 auto;
+}
+
+.collapsed-logo-toggle:hover {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.collapsed-logo-toggle .hover-icon {
+    display: none;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.collapsed-logo-toggle:hover .default-icon {
+    display: none;
+}
+
+.collapsed-logo-toggle:hover .hover-icon {
+    display: inline-flex;
+}
+

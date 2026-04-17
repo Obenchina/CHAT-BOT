@@ -41,6 +41,8 @@ CREATE TABLE IF NOT EXISTS doctors (
     prescription_accent_color VARCHAR(20) NULL,
     prescription_specialty_text VARCHAR(255) NULL,
     prescription_services_text TEXT NULL,
+    analyses_list TEXT NULL,
+    letter_template TEXT NULL,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_user_id (user_id)
 ) ENGINE=InnoDB;

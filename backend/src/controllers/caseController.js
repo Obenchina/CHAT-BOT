@@ -1047,6 +1047,151 @@ async function reanalyzeCase(req, res) {
     }
 }
 
+/**
+ * Generate analyses PDF
+ * GET /api/cases/:id/analyses/pdf
+ */
+async function generateAnalysesPdf(req, res) {
+    try {
+        const { id } = req.params;
+        const selectedAnalyses = req.query.selected ? req.query.selected.split(',') : [];
+
+        if (selectedAnalyses.length === 0) {
+            return res.status(400).json({
+                success: false,
+                message: 'No analyses selected'
+            });
+        }
+
+        // Get full case details
+        const caseData = await Case.getFullDetails(id);
+        if (!caseData) {
+            return res.status(404).json({ success: false, message: 'Case not found' });
+        }
+
+        if (caseData.status !== 'reviewed' && caseData.status !== 'closed') {
+            return res.status(400).json({
+                success: false,
+                message: 'Case must be reviewed before generating PDF'
+            });
+        }
+
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) {
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
+        }
+
+        const pdfData = {
+            patient: {
+                firstName: caseData.patient.first_name || '',
+                lastName: caseData.patient.last_name || '',
+                age: caseData.patient.age || 0,
+                gender: caseData.patient.gender || 'unknown'
+            },
+            doctor: {
+                firstName: doctor.first_name || '',
+                lastName: doctor.last_name || '',
+                specialty: doctor.specialty || '',
+                phone: doctor.phone || '',
+                email: doctor.email || '',
+                address: doctor.address || '',
+                prescriptionLogoPath: doctor.prescription_logo_path || '',
+                prescriptionPrimaryColor: doctor.prescription_primary_color || '',
+                prescriptionAccentColor: doctor.prescription_accent_color || '',
+                prescriptionSpecialtyText: doctor.prescription_specialty_text || '',
+                prescriptionServicesText: doctor.prescription_services_text || ''
+            },
+            selectedAnalyses,
+            date: caseData.reviewed_at || new Date()
+        };
+
+        const pdfPath = await pdfService.generateAnalyses(pdfData);
+
+        res.download(pdfPath, `bilan_biologique_${id}.pdf`, (err) => {
+            if (err) console.error('Download error:', err);
+            require('fs').unlink(pdfPath, () => {});
+        });
+    } catch (error) {
+        console.error('Generate analyses PDF error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate analyses PDF'
+        });
+    }
+}
+
+/**
+ * Generate letter PDF
+ * GET /api/cases/:id/letter/pdf
+ */
+async function generateLetterPdf(req, res) {
+    try {
+        const { id } = req.params;
+        const letterContent = req.query.content ? decodeURIComponent(req.query.content) : '';
+
+        if (!letterContent.trim()) {
+            return res.status(400).json({
+                success: false,
+                message: 'Letter content is required'
+            });
+        }
+
+        const caseData = await Case.getFullDetails(id);
+        if (!caseData) {
+            return res.status(404).json({ success: false, message: 'Case not found' });
+        }
+
+        if (caseData.status !== 'reviewed' && caseData.status !== 'closed') {
+            return res.status(400).json({
+                success: false,
+                message: 'Case must be reviewed before generating PDF'
+            });
+        }
+
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) {
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
+        }
+
+        const pdfData = {
+            patient: {
+                firstName: caseData.patient.first_name || '',
+                lastName: caseData.patient.last_name || '',
+                age: caseData.patient.age || 0,
+                gender: caseData.patient.gender || 'unknown'
+            },
+            doctor: {
+                firstName: doctor.first_name || '',
+                lastName: doctor.last_name || '',
+                specialty: doctor.specialty || '',
+                phone: doctor.phone || '',
+                email: doctor.email || '',
+                address: doctor.address || '',
+                prescriptionLogoPath: doctor.prescription_logo_path || '',
+                prescriptionPrimaryColor: doctor.prescription_primary_color || '',
+                prescriptionAccentColor: doctor.prescription_accent_color || '',
+                prescriptionSpecialtyText: doctor.prescription_specialty_text || '',
+                prescriptionServicesText: doctor.prescription_services_text || ''
+            },
+            letterContent,
+            date: caseData.reviewed_at || new Date()
+        };
+
+        const pdfPath = await pdfService.generateLetter(pdfData);
+
+        res.download(pdfPath, `lettre_orientation_${id}.pdf`, (err) => {
+            if (err) console.error('Download error:', err);
+            require('fs').unlink(pdfPath, () => {});
+        });
+    } catch (error) {
+        console.error('Generate letter PDF error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to generate letter PDF'
+        });
+    }
+}
+
 module.exports = {
     getAll,
     getById,
@@ -1060,6 +1205,8 @@ module.exports = {
     closeCase,
     deleteCase,
     generatePrescriptionPdf,
+    generateAnalysesPdf,
+    generateLetterPdf,
     retranscribeCase,
     reanalyzeCase
 };

@@ -56,6 +56,12 @@ router.post('/:id/close', doctorOnly, caseController.closeCase);
 // Generate prescription PDF (doctor only)
 router.get('/:id/prescription/pdf', doctorOnly, caseController.generatePrescriptionPdf);
 
+// Generate analyses PDF (doctor only)
+router.get('/:id/analyses/pdf', doctorOnly, caseController.generateAnalysesPdf);
+
+// Generate letter PDF (doctor only)
+router.get('/:id/letter/pdf', doctorOnly, caseController.generateLetterPdf);
+
 // Retranscribe audio answers (doctor only)
 router.post('/:id/retranscribe', doctorOnly, caseController.retranscribeCase);
 

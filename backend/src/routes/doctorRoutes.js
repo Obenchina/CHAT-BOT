@@ -36,4 +36,12 @@ router.put('/ai-config', doctorController.updateAiConfig);
 router.put('/ai-config/activate', doctorController.activateAiConfig);
 router.get('/ai-config/status', doctorController.getAiStatus);
 
+// Analyses PDF customization
+router.get('/analyses-config', doctorController.getAnalysesConfig);
+router.put('/analyses-config', doctorController.updateAnalysesConfig);
+
+// Letter PDF customization
+router.get('/letter-config', doctorController.getLetterConfig);
+router.put('/letter-config', doctorController.updateLetterConfig);
+
 module.exports = router;

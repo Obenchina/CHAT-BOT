@@ -16,10 +16,20 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import MenuIcon from '@mui/icons-material/Menu';
 import CloseIcon from '@mui/icons-material/Close';
+import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
+import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import SettingsIcon from '@mui/icons-material/Settings';
 import ThemeToggle from './ThemeToggle';
 import '../../styles/internal-premium.css';
 
 const t = translations;
+
+const ChatGPTToggleIcon = () => (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ display: 'block' }}>
+        <rect width="18" height="18" x="3" y="3" rx="2"/>
+        <path d="M9 3v18"/>
+    </svg>
+);
 
 /**
  * Sidebar navigation component
@@ -31,6 +41,20 @@ function Sidebar() {
 
     // Mobile menu state
     const [mobileOpen, setMobileOpen] = useState(false);
+
+    // Collapsed desktop state
+    const [isCollapsed, setIsCollapsed] = useState(() => {
+        return localStorage.getItem('sidebar_collapsed') === 'true';
+    });
+
+    useEffect(() => {
+        localStorage.setItem('sidebar_collapsed', isCollapsed);
+        if (isCollapsed) {
+            document.body.classList.add('sidebar-collapsed');
+        } else {
+            document.body.classList.remove('sidebar-collapsed');
+        }
+    }, [isCollapsed]);
 
     // Handle logout
     function handleLogout() {
@@ -97,22 +121,50 @@ function Sidebar() {
                 />
             )}
 
-            <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''}`}>
+            <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
+                
                 {/* Header */}
                 <div className="sidebar-header">
-                    <div className="sidebar-logo">
-                        <span className="sidebar-brand-mark">
-                            <LocalHospitalIcon fontSize="small" />
-                        </span>
-                        <div className="sidebar-brand-copy">
-                            <span className="sidebar-brand-name">MediConsult</span>
-                            <span className="sidebar-brand-subtitle">{roleLabel}</span>
+                    {/* Collapsed State: Logo becomes the toggle button */}
+                    {isCollapsed ? (
+                        <div 
+                            className="collapsed-logo-toggle"
+                            onClick={() => setIsCollapsed(false)}
+                            title="Ouvrir la barre latérale"
+                        >
+                            <span className="default-icon">
+                                <LocalHospitalIcon fontSize="small" style={{ color: '#fff' }} />
+                            </span>
+                            <span className="hover-icon">
+                                <ChatGPTToggleIcon />
+                            </span>
                         </div>
-                    </div>
+                    ) : (
+                        <>
+                            {/* Expanded State: Logo on Left, Toggle on Right */}
+                            <div className="sidebar-logo">
+                                <span className="sidebar-brand-mark">
+                                    <LocalHospitalIcon fontSize="small"  style={{ color: '#fff' }} />
+                                </span>
+                                <div className="sidebar-brand-copy">
+                                    <span className="sidebar-brand-name">MediConsult</span>
+                                    <span className="sidebar-brand-subtitle">{roleLabel}</span>
+                                </div>
+                            </div>
+                            
+                            <button 
+                                className="chatgpt-toggle-btn"
+                                onClick={() => setIsCollapsed(true)}
+                                title="Fermer la barre latérale"
+                            >
+                                <ChatGPTToggleIcon />
+                            </button>
+                        </>
+                    )}
                 </div>
 
                 {/* AI Error Banner */}
-                {aiErrorConfig && (
+                {aiErrorConfig && !isCollapsed && (
                     <div className="sidebar-alert" style={{
                         background: 'var(--error-500)',
                         color: 'white',
@@ -140,6 +192,13 @@ function Sidebar() {
                     </div>
                 )}
 
+                {/* AI Error Dot for Collapsed mode */}
+                {aiErrorConfig && isCollapsed && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
+                        <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--error-500)', border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer' }} title="⚠️ Configuration IA - Erreur" onClick={() => navigate('/doctor/settings')}></div>
+                    </div>
+                )}
+
                 {/* Navigation */}
                 <nav className="sidebar-nav">
                     {/* Role indicator */}
@@ -162,32 +221,36 @@ function Sidebar() {
                                 to="/doctor/dashboard"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
+                                title={isCollapsed ? "Tableau de bord" : ""}
                             >
-                                <DashboardIcon /> Tableau de bord
+                                <DashboardIcon /> <span className="sidebar-link-text">Tableau de bord</span>
                             </NavLink>
 
                             <NavLink
                                 to="/doctor/patients"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
+                                title={isCollapsed ? "Liste des patients" : ""}
                             >
-                                <PeopleIcon /> Liste des patients
+                                <PeopleIcon /> <span className="sidebar-link-text">Liste des patients</span>
                             </NavLink>
 
                             <NavLink
                                 to="/doctor/catalogue"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
+                                title={isCollapsed ? t.doctor.catalogue : ""}
                             >
-                                <AssignmentIcon /> {t.doctor.catalogue}
+                                <AssignmentIcon /> <span className="sidebar-link-text">{t.doctor.catalogue}</span>
                             </NavLink>
 
                             <NavLink
                                 to="/doctor/settings"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
+                                title={isCollapsed ? "Paramètres" : ""}
                             >
-                                <PersonIcon /> Paramètres
+                                <SettingsIcon /> <span className="sidebar-link-text">Paramètres</span>
                             </NavLink>
                         </>
                     )}
@@ -199,16 +262,18 @@ function Sidebar() {
                                 to="/assistant/patients"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
+                                title={isCollapsed ? t.assistant.patientsList : ""}
                             >
-                                <PeopleIcon /> {t.assistant.patientsList}
+                                <PeopleIcon /> <span className="sidebar-link-text">{t.assistant.patientsList}</span>
                             </NavLink>
 
                             <NavLink
                                 to="/assistant/profile"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
+                                title={isCollapsed ? t.assistant.profile : ""}
                             >
-                                <PersonIcon /> {t.assistant.profile}
+                                <PersonIcon /> <span className="sidebar-link-text">{t.assistant.profile}</span>
                             </NavLink>
                         </>
                     )}
@@ -225,13 +290,14 @@ function Sidebar() {
                     </div>
 
                     <div className="sidebar-footer-actions">
-                        <ThemeToggle />
+                        <ThemeToggle isCollapsed={isCollapsed} />
 
                         <button
                             onClick={handleLogout}
                             className="theme-toggle-btn"
+                            title={isCollapsed ? t.auth.logout : ""}
                         >
-                            <LogoutIcon fontSize="small" /> {t.auth.logout}
+                            <LogoutIcon fontSize="small" /> <span className="sidebar-link-text">{t.auth.logout}</span>
                         </button>
                     </div>
                 </div>

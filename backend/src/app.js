@@ -181,6 +181,8 @@ async function runMigrations(pool) {
     await ensureColumn(pool, 'doctors', 'prescription_accent_color', 'VARCHAR(20) NULL');
     await ensureColumn(pool, 'doctors', 'prescription_specialty_text', 'VARCHAR(255) NULL');
     await ensureColumn(pool, 'doctors', 'prescription_services_text', 'TEXT NULL');
+    await ensureColumn(pool, 'doctors', 'analyses_list', 'TEXT NULL');
+    await ensureColumn(pool, 'doctors', 'letter_template', 'TEXT NULL');
 
     await pool.execute(`
         UPDATE catalogues

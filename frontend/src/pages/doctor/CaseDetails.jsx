@@ -9,6 +9,7 @@ import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import caseService from '../../services/caseService';
+import doctorService from '../../services/doctorService';
 import translations from '../../constants/translations';
 import { API_URL, UPLOAD_URL } from '../../constants/config';
 
@@ -30,6 +31,10 @@ function CaseDetails() {
     const [autoSaving, setAutoSaving] = useState(false);
     const [downloadingPdf, setDownloadingPdf] = useState(false);
     const [draggedMedIndex, setDraggedMedIndex] = useState(null);
+    const [documentType, setDocumentType] = useState('ordonnance');
+    const [allAnalyses, setAllAnalyses] = useState([]);
+    const [selectedAnalyses, setSelectedAnalyses] = useState([]);
+    const [letterContent, setLetterContent] = useState('');
 
     // Refs for auto-save
     const autoSaveTimerRef = useRef(null);
@@ -39,8 +44,29 @@ function CaseDetails() {
     // Load case
     useEffect(() => {
         loadCase();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+        loadDoctorConfigs();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [id]);
+
+    async function loadDoctorConfigs() {
+        try {
+            const [analysesRes, letterRes] = await Promise.all([
+                doctorService.getAnalysesConfig(),
+                doctorService.getLetterConfig()
+            ]);
+
+            if (analysesRes.success && analysesRes.data && analysesRes.data.analysesList) {
+                const list = analysesRes.data.analysesList.split('\n').map(a => a.trim()).filter(Boolean);
+                setAllAnalyses(list);
+            }
+
+            if (letterRes.success && letterRes.data && letterRes.data.letterTemplate) {
+                setLetterContent(letterRes.data.letterTemplate);
+            }
+        } catch (err) {
+            console.error('Load doctor configs error:', err);
+        }
+    }
 
     async function loadCase() {
         try {
@@ -207,6 +233,75 @@ function CaseDetails() {
         } finally {
             setDownloadingPdf(false);
         }
+    }
+
+    // Download analyses PDF
+    async function handleDownloadAnalysesPdf() {
+        if (selectedAnalyses.length === 0) {
+            setError('Veuillez selectionner au moins une analyse');
+            return;
+        }
+        setDownloadingPdf(true);
+        setError('');
+        try {
+            const selected = selectedAnalyses.join(',');
+            const response = await fetch(`${API_URL}/cases/${id}/analyses/pdf?selected=${encodeURIComponent(selected)}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            if (!response.ok) throw new Error('PDF generation failed');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `bilan_biologique_${id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Download analyses PDF error:', err);
+            setError('Erreur lors du telechargement du PDF');
+        } finally {
+            setDownloadingPdf(false);
+        }
+    }
+
+    // Download letter PDF
+    async function handleDownloadLetterPdf() {
+        if (!letterContent.trim()) {
+            setError('Veuillez remplir le contenu de la lettre');
+            return;
+        }
+        setDownloadingPdf(true);
+        setError('');
+        try {
+            const response = await fetch(`${API_URL}/cases/${id}/letter/pdf?content=${encodeURIComponent(letterContent)}`, {
+                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            });
+            if (!response.ok) throw new Error('PDF generation failed');
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `lettre_orientation_${id}.pdf`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+            window.URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error('Download letter PDF error:', err);
+            setError('Erreur lors du telechargement du PDF');
+        } finally {
+            setDownloadingPdf(false);
+        }
+    }
+
+    function toggleAnalysis(analysis) {
+        setSelectedAnalyses(prev =>
+            prev.includes(analysis)
+                ? prev.filter(a => a !== analysis)
+                : [...prev, analysis]
+        );
     }
 
     // Status badge
@@ -446,100 +541,181 @@ function CaseDetails() {
                             </div>
                         )}
 
-                        {/* 5. Prescription List */}
+                        {/* 5. Document Type Selector + Content */}
                         <div className="card">
-                            <div className="card-header border-b" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                <h2 className="card-title">💊 Prescription</h2>
-                                <Button variant="primary" onClick={addMedication} style={{ padding: 'var(--space-xs) var(--space-md)' }}>
-                                    + Ajouter médicament
-                                </Button>
+                            <div className="card-header border-b">
+                                <div style={{ display: 'flex', gap: '0', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', width: 'fit-content' }}>
+                                    {[
+                                        { key: 'ordonnance', icon: '💊', label: 'Ordonnance' },
+                                        { key: 'analyses', icon: '🔬', label: 'Analyses' },
+                                        { key: 'lettre', icon: '✉️', label: 'Lettre' }
+                                    ].map(tab => (
+                                        <button
+                                            key={tab.key}
+                                            type="button"
+                                            onClick={() => setDocumentType(tab.key)}
+                                            style={{
+                                                padding: 'var(--space-sm) var(--space-lg)',
+                                                border: 'none',
+                                                background: documentType === tab.key ? 'var(--primary)' : 'var(--bg-card)',
+                                                color: documentType === tab.key ? 'white' : 'var(--text-secondary)',
+                                                cursor: 'pointer',
+                                                fontSize: '0.85rem',
+                                                fontWeight: documentType === tab.key ? '600' : '400',
+                                                transition: 'all 0.2s',
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}
+                                        >
+                                            <span>{tab.icon}</span> {tab.label}
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
+
                             <div className="card-body">
-                                {medications.length > 0 ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                                        {medications.map((med, index) => (
-                                            <div
-                                                key={med.id}
-                                                draggable
-                                                onDragStart={() => handleDragStart(index)}
-                                                onDragOver={(e) => handleDragOver(e, index)}
-                                                onDragEnd={handleDragEnd}
-                                                style={{
-                                                    display: 'flex',
-                                                    flexDirection: 'column',
-                                                    gap: 'var(--space-xs)',
-                                                    padding: 'var(--space-sm)',
-                                                    background: draggedMedIndex === index ? 'var(--primary-50)' : 'var(--bg-elevated)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    cursor: 'grab',
-                                                    border: '1px solid var(--border-color)',
-                                                    position: 'relative'
-                                                }}
-                                            >
-                                                <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
-                                                    <span style={{ cursor: 'grab', color: 'var(--gray-400)', width: '20px', textAlign: 'center' }}>≡</span>
-                                                    <input
-                                                        type="text"
-                                                        value={med.name}
-                                                        onChange={(e) => updateMedication(med.id, 'name', e.target.value)}
-                                                        placeholder="Nom du médicament"
-                                                        className="form-input"
-                                                        style={{ flex: 1, minWidth: 0, padding: '0 var(--space-xs)' }}
-                                                    />
-                                                    <button
-                                                        onClick={() => removeMedication(med.id)}
+                                {/* Ordonnance Tab */}
+                                {documentType === 'ordonnance' && (
+                                    <div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+                                            <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Prescription</h3>
+                                            <Button variant="primary" onClick={addMedication} style={{ padding: 'var(--space-xs) var(--space-md)' }}>
+                                                + Ajouter
+                                            </Button>
+                                        </div>
+                                        {medications.length > 0 ? (
+                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
+                                                {medications.map((med, index) => (
+                                                    <div
+                                                        key={med.id}
+                                                        draggable
+                                                        onDragStart={() => handleDragStart(index)}
+                                                        onDragOver={(e) => handleDragOver(e, index)}
+                                                        onDragEnd={handleDragEnd}
                                                         style={{
-                                                            background: 'var(--error-100)',
-                                                            color: 'var(--error-600)',
-                                                            border: 'none',
-                                                            borderRadius: 'var(--radius-sm)',
-                                                            cursor: 'pointer',
-                                                            padding: '0',
-                                                            fontSize: '1rem',
+                                                            display: 'flex',
+                                                            flexDirection: 'column',
+                                                            gap: 'var(--space-xs)',
+                                                            padding: 'var(--space-sm)',
+                                                            background: draggedMedIndex === index ? 'var(--primary-50)' : 'var(--bg-elevated)',
+                                                            borderRadius: 'var(--radius-md)',
+                                                            cursor: 'grab',
+                                                            border: '1px solid var(--border-color)',
+                                                            position: 'relative'
+                                                        }}
+                                                    >
+                                                        <div style={{ display: 'flex', gap: 'var(--space-sm)', alignItems: 'center' }}>
+                                                            <span style={{ cursor: 'grab', color: 'var(--gray-400)', width: '20px', textAlign: 'center' }}>≡</span>
+                                                            <input
+                                                                type="text"
+                                                                value={med.name}
+                                                                onChange={(e) => updateMedication(med.id, 'name', e.target.value)}
+                                                                placeholder="Nom du médicament"
+                                                                className="form-input"
+                                                                style={{ flex: 1, minWidth: 0, padding: '0 var(--space-xs)' }}
+                                                            />
+                                                            <button
+                                                                onClick={() => removeMedication(med.id)}
+                                                                style={{
+                                                                    background: 'var(--error-100)',
+                                                                    color: 'var(--error-600)',
+                                                                    border: 'none',
+                                                                    borderRadius: 'var(--radius-sm)',
+                                                                    cursor: 'pointer',
+                                                                    padding: '0',
+                                                                    fontSize: '1rem',
+                                                                    display: 'flex',
+                                                                    alignItems: 'center',
+                                                                    justifyContent: 'center',
+                                                                    width: '32px',
+                                                                    height: '32px',
+                                                                    flexShrink: 0
+                                                                }}
+                                                                title="Supprimer"
+                                                            >
+                                                                🗑
+                                                            </button>
+                                                        </div>
+
+                                                        <div style={{ display: 'flex', gap: 'var(--space-xs)', paddingLeft: '28px' }}>
+                                                            <input type="text" value={med.dosage} onChange={(e) => updateMedication(med.id, 'dosage', e.target.value)} placeholder="Dosage" className="form-input" style={{ flex: 1, minWidth: 0, padding: '0 var(--space-xs)', fontSize: '0.8rem' }} />
+                                                            <input type="text" value={med.frequency} onChange={(e) => updateMedication(med.id, 'frequency', e.target.value)} placeholder="Fréq" className="form-input" style={{ flex: 1, minWidth: 0, padding: '0 var(--space-xs)', fontSize: '0.8rem' }} />
+                                                            <input type="text" value={med.duration} onChange={(e) => updateMedication(med.id, 'duration', e.target.value)} placeholder="Durée" className="form-input" style={{ flex: 1, minWidth: 0, padding: '0 var(--space-xs)', fontSize: '0.8rem' }} />
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : (
+                                            <p style={{ color: 'var(--text-muted)', textAlign: 'center', margin: 0, fontSize: '0.85rem' }}>Aucun médicament prescrit.</p>
+                                        )}
+                                    </div>
+                                )}
+
+                                {/* Analyses Tab */}
+                                {documentType === 'analyses' && (
+                                    <div>
+                                        <h3 style={{ margin: '0 0 var(--space-sm)', fontSize: '1rem', color: 'var(--text-primary)' }}>Bilan Biologique</h3>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
+                                            Cochez les analyses souhaitées. Seules les analyses cochées apparaîtront dans le PDF.
+                                        </p>
+                                        {allAnalyses.length > 0 ? (
+                                            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 'var(--space-xs)' }}>
+                                                {allAnalyses.map((analysis, i) => (
+                                                    <label
+                                                        key={i}
+                                                        style={{
                                                             display: 'flex',
                                                             alignItems: 'center',
-                                                            justifyContent: 'center',
-                                                            width: '32px',
-                                                            height: '32px',
-                                                            flexShrink: 0
+                                                            gap: '8px',
+                                                            padding: 'var(--space-xs) var(--space-sm)',
+                                                            borderRadius: 'var(--radius-sm)',
+                                                            cursor: 'pointer',
+                                                            background: selectedAnalyses.includes(analysis) ? 'var(--primary-50)' : 'transparent',
+                                                            border: selectedAnalyses.includes(analysis) ? '1px solid var(--primary-200)' : '1px solid transparent',
+                                                            transition: 'all 0.15s',
+                                                            fontSize: '0.88rem'
                                                         }}
-                                                        title="Supprimer"
                                                     >
-                                                        🗑
-                                                    </button>
-                                                </div>
-
-                                                <div style={{ display: 'flex', gap: 'var(--space-xs)', paddingLeft: '28px' }}>
-                                                    <input
-                                                        type="text"
-                                                        value={med.dosage}
-                                                        onChange={(e) => updateMedication(med.id, 'dosage', e.target.value)}
-                                                        placeholder="Dosage"
-                                                        className="form-input"
-                                                        style={{ flex: 1, minWidth: 0, padding: '0 var(--space-xs)', fontSize: '0.8rem' }}
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={med.frequency}
-                                                        onChange={(e) => updateMedication(med.id, 'frequency', e.target.value)}
-                                                        placeholder="Fréq"
-                                                        className="form-input"
-                                                        style={{ flex: 1, minWidth: 0, padding: '0 var(--space-xs)', fontSize: '0.8rem' }}
-                                                    />
-                                                    <input
-                                                        type="text"
-                                                        value={med.duration}
-                                                        onChange={(e) => updateMedication(med.id, 'duration', e.target.value)}
-                                                        placeholder="Durée"
-                                                        className="form-input"
-                                                        style={{ flex: 1, minWidth: 0, padding: '0 var(--space-xs)', fontSize: '0.8rem' }}
-                                                    />
-                                                </div>
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={selectedAnalyses.includes(analysis)}
+                                                            onChange={() => toggleAnalysis(analysis)}
+                                                            style={{ accentColor: 'var(--primary)', width: '16px', height: '16px' }}
+                                                        />
+                                                        {analysis}
+                                                    </label>
+                                                ))}
                                             </div>
-                                        ))}
+                                        ) : (
+                                            <p style={{ color: 'var(--text-muted)', textAlign: 'center', fontSize: '0.85rem' }}>
+                                                Aucune analyse configurée. Allez dans Paramètres &gt; Ordonnance PDF pour ajouter votre liste d'analyses.
+                                            </p>
+                                        )}
+                                        {selectedAnalyses.length > 0 && (
+                                            <div style={{ marginTop: 'var(--space-md)', padding: 'var(--space-sm)', background: 'var(--primary-50)', borderRadius: 'var(--radius-md)', fontSize: '0.85rem', color: 'var(--primary-700)' }}>
+                                                {selectedAnalyses.length} analyse(s)
+                                            </div>
+                                        )}
                                     </div>
-                                ) : (
-                                    <p style={{ color: 'var(--text-muted)', textAlign: 'center', margin: 0, fontSize: '0.85rem' }}>Aucun médicament prescrit.</p>
+                                )}
+
+                                {/* Lettre Tab */}
+                                {documentType === 'lettre' && (
+                                    <div>
+                                        <h3 style={{ margin: '0 0 var(--space-sm)', fontSize: '1rem', color: 'var(--text-primary)' }}>Lettre d'Orientation</h3>
+                                        <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
+                                            Modifiez la lettre ci-dessous avant de générer le PDF.
+                                        </p>
+                                        <textarea
+                                            value={letterContent}
+                                            onChange={(e) => setLetterContent(e.target.value)}
+                                            className="form-input"
+                                            rows="12"
+                                            placeholder="Cher confrere,..."
+                                            style={{ fontSize: '0.9rem', lineHeight: '1.7', width: '100%' }}
+                                        />
+                                    </div>
                                 )}
                             </div>
                         </div>
@@ -574,13 +750,35 @@ function CaseDetails() {
                                         {caseData.status === 'reviewed' ? 'Mettre à jour' : 'Enregistrer le diagnostic'}
                                     </Button>
 
-                                    {caseData.status === 'reviewed' && (
+                                    {caseData.status === 'reviewed' && documentType === 'ordonnance' && (
                                         <Button
                                             variant="secondary"
                                             onClick={handleDownloadPdf}
                                             loading={downloadingPdf}
                                         >
                                             📄 Télécharger l'ordonnance
+                                        </Button>
+                                    )}
+
+                                    {caseData.status === 'reviewed' && documentType === 'analyses' && (
+                                        <Button
+                                            variant="secondary"
+                                            onClick={handleDownloadAnalysesPdf}
+                                            loading={downloadingPdf}
+                                            disabled={selectedAnalyses.length === 0}
+                                        >
+                                            📄 Télécharger le bilan
+                                        </Button>
+                                    )}
+
+                                    {caseData.status === 'reviewed' && documentType === 'lettre' && (
+                                        <Button
+                                            variant="secondary"
+                                            onClick={handleDownloadLetterPdf}
+                                            loading={downloadingPdf}
+                                            disabled={!letterContent.trim()}
+                                        >
+                                            📄 Télécharger la lettre
                                         </Button>
                                     )}
 

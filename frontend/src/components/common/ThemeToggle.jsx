@@ -8,7 +8,7 @@ import { useTheme } from '../../context/ThemeContext';
 import LightModeIcon from '@mui/icons-material/LightMode';
 import DarkModeIcon from '@mui/icons-material/DarkMode';
 
-function ThemeToggle() {
+function ThemeToggle({ isCollapsed }) {
     const { mode, toggleTheme } = useTheme();
     const isDark = mode === 'dark';
 
@@ -17,10 +17,10 @@ function ThemeToggle() {
             className="theme-toggle-btn"
             onClick={toggleTheme}
             aria-label={isDark ? 'Passer au mode clair' : 'Passer au mode sombre'}
-            title={isDark ? 'Mode clair' : 'Mode sombre'}
+            title={isCollapsed ? (isDark ? 'Mode clair' : 'Mode sombre') : ""}
         >
             {isDark ? <LightModeIcon fontSize="small" /> : <DarkModeIcon fontSize="small" />}
-            <span>{isDark ? 'Mode clair' : 'Mode sombre'}</span>
+            <span className="sidebar-link-text">{isDark ? 'Mode clair' : 'Mode sombre'}</span>
         </button>
     );
 }

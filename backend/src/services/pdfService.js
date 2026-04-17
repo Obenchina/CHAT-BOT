@@ -1,4 +1,4 @@
-﻿/**
+/**
  * PDF Service
  * Generate medical documents (Ordonnance, Rapport)
  */
@@ -568,7 +568,188 @@ async function generateReport(data) {
     });
 }
 
+/**
+ * Generate analyses (Bilan Biologique) PDF
+ * @param {Object} data - Analyses data
+ * @returns {Promise<string>} Path to generated PDF
+ */
+async function generateAnalyses(data) {
+    const { doctor, patient, selectedAnalyses, date } = data;
+    const theme = buildTheme(doctor);
+
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({
+                size: 'A4',
+                margin: 50
+            });
+
+            const filename = `bilan_${uuidv4()}.pdf`;
+            const filepath = path.join(process.cwd(), 'uploads/documents', filename);
+
+            ensureOutputDirectory(filepath);
+
+            const stream = fs.createWriteStream(filepath);
+            doc.pipe(stream);
+
+            let yPos = drawHeader(doc, doctor, date, theme);
+            yPos = drawPatientCard(doc, patient, yPos, theme);
+            yPos = drawTitle(doc, 'BILAN BIOLOGIQUE', yPos, theme);
+            yPos += 12;
+
+            const bounds = getPageBounds(doc);
+
+            if (Array.isArray(selectedAnalyses) && selectedAnalyses.length > 0) {
+                // Draw analyses in a simple vertical list
+                const itemHeight = 22;
+                let rowY = yPos + 8;
+
+                selectedAnalyses.forEach((analysis, index) => {
+                    // Page break check
+                    if (rowY + itemHeight > bounds.bottom - 80) {
+                        doc.addPage();
+                        rowY = drawContinuationHeader(doc, doctor, 'BILAN BIOLOGIQUE', theme) + 8;
+                    }
+
+                    // Dash
+                    doc.fillColor(theme.text).font('Helvetica-Bold').fontSize(12);
+                    doc.text('-', bounds.left + 30, rowY, { width: 15 });
+
+                    // Analysis name
+                    doc.fillColor(theme.text).font('Helvetica').fontSize(11);
+                    doc.text(normalizeText(analysis), bounds.left + 45, rowY, {
+                        width: bounds.width - 70,
+                        lineBreak: false
+                    });
+
+                    rowY += itemHeight;
+                });
+
+                yPos = rowY + 16;
+            } else {
+                yPos = drawSection(doc, 'Analyses', 'Aucune analyse selectionnee.', yPos, theme);
+            }
+
+            // Signature
+            if (yPos + 70 > bounds.bottom - 20) {
+                doc.addPage();
+                yPos = bounds.bottom - 110;
+            } else {
+                yPos = Math.max(yPos + 22, bounds.bottom - 70);
+            }
+
+            drawSignature(doc, doctor, yPos, theme);
+
+            doc.end();
+
+            stream.on('finish', () => {
+                resolve(filepath);
+            });
+
+            stream.on('error', reject);
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
+/**
+ * Generate orientation letter (Lettre d'Orientation) PDF
+ * @param {Object} data - Letter data
+ * @returns {Promise<string>} Path to generated PDF
+ */
+async function generateLetter(data) {
+    const { doctor, patient, letterContent, date } = data;
+    const theme = buildTheme(doctor);
+
+    return new Promise((resolve, reject) => {
+        try {
+            const doc = new PDFDocument({
+                size: 'A4',
+                margin: 50
+            });
+
+            const filename = `lettre_${uuidv4()}.pdf`;
+            const filepath = path.join(process.cwd(), 'uploads/documents', filename);
+
+            ensureOutputDirectory(filepath);
+
+            const stream = fs.createWriteStream(filepath);
+            doc.pipe(stream);
+
+            let yPos = drawHeader(doc, doctor, date, theme);
+            yPos = drawPatientCard(doc, patient, yPos, theme);
+            yPos = drawTitle(doc, "LETTRE D'ORIENTATION", yPos, theme);
+            yPos += 18;
+
+            const bounds = getPageBounds(doc);
+
+            // Draw letter body
+            if (letterContent && letterContent.trim()) {
+                const bodyWidth = bounds.width - 32;
+                const maxBoxHeight = bounds.bottom - yPos - 90; // maximum available space until signature
+                
+                let fontSize = 12;
+                let lineGap = 6;
+                doc.font('Helvetica').fontSize(fontSize);
+                
+                let textHeight = doc.heightOfString(letterContent.trim(), { width: bodyWidth, lineGap: lineGap });
+                
+                // Auto-scale font down to ensure fit on one page
+                while (textHeight + 40 > maxBoxHeight && fontSize > 6) {
+                    fontSize -= 0.5;
+                    lineGap = Math.max(2, fontSize * 0.4); // reduce line gap slightly along with font size
+                    doc.font('Helvetica').fontSize(fontSize);
+                    textHeight = doc.heightOfString(letterContent.trim(), { width: bodyWidth, lineGap: lineGap });
+                }
+
+                // If content is extremely long, box height is capped to maxBoxHeight
+                const boxHeight = Math.min(Math.max(100, textHeight + 40), maxBoxHeight);
+
+                // Letter body card
+                doc.roundedRect(bounds.left, yPos, bounds.width, boxHeight, 14)
+                    .fillAndStroke(theme.white, theme.border);
+
+                doc.fillColor(theme.text).font('Helvetica').fontSize(fontSize);
+                doc.text(letterContent.trim(), bounds.left + 16, yPos + 20, {
+                    width: bodyWidth,
+                    height: boxHeight - 40,
+                    lineGap: lineGap,
+                    align: 'left',
+                    ellipsis: true // truncate if it's impossibly long even at size 6
+                });
+
+                yPos += boxHeight + 14;
+            } else {
+                yPos = drawSection(doc, 'Contenu', 'Aucun contenu renseigne.', yPos, theme);
+            }
+
+            // Signature
+            if (yPos + 70 > bounds.bottom - 20) {
+                doc.addPage();
+                yPos = bounds.bottom - 110;
+            } else {
+                yPos = Math.max(yPos + 22, bounds.bottom - 70);
+            }
+
+            drawSignature(doc, doctor, yPos, theme);
+
+            doc.end();
+
+            stream.on('finish', () => {
+                resolve(filepath);
+            });
+
+            stream.on('error', reject);
+        } catch (error) {
+            reject(error);
+        }
+    });
+}
+
 module.exports = {
     generatePrescription,
-    generateReport
+    generateReport,
+    generateAnalyses,
+    generateLetter
 };

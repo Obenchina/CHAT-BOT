@@ -45,6 +45,30 @@ const doctorService = {
     },
 
     // ======================
+    // ANALYSES PDF CONFIG
+    // ======================
+
+    async getAnalysesConfig() {
+        return api.get(ENDPOINTS.DOCTOR_ANALYSES_CONFIG);
+    },
+
+    async updateAnalysesConfig(data) {
+        return api.put(ENDPOINTS.DOCTOR_ANALYSES_CONFIG, data);
+    },
+
+    // ======================
+    // LETTER PDF CONFIG
+    // ======================
+
+    async getLetterConfig() {
+        return api.get(ENDPOINTS.DOCTOR_LETTER_CONFIG);
+    },
+
+    async updateLetterConfig(data) {
+        return api.put(ENDPOINTS.DOCTOR_LETTER_CONFIG, data);
+    },
+
+    // ======================
     // AI CONFIGURATION
     // ======================
 

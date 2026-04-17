@@ -447,6 +447,142 @@ async function getAiStatus(req, res) {
     }
 }
 
+/**
+ * Get doctor's analyses PDF configuration
+ * GET /api/doctor/analyses-config
+ */
+async function getAnalysesConfig(req, res) {
+    try {
+        const config = await Doctor.getAnalysesConfig(req.user.id);
+
+        if (!config) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor profile not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                analysesList: config.analyses_list || ''
+            }
+        });
+    } catch (error) {
+        console.error('Get analyses config error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get analyses config'
+        });
+    }
+}
+
+/**
+ * Update doctor's analyses PDF configuration
+ * PUT /api/doctor/analyses-config
+ */
+async function updateAnalysesConfig(req, res) {
+    try {
+        const { analysesList } = req.body;
+
+        const saved = await Doctor.updateAnalysesConfig(
+            req.user.id,
+            normalizeOptionalText(analysesList, 5000)
+        );
+
+        if (!saved) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor profile not found'
+            });
+        }
+
+        const updated = await Doctor.getAnalysesConfig(req.user.id);
+
+        res.json({
+            success: true,
+            message: 'Analyses configuration updated successfully',
+            data: {
+                analysesList: updated.analyses_list || ''
+            }
+        });
+    } catch (error) {
+        console.error('Update analyses config error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update analyses config'
+        });
+    }
+}
+
+/**
+ * Get doctor's letter template configuration
+ * GET /api/doctor/letter-config
+ */
+async function getLetterConfig(req, res) {
+    try {
+        const config = await Doctor.getLetterConfig(req.user.id);
+
+        if (!config) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor profile not found'
+            });
+        }
+
+        res.json({
+            success: true,
+            data: {
+                letterTemplate: config.letter_template || ''
+            }
+        });
+    } catch (error) {
+        console.error('Get letter config error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get letter config'
+        });
+    }
+}
+
+/**
+ * Update doctor's letter template configuration
+ * PUT /api/doctor/letter-config
+ */
+async function updateLetterConfig(req, res) {
+    try {
+        const { letterTemplate } = req.body;
+
+        const saved = await Doctor.updateLetterConfig(
+            req.user.id,
+            normalizeOptionalText(letterTemplate, 5000)
+        );
+
+        if (!saved) {
+            return res.status(404).json({
+                success: false,
+                message: 'Doctor profile not found'
+            });
+        }
+
+        const updated = await Doctor.getLetterConfig(req.user.id);
+
+        res.json({
+            success: true,
+            message: 'Letter configuration updated successfully',
+            data: {
+                letterTemplate: updated.letter_template || ''
+            }
+        });
+    } catch (error) {
+        console.error('Update letter config error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update letter config'
+        });
+    }
+}
+
 module.exports = {
     getDashboard,
     getProfile,
@@ -456,5 +592,9 @@ module.exports = {
     getAiConfig,
     updateAiConfig,
     activateAiConfig,
-    getAiStatus
+    getAiStatus,
+    getAnalysesConfig,
+    updateAnalysesConfig,
+    getLetterConfig,
+    updateLetterConfig
 };
