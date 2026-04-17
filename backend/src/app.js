@@ -41,6 +41,26 @@ app.use(express.json());
 // Parse URL-encoded bodies
 app.use(express.urlencoded({ extended: true }));
 
+// ======================
+// INITIALIZE UPLOADS DIRECTORIES
+// ======================
+const fs = require('fs');
+const uploadDirs = [
+    path.join(__dirname, '../uploads'),
+    path.join(__dirname, '../uploads/images'),
+    path.join(__dirname, '../uploads/audio'),
+    path.join(__dirname, '../uploads/pdf'),
+    path.join(__dirname, '../uploads/prescriptions'),
+    path.join(__dirname, '../uploads/temp')
+];
+
+uploadDirs.forEach(dir => {
+    if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+        console.log(`📁 Created directory: ${dir}`);
+    }
+});
+
 // Serve uploaded files statically
 app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
 
