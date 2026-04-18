@@ -35,7 +35,7 @@ const AiConfig = {
             // Create empty config just to hold the active state
             await pool.execute(
                 `INSERT INTO ai_config (doctor_id, provider, api_key, model, is_active) VALUES (?, ?, '', ?, true)`,
-                [doctorId, provider, provider === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini']
+                [doctorId, provider, provider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-5.4-mini']
             );
         } else {
             // Set the explicitly chosen one to active

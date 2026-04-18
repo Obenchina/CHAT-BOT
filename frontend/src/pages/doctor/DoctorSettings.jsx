@@ -63,16 +63,10 @@ const AI_PROVIDERS = [
         icon: '✨',
         description: 'Google AI',
         models: [
-            { value: 'gemini-3.1-pro', label: 'Gemini 3.1 Pro' },
-            { value: 'gemini-3.1-flash', label: 'Gemini 3.1 Flash' },
-            { value: 'gemini-3.0-pro', label: 'Gemini 3.0 Pro' },
-            { value: 'gemini-3.0-flash', label: 'Gemini 3.0 Flash' },
-            { value: 'gemini-2.5-pro', label: 'Gemini 2.5 Pro' },
+            { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite' },
+            { value: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash' },
             { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
-            { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' },
-            { value: 'gemini-2.0-flash', label: 'Gemini 2.0 Flash' },
-            { value: 'gemini-1.5-pro', label: 'Gemini 1.5 Pro' },
-            { value: 'gemini-1.5-flash', label: 'Gemini 1.5 Flash' }
+            { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' }
         ]
     },
     {
@@ -1022,7 +1016,7 @@ function PrescriptionPdfTab() {
                                 </div>
                                 <div className="prescription-preview-date">17/04/2026</div>
                             </div>
-                            
+
                             {/* Contact Box placed directly below header just like the generated PDF */}
                             <div className="prescription-preview-contact" style={{ marginTop: '0', paddingTop: '0', borderTop: 'none', marginBottom: '20px' }}>
                                 Mobile: 06 00 00 00 00 | Email: cabinet@example.com | Adresse: Votre cabinet
@@ -1082,10 +1076,10 @@ function PrescriptionPdfTab() {
                                     <h3>LETTRE D'ORIENTATION</h3>
                                     <div style={{ padding: '16px', borderRadius: '18px', border: '1px solid #d7e5f0', fontSize: '0.85rem', color: '#1c2b39', lineHeight: '1.6' }}>
                                         <p>Cher confrere,</p>
-                                        <br/>
+                                        <br />
                                         <p>Permettez moi de vous adresser le patient sus nomme(e), sus age(e)...</p>
                                         <p>A l'examen clinique ...</p>
-                                        <br/>
+                                        <br />
                                         <div style={{ textAlign: 'right' }}>confraternellement.</div>
                                     </div>
                                 </>
@@ -1134,7 +1128,7 @@ function AiConfigTab() {
                 setFormData({
                     provider: active,
                     apiKey: provConfigs[active]?.apiKey || '',
-                    model: provConfigs[active]?.model || (active === 'gemini' ? 'gemini-1.5-flash' : 'gpt-4o-mini')
+                    model: provConfigs[active]?.model || (active === 'gemini' ? 'gemini-2.5-flash' : 'gpt-5.4-mini')
                 });
             }
         } catch (error) {

@@ -191,22 +191,22 @@ function buildAnalysisPrompt(caseData) {
     const { patient, answers, documents } = caseData;
     const hasDocs = documents && documents.length > 0;
 
-    let prompt = `أنت طبيب مساعد ذكي (AI Medical Assistant).
-مهمتك تحليل البيانات الطبية المدخلة واستخراج ملخص تشخيصي دقيق للطبيب.
+    let prompt = `أنت "طبيب استشاري ذكي" (Senior Medical AI Specialist).
+مهمتك ليست مجرد التلخيص، بل تقديم تحليل سريري احترافي عالي الدقة.
 
-ملاحظة ثقافية هامة: المريض جزائري ويتحدث بـ "الدارجة الجزائرية" (Algerian Darja) والتي قد تتضمن مزيجاً من العربية والفرنسية ومصطلحات محلية. يجب عليك فهم هذه المصطلحات بدقة عند تحليل الأعراض.
+ملاحظة مهنية هامة: المريض جزائري ويتحدث بـ "الدارجة الجزائرية" (بما فيها من مصطلحات فرنسية وعامية). يجب أن تفهم شكواه بدقة (مثلاً: "عندي السطر" تعني ألم، "التخمام" قد تعني دوار أو قلق، إلخ).
 
-مهمتك:
-1. تلخيص الحالة السريرية بناءً على إجابات المريض. ${hasDocs ? 'هناك ملفات ومستندات مرفقة مع هذه الحالة، يجب عليك قراءتها بشدة وتلخيص كل محتوياتها داخل الملخص، مهما كانت بسيطة (مثل ترويسة طبيب أو وصفة بأدوية).' : 'لا توجد أي ملفات مرفقة مع المريض، لذلك اذكر بوضوح تام في الملخص: "لا توجد ملفات مرفقة".'}
-2. اقتراح تشخيصات محتملة مع درجة الاحتمالية والتفسير، مع الإشارة إلى أي علامات ظاهرة في الصور أو المستندات المرفقة (تحاليل، أشعة، وثائق PDF)
-3. اقتراح قائمة أدوية مناسبة (اسم الدواء، الجرعة، المدة، الملاحظات)
-
-⚠️ تذكر: المريض موجود بالفعل عند الطبيب ويتم فحصه. لا تقترح "زيارة طبيب" أو "استشارة متخصص" إلا في حالات الطوارئ الشديدة.
+مطلوباتك الصارمة:
+1. التلخيص السريري: لخص الحالة بناءً على الإجابات. ${hasDocs ? 'يوجد مستندات مرفقة (تحاليل/أشعة)، يجب قراءتها وتضمين تفاصيلها التقنية في الملخص.' : 'اذكر في نهاية الملخص: (لا توجد ملفات مرفقة).'}
+2. التشخيص التفريقي: قدم التشخيصات الأكثر احتمالية مع نسبة مئوية.
+3. خطة العلاج (تنبيه هام): 
+   - ⚠️ ممنوع تقديم أدوية عامة (مثل Paracetamol فقط) لجميع الحالات.
+   - يجب أن يكون العلاج "متخصصاً" ومرتبطاً مباشرة بالتشخيص (مثلاً: أدوية ربو لحالات الصدر، مضادات حيوية مناسبة للعدوى البكتيرية، إلخ).
+   - في حالات "الطوارئ الجراحية" أو الحالات الخطيرة (مثل التواء الخصية Torsion، أو اشتباه احتشاء عضلة القلب، إلخ)، يجب أن يبدأ ردك في قسم الملاحظات بعبارة: [!!! URGENCE CHIRURGICALE / MÉDICALE !!!] مع توجيه الطبيب للإجراء الفوري.
 
 ═══════════════════════════════
 معلومات المريض:
 ═══════════════════════════════
-- الاسم: ${patient.first_name} ${patient.last_name}
 - الجنس: ${patient.gender === 'male' ? 'ذكر' : patient.gender === 'female' ? 'أنثى' : 'غير محدد'}
 - العمر: ${patient.age} سنة
 
@@ -224,28 +224,27 @@ function buildAnalysisPrompt(caseData) {
     prompt += `
 
 ═══════════════════════════════
-المطلوب:
+المطلوب (Format JSON):
 ═══════════════════════════════
 
-قدم تحليلك بصيغة JSON التالية (بالعربية، باستثناء قسم الأدوية يجب أن يكون بالفرنسية العلمية):
+قدم تحليلك بصيغة JSON التالية (بالعربية، وقسم الأدوية بالفرنسية العلمية - DCI):
 {
-  "summary": "${hasDocs ? 'ملخص سريري شامل للإجابات، مع الإشارة بكل وضوح وتفصيل تام لكل ما ورد في الملفات المرفقة (مثل اسم الطبيب في الرشيتة، الأدوية، أو التحاليل).' : 'ملخص سريري شامل للإجابات. واكتب في نهاية الملخص حصراً: (لا توجد ملفات مرفقة).'}",
+  "summary": "ملخص سريري احترافي يتضمن التاريخ المرضي والأعراض الحالية وتفاصيل الملفات المرفقة إن وجدت.",
   "diagnoses": [
     {
-      "name": "اسم التشخيص المحتمل مع النسبة المئوية للاعتمادية بجانبه (مثلا: حمى فيروسية 75%)",
-      "probability": "عالية/متوسطة/منخفضة",
-      "reasoning": "التفسير المختصر لهذا التشخيص (اذكر أدلة من الصور أو الـ PDF إذا كانت ذات صلة)"
+      "name": "الاسم العلمي بالفرنسية + العربي (مثال: Appendicite - التهاب الزائدة 80%)",
+      "reasoning": "التبرير السريري بناءً على الأعراض والفحص."
     }
   ],
   "medications": [
     {
-      "name": "Nom du médicament (en Français)",
-      "dosage": "Dosage (ex: 500mg)",
-      "frequency": "Fréquence (ex: 3x/j, 1x/soir, QSP)",
-      "duration": "Durée (ex: 7 jours)"
+      "name": "Nom du médicament (DCI de préférence)",
+      "dosage": "Posologie (ex: 500mg)",
+      "frequency": "Fréquence (ex: 1 tab x 3/j)",
+      "duration": "Durée du traitement"
     }
   ],
-  "additionalNotes": "أي ملاحظات إضافية للطبيب"
+  "additionalNotes": "ضع هنا أي تنبيهات طوارئ أو نصائح طبية تخصصية للطبيب."
 }`;
 
     return prompt;
@@ -282,7 +281,7 @@ async function callGeminiAPI(promptParts, cfg = null) {
                     ],
                     generationConfig: {
                         temperature: 0.3,
-                        maxOutputTokens: 2000
+                        maxOutputTokens: 8192
                     }
                 })
             });
@@ -376,26 +375,48 @@ async function callGeminiAPI(promptParts, cfg = null) {
  */
 function parseAnalysisResponse(response) {
     try {
+        // Remove markdown code block wrappers if present (```json ... ```)
+        let cleaned = response.replace(/```json\s*/gi, '').replace(/```\s*/g, '').trim();
+
         // Try to extract JSON from response
-        const jsonMatch = response.match(/\{[\s\S]*\}/);
+        const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+            const parsed = JSON.parse(jsonMatch[0]);
+            // Validate that we got at least a summary
+            if (parsed.summary || parsed.diagnoses || parsed.medications) {
+                return parsed;
+            }
         }
 
         // Fallback: return raw response as summary
         return {
             summary: response,
-            symptoms: [],
-            hypotheses: [],
-            recommendations: []
+            diagnoses: [],
+            medications: [],
+            additionalNotes: ''
         };
     } catch (error) {
-        console.error('Parse response error:', error);
+        console.error('Parse response error:', error.message);
+        console.error('Raw response (first 200 chars):', response.substring(0, 200));
+
+        // Try to salvage partial JSON by extracting summary at minimum
+        try {
+            const summaryMatch = response.match(/"summary"\s*:\s*"([^"]+)"/);
+            if (summaryMatch) {
+                return {
+                    summary: summaryMatch[1],
+                    diagnoses: [],
+                    medications: [],
+                    additionalNotes: 'Analyse partielle — le résultat AI a été tronqué.'
+                };
+            }
+        } catch (e) { /* ignore */ }
+
         return {
-            summary: response,
-            symptoms: [],
-            hypotheses: [],
-            recommendations: []
+            summary: 'Échec de l\'analyse IA. Veuillez réessayer.',
+            diagnoses: [],
+            medications: [],
+            additionalNotes: ''
         };
     }
 }
@@ -427,11 +448,11 @@ async function callOpenAIAPI(userContent, cfg) {
                 body: JSON.stringify({
                     model: model,
                     messages: [
-                        { role: 'system', content: 'You are a medical AI assistant that responds in structured JSON format. Note that the patient is Algerian and their symptoms might be described in Algerian Darja (الدارجة الجزائرية) or French.' },
+                        { role: 'system', content: 'أنت طبيب مساعد ذكي (AI Medical Assistant). مهمتك تحليل البيانات الطبية المدخلة واستخراج ملخص تشخيصي دقيق للطبيب. ملاحظة ثقافية هامة: المريض جزائري ويتحدث بالدارجة الجزائرية (Algerian Darja) والتي قد تتضمن مزيجاً من العربية والفرنسية ومصطلحات محلية. يجب عليك فهم هذه المصطلحات بدقة عند تحليل الأعراض. قدم إجابتك دائماً بصيغة JSON منسقة بالعربية. قسم الأدوية يجب أن يكون بالفرنسية العلمية. المريض موجود بالفعل عند الطبيب ويتم فحصه، لا تقترح زيارة طبيب إلا في حالات الطوارئ الشديدة.' },
                         { role: 'user', content: userContent }
                     ],
                     temperature: 0.3,
-                    max_tokens: 2000
+                    max_tokens: 4096
                 })
             });
 
@@ -555,14 +576,16 @@ async function _transcribeAudioGemini(audioPath, cfg) {
         // Build prompt parts: transcription instruction + audio data
         const promptParts = [
             {
-                text: `أنت متخصص في تحويل الكلام إلى نص. استمع للتسجيل الصوتي التالي وقم بنسخه حرفياً إلى نص عربي.
+                text: `أنت متخصص في تحويل الكلام إلى نص في سياق طبي. استمع للتسجيل الصوتي التالي وقم بنسخه حرفياً إلى نص عربي.
 
 ملاحظة مهمة: المتحدث جزائري، وقد يتكلم بالدارجة الجزائرية أو بمزيج من الدارجة الجزائرية والعربية الفصحى أو بالفصحى فقط. اكتب ما تسمعه بالضبط كما نطقه المتحدث.
 
-قواعد:
+قواعد صارمة:
 - اكتب النص فقط بدون أي مقدمة أو شرح أو تعليق
 - اكتب ما تسمعه حرفياً كما نُطق
-- إذا كان الصوت صامتاً أو غير واضح، اكتب: [صوت غير واضح]
+- إذا كان الصوت صامتاً أو غير واضح أو لا يحتوي على كلام مفهوم، اكتب بالضبط: [صوت غير واضح]
+- لا تختلق أو تتخيل كلاماً غير موجود في التسجيل
+- لا تكتب أي محتوى من خيالك أو من الإنترنت
 
 انسخ الصوت:`
             },
@@ -584,6 +607,12 @@ async function _transcribeAudioGemini(audioPath, cfg) {
             text = text.replace(/```[\s\S]*?```/g, '').trim();
             // Remove leading/trailing quotes
             text = text.replace(/^["']|["']$/g, '').trim();
+
+            // Anti-hallucination filter: detect nonsensical/random text
+            if (isHallucinatedTranscription(text)) {
+                console.warn('Gemini transcription detected as hallucinated, rejecting:', text.substring(0, 80));
+                return '[فشل تحويل الصوت إلى نص — يرجى إعادة التسجيل]';
+            }
 
             console.log('Gemini Transcription SUCCESS:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
             return text;
@@ -637,7 +666,7 @@ async function _transcribeAudioWhisper(audioPath, cfg) {
         const formData = new FormData();
         const blob = new Blob([audioBuffer]);
         formData.append('file', blob, path.basename(absoluteAudioPath));
-        formData.append('model', 'whisper-1');
+        formData.append('model', 'gpt-4o-mini-transcribe');
         formData.append('prompt', 'المتحدث يتحدث بالدارجة الجزائرية وقد يستخدم كلمات فرنسية أو مصطلحات طبية. يرجى كتابة النص بدقة كما نُطق.');
 
         const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
@@ -651,8 +680,16 @@ async function _transcribeAudioWhisper(audioPath, cfg) {
         if (response.ok) {
             const data = await response.json();
             if (data.text) {
-                console.log('Whisper Transcription SUCCESS:', data.text.substring(0, 100) + '...');
-                return data.text;
+                let text = data.text.trim();
+
+                // Anti-hallucination filter
+                if (isHallucinatedTranscription(text)) {
+                    console.warn('Whisper transcription detected as hallucinated, rejecting:', text.substring(0, 80));
+                    return '[فشل تحويل الصوت إلى نص — يرجى إعادة التسجيل]';
+                }
+
+                console.log('Whisper Transcription SUCCESS:', text.substring(0, 100) + '...');
+                return text;
             }
         }
 
@@ -694,6 +731,44 @@ async function _transcribeAudioWhisper(audioPath, cfg) {
         }
         return null; // Return null so pipeline can continue without blocking entire request flow on STT failure
     }
+}
+
+/**
+ * Anti-hallucination filter for transcription results.
+ * Detects when the AI model generates nonsensical or fabricated text
+ * instead of actual speech transcription (e.g. "اشتركو في القناة").
+ * @param {string} text - Transcribed text to validate
+ * @returns {boolean} true if the text appears hallucinated
+ */
+function isHallucinatedTranscription(text) {
+    if (!text || text.length === 0) return true;
+
+    // Known hallucination patterns (common AI artifacts when audio is empty/unclear)
+    const hallucinationPatterns = [
+        /اشتركو/i,
+        /اشترك/i,
+        /القناة/i,
+        /subscribe/i,
+        /like.*comment/i,
+        /بسم الله الرحمن الرحيم$/,  // Only this phrase and nothing else
+        /thank you for watching/i,
+        /شكرا للمشاهدة/i,
+        /مرحبا بكم/i,
+        /السلام عليكم ورحمة الله وبركاته$/  // Only greeting and nothing else
+    ];
+
+    for (const pattern of hallucinationPatterns) {
+        if (pattern.test(text)) {
+            return true;
+        }
+    }
+
+    // If transcription is extremely short (1-2 chars) and not a valid yes/no answer
+    if (text.length <= 2 && !['لا', 'نعم', 'لا', 'اه'].includes(text)) {
+        return true;
+    }
+
+    return false;
 }
 
 module.exports = {

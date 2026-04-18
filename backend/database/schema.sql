@@ -207,7 +207,7 @@ CREATE TABLE IF NOT EXISTS ai_config (
     doctor_id INT NOT NULL,
     provider ENUM('gemini', 'openai') NOT NULL DEFAULT 'gemini',
     api_key VARCHAR(500) NOT NULL DEFAULT '',
-    model VARCHAR(100) NOT NULL DEFAULT 'gemini-1.5-flash',
+    model VARCHAR(100) NOT NULL DEFAULT 'gemini-2.5-flash',
     is_active BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
