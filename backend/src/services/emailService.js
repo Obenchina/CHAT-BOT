@@ -38,9 +38,9 @@ async function sendVerificationCode(toEmail, code) {
                     
                     <!-- Body -->
                     <div style="padding: 32px 24px;">
-                        <h2 style="color: #1E293B; margin: 0 0 12px 0; font-size: 20px; font-weight: 600;">Vérification de votre email</h2>
+                        <h2 style="color: #1E293B; margin: 0 0 12px 0; font-size: 20px; font-weight: 600;">Vérification de votre adresse e-mail</h2>
                         <p style="color: #64748B; margin: 0 0 24px 0; font-size: 14px; line-height: 1.6;">
-                            Bienvenue sur MediConsult ! Pour finaliser la création de votre compte, veuillez entrer le code de vérification ci-dessous :
+                            Bienvenue sur MediConsult ! Afin de finaliser la création de votre compte professionnel, veuillez saisir le code de vérification ci-dessous :
                         </p>
                         
                         <!-- OTP Code -->
@@ -50,9 +50,9 @@ async function sendVerificationCode(toEmail, code) {
                             </div>
                         </div>
                         
-                        <p style="color: #94A3B8; margin: 0; font-size: 13px; line-height: 1.5;">
+                        <p style={{ color: '#94A3B8', margin: '0', fontSize: '13px', lineHeight: '1.5' }}>
                             ⏱ Ce code expire dans <strong>10 minutes</strong>.<br>
-                            Si vous n'avez pas demandé ce code, ignorez cet email.
+                            Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail en toute sécurité.
                         </p>
                     </div>
                     

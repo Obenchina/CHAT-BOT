@@ -11,26 +11,26 @@ const t = translations;
 
 const coverHighlights = [
     {
-        kicker: 'Vision',
-        title: 'Un seul cockpit pour le cabinet',
-        description: 'Cas actifs, assistants, patients et historique restent visibles dans le meme espace.'
+        kicker: 'Pilotage',
+        title: 'Interface de Gestion Centralisée',
+        description: 'Dossiers actifs, collaborateurs et antécédents sont consolidés au sein d\'un écosystème unique.'
     },
     {
-        kicker: 'Rythme',
-        title: 'Le dossier avance avant la consultation',
-        description: 'Questionnaire, documents et synthese IA arrivent deja structures quand le medecin ouvre le cas.'
+        kicker: 'Fluidité',
+        title: 'Anticipation du Temps Clinique',
+        description: 'L\'anamnèse et la synthèse IA sont structurées avant même l\'ouverture du dossier par le praticien.'
     },
     {
-        kicker: 'Controle',
-        title: 'La validation clinique reste humaine',
-        description: 'L IA accelere la lecture et la synthese, mais la decision medicale finale reste la votre.'
+        kicker: 'Éthique',
+        title: 'Souveraineté de la Décision',
+        description: 'L\'IA optimise l\'analyse et la synthèse, mais la décision clinique finale demeure votre prérogative.'
     }
 ];
 
 const coverStats = [
-    { value: '3', label: 'espaces relies' },
-    { value: '1', label: 'dossier continu' },
-    { value: 'OTP', label: 'verification securisee' }
+    { value: '3', label: 'Espaces Connectés' },
+    { value: '1', label: 'Flux Unifié' },
+    { value: 'OTP', label: 'Accès Sécurisé' }
 ];
 
 function LoginPagePremium() {
@@ -70,13 +70,13 @@ function LoginPagePremium() {
 
     return (
         <AuthShell
-            badge="Espace praticien securise"
-            coverTitle="Entrez dans un espace clinique plus net."
-            coverSubtitle="Connectez-vous pour suivre les dossiers, piloter votre equipe et garder le flux patient sous controle sans bruit inutile."
+            badge="Accès Praticien Sécurisé"
+            coverTitle="Un environnement clinique structuré."
+            coverSubtitle="Connectez-vous pour superviser vos dossiers, coordonner votre équipe et maintenir une continuité de soins sans friction."
             coverHighlights={coverHighlights}
             coverStats={coverStats}
-            panelTitle="Bienvenue docteur"
-            panelSubtitle="Connectez-vous a votre espace MediConsult."
+            panelTitle="Ravi de vous revoir, Docteur"
+            panelSubtitle="Accédez à votre espace professionnel MediConsult."
             footer={
                 <>
                     {t.auth.noAccount} <Link to="/register">{t.auth.register}</Link>
@@ -93,7 +93,7 @@ function LoginPagePremium() {
                         name="email"
                         value={formData.email}
                         onChange={handleChange}
-                        placeholder="exemple@cabinet.fr"
+                        placeholder="votre.email@cabinet.fr"
                         autoComplete="email"
                         required
                         className="auth-input"
@@ -107,7 +107,7 @@ function LoginPagePremium() {
                         name="password"
                         value={formData.password}
                         onChange={handleChange}
-                        placeholder="Mot de passe"
+                        placeholder="••••••••"
                         autoComplete="current-password"
                         required
                         className="auth-input"
@@ -132,7 +132,7 @@ function LoginPagePremium() {
             </form>
 
             <p className="auth-panel-note">
-                L IA assiste la lecture du dossier. La validation clinique finale reste humaine.
+                L'IA agit comme un assistant à l'analyse. La validation clinique finale demeure humaine et souveraine.
             </p>
         </AuthShell>
     );

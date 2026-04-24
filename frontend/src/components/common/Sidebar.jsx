@@ -99,8 +99,8 @@ function Sidebar() {
         .slice(0, 2)
         .map(part => part.charAt(0).toUpperCase())
         .join('') || 'MC';
-    const roleLabel = isDoctor ? 'Espace medecin' : 'Espace assistant';
-    const roleHint = isDoctor ? 'Pilotage clinique' : 'Suivi des patients';
+    const roleLabel = isDoctor ? 'Espace Médecin' : 'Espace Assistant';
+    const roleHint = isDoctor ? 'Direction Médicale' : 'Gestion des Dossiers';
 
     return (
         <>
@@ -230,9 +230,9 @@ function Sidebar() {
                                 to="/doctor/patients"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
-                                title={isCollapsed ? "Liste des patients" : ""}
+                                title={isCollapsed ? "Registre des patients" : ""}
                             >
-                                <PeopleIcon /> <span className="sidebar-link-text">Liste des patients</span>
+                                <PeopleIcon /> <span className="sidebar-link-text">Registre des patients</span>
                             </NavLink>
 
                             <NavLink

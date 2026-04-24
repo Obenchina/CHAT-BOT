@@ -4,121 +4,121 @@ import '../../styles/pages.css';
 const proofItems = [
     {
         value: '3',
-        label: 'espaces relies',
-        detail: 'assistant, patient, medecin'
+        label: 'Espaces Interconnectés',
+        detail: 'Assistant, Patient et Praticien'
     },
     {
         value: '1',
-        label: 'dossier continu',
-        detail: 'audio, images, PDF et notes'
+        label: 'Dossier Clinique Unifié',
+        detail: 'Audio, Imagerie, PDF et Notes'
     },
     {
         value: '4',
-        label: 'etapes nettes',
-        detail: 'creation, collecte, revue, decision'
+        label: 'Phases Opérationnelles',
+        detail: 'Création, Collecte, Revue et Décision'
     },
     {
         value: 'OTP',
-        label: 'verification securisee',
-        detail: 'activation et recuperation du compte'
+        label: 'Sécurisation des Accès',
+        detail: 'Authentification multifacteur par e-mail'
     }
 ];
 
 const capabilities = [
     {
-        kicker: 'Collecte',
-        title: 'Questionnaire patient intelligent',
-        description: 'Le recueil des informations commence avant la consultation pour faire gagner du temps clinique.'
+        kicker: 'Anamnèse',
+        title: 'Collecte Clinique Intelligente',
+        description: 'Le recueil des données commence en amont de la consultation pour optimiser le temps clinique.'
     },
     {
-        kicker: 'Lecture',
-        title: 'Synthese IA exploitable',
-        description: 'Le medecin retrouve plus vite les elements clefs sans perdre la maitrise de la decision finale.'
+        kicker: 'Analyse',
+        title: 'Synthèse Augmentée par IA',
+        description: 'Le praticien identifie instantanément les points clés tout en gardant la pleine maîtrise décisionnelle.'
     },
     {
-        kicker: 'Sortie',
-        title: 'Documents prets a partager',
-        description: 'Ordonnances, bilans et comptes rendus peuvent etre exportes en PDF depuis le meme flux.'
+        kicker: 'Productivité',
+        title: 'Édition Documentaire Automatisée',
+        description: 'Générez vos ordonnances, bilans et comptes-rendus en un clic au format PDF.'
     },
     {
-        kicker: 'Continuite',
-        title: 'Reprise du cas sans perte',
-        description: 'Le dossier actif, les reponses et les pieces jointes restent centralises dans une seule trajectoire.'
+        kicker: 'Continuité',
+        title: 'Centralisation des Données',
+        description: 'L\'historique actif, les réponses et les pièces jointes sont consolidés dans un flux unique.'
     }
 ];
 
 const roles = [
     {
         title: 'Assistant',
-        description: 'Cree le dossier, relance le parcours patient et maintient la consultation dans un cadre propre.'
+        description: 'Initialise le dossier, coordonne le parcours patient et assure la fluidité administrative.'
     },
     {
         title: 'Patient',
-        description: 'Repond aux questions, partage ses documents et arrive avec un contexte deja structure.'
+        description: 'Répond au questionnaire, transmet ses documents et arrive avec un contexte structuré.'
     },
     {
-        title: 'Medecin',
-        description: 'Analyse le cas, valide la synthese et rend une decision plus rapide, lisible et partageable.'
+        title: 'Médecin',
+        description: 'Analyse les données, valide la synthèse et rend une décision clinique éclairée et partageable.'
     }
 ];
 
 const workflow = [
     {
         number: '01',
-        title: 'Ouverture du cas',
-        description: 'Le cabinet cree un dossier propre et rattache le patient a un parcours actif.'
+        title: 'Initialisation du Dossier',
+        description: 'Le cabinet génère une nouvelle consultation et intègre le patient dans un parcours structuré.'
     },
     {
         number: '02',
-        title: 'Collecte clinique',
-        description: 'Le patient complete les questions et depose ses documents avant l echange medical.'
+        title: 'Collecte de Données',
+        description: 'Le patient complète l\'anamnèse et dépose ses examens complémentaires avant l\'échange médical.'
     },
     {
         number: '03',
-        title: 'Revue assistee',
-        description: 'L IA aide a trier et synthetiser pendant que photos, PDF et contexte restent visibles en un point.'
+        title: 'Revue Clinique Assistée',
+        description: 'L\'IA hiérarchise les informations critiques pendant que l\'imagerie et le contexte restent accessibles.'
     },
     {
         number: '04',
-        title: 'Validation finale',
-        description: 'Le medecin tranche, complete son compte rendu et exporte les documents necessaires.'
+        title: 'Validation & Édition',
+        description: 'Le praticien valide le diagnostic, finalise son compte-rendu et exporte les documents nécessaires.'
     }
 ];
 
 const trustCards = [
     {
-        title: 'Roles et permissions',
-        description: 'Chaque espace reste centre sur sa responsabilite: cabinet, patient et medecin.'
+        title: 'Permissions Hiérarchisées',
+        description: 'Des espaces de travail distincts et adaptés aux responsabilités de chaque acteur.'
     },
     {
-        title: 'Verification par OTP',
-        description: 'Inscription et recuperation du mot de passe passent par une verification email temporelle.'
+        title: 'Authentification Sécurisée',
+        description: 'Protection rigoureuse des comptes via des codes de vérification temporels (OTP).'
     },
     {
-        title: 'Validation humaine',
-        description: 'L IA assiste la lecture et la synthese. La decision clinique finale reste humaine.'
+        title: 'Souveraineté Médicale',
+        description: 'L\'IA agit comme un assistant à la lecture. La décision finale reste l\'apanage exclusif du médecin.'
     }
 ];
 
 const showcaseStages = [
     {
         role: 'Assistant',
-        state: 'Dossier ouvert',
-        description: 'Coordonnees, contexte de visite et pieces jointes sont centralises des le depart.'
+        state: 'Dossier Initialisé',
+        description: 'Coordonnées, motif de consultation et pièces jointes sont centralisés dès l\'admission.'
     },
     {
         role: 'Patient',
-        state: 'Questionnaire renseigne',
-        description: 'Reponses vocales et informations pre consultation sont structurees avant la venue.'
+        state: 'Données Renseignées',
+        description: 'Les réponses vocales et les antécédents sont structurés avant l\'examen clinique.'
     },
     {
-        role: 'Medecin',
-        state: 'Revue finale',
-        description: 'Lecture du dossier, appui IA, validation clinique et export des documents dans le meme fil.'
+        role: 'Médecin',
+        state: 'Revue Finale',
+        description: 'Analyse du dossier, appui IA, validation clinique et génération documentaire immédiate.'
     }
 ];
 
-const showcaseTags = ['Vocal', 'Images', 'PDF', 'OTP', 'Historique'];
+const showcaseTags = ['Vocal', 'Imagerie', 'PDF', 'OTP', 'Historique'];
 
 function LandingPagePremium() {
     return (
@@ -135,47 +135,47 @@ function LandingPagePremium() {
                     </Link>
 
                     <div className="landing-topbar-actions">
-                        <a href="#workflow" className="landing-nav-link landing-nav-anchor">Workflow</a>
-                        <a href="#trust" className="landing-nav-link landing-nav-anchor">Confiance</a>
+                        <a href="#workflow" className="landing-nav-link landing-nav-anchor">Méthodologie</a>
+                        <a href="#trust" className="landing-nav-link landing-nav-anchor">Sécurité</a>
                         <Link to="/login" className="landing-nav-link">Connexion</Link>
-                        <Link to="/register" className="landing-nav-button">Demarrer</Link>
+                        <Link to="/register" className="landing-nav-button">Démarrer</Link>
                     </div>
                 </nav>
 
                 <div className="landing-hero-grid">
                     <div className="landing-hero-copy">
-                        <div className="landing-pill">Cabinet medical assiste par IA</div>
+                        <div className="landing-pill">Pratique Médicale Augmentée par l'IA</div>
                         <h1 className="landing-hero-title">
-                            Un flux clinique net, du patient au diagnostic.
+                            Un flux clinique fluide, du patient au diagnostic.
                         </h1>
                         <p className="landing-hero-subtitle">
-                            MediConsult relie l assistant, le patient et le medecin dans un dossier unique.
-                            Questionnaire vocal, documents, synthese IA et validation finale restent alignes du debut a la fin.
+                            MediConsult harmonise l'interaction entre l'assistant, le patient et le praticien. 
+                            Anamnèse vocale, imagerie et synthèse IA convergent vers une décision clinique précise.
                         </p>
 
                         <div className="landing-hero-actions">
                             <Link to="/register" className="landing-primary-action">
-                                Creer l espace praticien
+                                Créer mon Espace Praticien
                             </Link>
                             <Link to="/login" className="landing-secondary-action">
-                                Acces praticien
+                                Accès Professionnel
                             </Link>
                         </div>
 
                         <ul className="landing-signal-list">
-                            <li>Questionnaire vocal et depot de pieces dans le meme dossier</li>
-                            <li>Analyse IA pour accelerer la lecture, jamais pour remplacer la decision clinique</li>
-                            <li>Ordonnances, bilans et comptes rendus exportables en PDF</li>
+                            <li>Questionnaire vocal et gestion documentaire unifiée</li>
+                            <li>Assistance au diagnostic par IA haute performance</li>
+                            <li>Génération automatisée de prescriptions et comptes-rendus PDF</li>
                         </ul>
                     </div>
 
                     <div className="landing-showcase-card">
                         <div className="landing-showcase-head">
                             <div>
-                                <span className="landing-showcase-kicker">Parcours MediConsult</span>
-                                <h2>Un dossier unique, trois espaces relies.</h2>
+                                <span className="landing-showcase-kicker">Écosystème MediConsult</span>
+                                <h2>Un flux unique pour une pratique moderne.</h2>
                             </div>
-                            <span className="landing-status-chip">Flux actif</span>
+                            <span className="landing-status-chip">Processus Actif</span>
                         </div>
 
                         <div className="landing-showcase-body">
@@ -216,11 +216,11 @@ function LandingPagePremium() {
 
             <section className="landing-section">
                 <div className="landing-section-head">
-                    <div className="landing-pill landing-pill-soft">Ce que la plateforme fait vraiment</div>
-                    <h2>Des gains visibles dans le flux, pas juste dans la promesse.</h2>
+                    <div className="landing-pill landing-pill-soft">Optimisation Opérationnelle</div>
+                    <h2>Gagnez en efficacité à chaque étape du parcours.</h2>
                     <p>
-                        Chaque bloc repond a une etape concrete du parcours patient: collecte, lecture,
-                        production documentaire et reprise du cas.
+                        Notre plateforme répond aux défis concrets de la pratique médicale moderne : 
+                        collecte structurée, aide à l'analyse et production documentaire accélérée.
                     </p>
                 </div>
 
@@ -237,10 +237,11 @@ function LandingPagePremium() {
 
             <section className="landing-section landing-section-alt">
                 <div className="landing-section-head">
-                    <div className="landing-pill landing-pill-soft">Concu pour trois espaces</div>
-                    <h2>Le produit suit le rythme du cabinet, pas l inverse.</h2>
+                    <div className="landing-pill landing-pill-soft">Collaboration Médicale</div>
+                    <h2>Une ergonomie pensée pour vos impératifs cliniques.</h2>
                     <p>
-                        L assistant prepare, le patient complete, le medecin valide. Chacun voit ce qui l aide a avancer.
+                        L'assistant prépare, le patient collabore, le médecin valide. 
+                        Une répartition claire des rôles pour une meilleure prise en charge.
                     </p>
                 </div>
 
@@ -256,10 +257,11 @@ function LandingPagePremium() {
 
             <section className="landing-section" id="workflow">
                 <div className="landing-section-head">
-                    <div className="landing-pill landing-pill-soft">Workflow clinique</div>
-                    <h2>Quatre mouvements lisibles du debut a la remise des documents.</h2>
+                    <div className="landing-pill landing-pill-soft">Méthodologie Clinique</div>
+                    <h2>Un flux décisionnel structuré et vérifiable.</h2>
                     <p>
-                        La plateforme reste utile parce que le parcours est simple a suivre, a reprendre et a verifier.
+                        Une traçabilité complète de l'admission à la remise des documents, 
+                        pour une pratique sereine et organisée.
                     </p>
                 </div>
 
@@ -276,10 +278,11 @@ function LandingPagePremium() {
 
             <section className="landing-section landing-section-alt" id="trust">
                 <div className="landing-section-head">
-                    <div className="landing-pill landing-pill-soft">Confiance produit</div>
-                    <h2>La confiance vient du cadre visible dans le flux.</h2>
+                    <div className="landing-pill landing-pill-soft">Confiance & Sécurité</div>
+                    <h2>Un cadre sécurisé pour vos données de santé.</h2>
                     <p>
-                        Aucune statistique decorative ici. Seulement les garde fous et mecanismes qui renforcent le parcours reel.
+                        Nous privilégions la transparence et la sécurité technologique 
+                        pour protéger l'intégrité de votre pratique.
                     </p>
                 </div>
 
@@ -296,20 +299,20 @@ function LandingPagePremium() {
             <section className="landing-cta-band">
                 <div className="landing-cta-card">
                     <div className="landing-cta-copy">
-                        <div className="landing-pill">Demarrage guide</div>
-                        <h2>Equipez le cabinet sans casser le rythme de consultation.</h2>
+                        <div className="landing-pill">Déploiement Immédiat</div>
+                        <h2>Équipez votre cabinet d'une technologie de pointe.</h2>
                         <p>
-                            Creez votre espace praticien, rattachez votre equipe et faites circuler les dossiers
-                            dans un cadre plus net des le premier patient.
+                            Créez votre espace praticien, configurez votre équipe et 
+                            commencez à traiter vos dossiers avec une fluidité inégalée.
                         </p>
                     </div>
 
                     <div className="landing-cta-actions">
                         <Link to="/register" className="landing-primary-action">
-                            Demarrer maintenant
+                            Démarrer l'Expérience
                         </Link>
                         <Link to="/login" className="landing-secondary-action">
-                            Se connecter
+                            Accès Praticien
                         </Link>
                     </div>
                 </div>
@@ -319,13 +322,13 @@ function LandingPagePremium() {
                 <div className="landing-footer-inner">
                     <div>
                         <strong>MediConsult</strong>
-                        <p>Plateforme de consultation medicale structuree autour du cabinet.</p>
+                        <p>Plateforme avancée de coordination médicale et d'aide au diagnostic.</p>
                     </div>
 
                     <div className="landing-footer-links">
                         <Link to="/login">Connexion</Link>
                         <Link to="/register">Inscription</Link>
-                        <a href="#workflow">Workflow</a>
+                        <a href="#workflow">Méthodologie</a>
                     </div>
                 </div>
             </footer>

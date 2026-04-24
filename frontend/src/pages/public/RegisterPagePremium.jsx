@@ -14,26 +14,26 @@ const t = translations;
 
 const coverHighlights = [
     {
-        kicker: 'Demarrage',
-        title: 'Ouvrez un espace praticien propre',
-        description: 'Creez votre compte, rattachez votre equipe et posez un cadre clair au flux patient.'
+        kicker: 'Inauguration',
+        title: 'Établissez votre cadre clinique',
+        description: 'Configurez votre environnement de travail, intégrez vos collaborateurs et structurez votre flux patient dès aujourd\'hui.'
     },
     {
-        kicker: 'Verification',
-        title: 'Activation en deux temps',
-        description: 'Le compte est confirme par code OTP avant la premiere connexion.'
+        kicker: 'Sécurité',
+        title: 'Protocole d\'Activation Sécurisé',
+        description: 'Chaque compte fait l\'objet d\'une validation par code OTP garantissant l\'intégrité de vos accès.'
     },
     {
-        kicker: 'Cadre',
-        title: 'Le cabinet reste centre sur son rythme',
-        description: 'Assistant, patient et medecin travaillent dans le meme dossier sans re-saisie inutile.'
+        kicker: 'Performance',
+        title: 'Un écosystème centré sur le patient',
+        description: 'Assistant, patient et praticien collaborent au sein d\'un dossier unique pour éliminer toute redondance.'
     }
 ];
 
 const coverStats = [
-    { value: '2', label: 'etapes d activation' },
-    { value: 'PDF', label: 'documents exportables' },
-    { value: 'IA', label: 'synthese assistee' }
+    { value: '2', label: 'Étapes de Validation' },
+    { value: 'PDF', label: 'Édition de Rapports' },
+    { value: 'IA', label: 'Synthèse Clinique' }
 ];
 
 function RegisterPagePremium() {
@@ -82,7 +82,7 @@ function RegisterPagePremium() {
         if (!formData.email) newErrors.email = t.errors.required;
         if (!formData.password) newErrors.password = t.errors.required;
         if (formData.password.length < 6) {
-            newErrors.password = 'Minimum 6 caracteres requis';
+            newErrors.password = 'Minimum 6 caractères requis';
         }
         if (formData.password !== formData.confirmPassword) {
             newErrors.confirmPassword = t.errors.passwordMismatch;
@@ -156,7 +156,7 @@ function RegisterPagePremium() {
         const code = otpCode.join('');
 
         if (code.length < 6) {
-            setOtpError('Veuillez entrer le code a 6 chiffres');
+            setOtpError('Veuillez entrer le code à 6 chiffres');
             return;
         }
 
@@ -167,7 +167,7 @@ function RegisterPagePremium() {
             const result = await verifyRegistration(pendingId, code);
 
             if (!result.success) {
-                setOtpError(result.message || 'Code invalide ou expire');
+                setOtpError(result.message || 'Code invalide ou expiré');
             }
         } catch (error) {
             console.error('OTP verification error:', error);
@@ -186,7 +186,7 @@ function RegisterPagePremium() {
             if (result.success) {
                 setResendTimer(60);
                 setOtpError('');
-                showSuccess('Un nouveau code a ete envoye a votre adresse email.');
+                showSuccess('Un nouveau code a été envoyé à votre adresse e-mail.');
             } else {
                 setOtpError(result.message || 'Erreur lors du renvoi du code');
             }
@@ -198,18 +198,18 @@ function RegisterPagePremium() {
 
     return (
         <AuthShell
-            badge="Activation de l espace praticien"
-            coverTitle="Installez le cadre du cabinet avant la premiere consultation."
-            coverSubtitle="L inscription cree un point de controle unique pour le medecin, l assistant et le suivi patient."
+            badge="Ouverture de Compte Praticien"
+            coverTitle="Définissez votre cadre clinique en quelques clics."
+            coverSubtitle="L'inscription initialise un point de contrôle unique pour la coordination de vos soins et le pilotage de votre équipe."
             coverHighlights={coverHighlights}
             coverStats={coverStats}
-            panelTitle={showOTP ? 'Verification de l email' : t.auth.registerTitle}
+            panelTitle={showOTP ? 'Vérification de l\'adresse e-mail' : t.auth.registerTitle}
             panelSubtitle={
                 showOTP
-                    ? `Code envoye a ${formData.email}`
-                    : 'Creez votre espace praticien securise en quelques champs.'
+                    ? `Code d'activation transmis à ${formData.email}`
+                    : 'Initialisez votre infrastructure numérique sécurisée.'
             }
-            steps={['Profil', 'Verification']}
+            steps={['Profil Professionnel', 'Vérification']}
             activeStep={showOTP ? 1 : 0}
             wide
             footer={
@@ -231,7 +231,7 @@ function RegisterPagePremium() {
                                 value={formData.email}
                                 onChange={handleChange}
                                 error={errors.email}
-                                placeholder="exemple@cabinet.fr"
+                                placeholder="votre.email@cabinet.fr"
                                 autoComplete="email"
                                 className="auth-input"
                                 required
@@ -246,7 +246,7 @@ function RegisterPagePremium() {
                                 value={formData.password}
                                 onChange={handleChange}
                                 error={errors.password}
-                                placeholder="Minimum 6 caracteres"
+                                placeholder="Minimum 6 caractères"
                                 autoComplete="new-password"
                                 className="auth-input"
                                 required
@@ -274,7 +274,7 @@ function RegisterPagePremium() {
                                 value={formData.firstName}
                                 onChange={handleChange}
                                 error={errors.firstName}
-                                placeholder="Jean"
+                                placeholder="Prénom"
                                 autoComplete="given-name"
                                 className="auth-input"
                                 required
@@ -287,7 +287,7 @@ function RegisterPagePremium() {
                                 value={formData.lastName}
                                 onChange={handleChange}
                                 error={errors.lastName}
-                                placeholder="Dupont"
+                                placeholder="Nom"
                                 autoComplete="family-name"
                                 className="auth-input"
                                 required
@@ -303,7 +303,7 @@ function RegisterPagePremium() {
                                     onChange={handleChange}
                                     className="form-input form-select auth-input"
                                 >
-                                    <option value="">Selectionner</option>
+                                    <option value="">Sélectionner</option>
                                     {GENDER_OPTIONS.map((opt) => (
                                         <option key={opt.value} value={opt.value}>
                                             {opt.label}
@@ -319,7 +319,7 @@ function RegisterPagePremium() {
                                 value={formData.phone}
                                 onChange={handleChange}
                                 error={errors.phone}
-                                placeholder="06 XX XX XX XX"
+                                placeholder="Numéro de contact"
                                 autoComplete="tel"
                                 className="auth-input"
                                 required
@@ -338,7 +338,7 @@ function RegisterPagePremium() {
                                     className={`form-input form-select auth-input${errors.specialty ? ' error' : ''}`}
                                     required
                                 >
-                                    <option value="">Selectionner</option>
+                                    <option value="">Sélectionner une spécialité</option>
                                     {SPECIALTY_OPTIONS.map((opt) => (
                                         <option key={opt.value} value={opt.value}>
                                             {opt.label}
@@ -358,7 +358,7 @@ function RegisterPagePremium() {
                                     onChange={handleChange}
                                     className="form-input auth-input auth-textarea"
                                     rows="3"
-                                    placeholder="Adresse complete de votre cabinet"
+                                    placeholder="Adresse complète du cabinet"
                                     autoComplete="street-address"
                                 />
                             </div>
@@ -380,7 +380,7 @@ function RegisterPagePremium() {
                     {otpError && <div className="alert alert-error auth-alert">{otpError}</div>}
 
                     <p className="auth-otp-note">
-                        Saisissez le code recu puis terminez l activation de votre espace.
+                        Veuillez saisir le code d'activation reçu par e-mail pour finaliser la création de votre espace.
                     </p>
 
                     <div className="otp-inputs">
@@ -409,18 +409,18 @@ function RegisterPagePremium() {
                         onClick={handleVerifyOTP}
                         loading={verifying}
                     >
-                        Verifier et creer le compte
+                        Confirmer l'Activation
                     </Button>
 
                     <div className="auth-otp-actions">
-                        <span>Vous n avez pas recu le code ?</span>
+                        <span>Aucun code reçu ?</span>
                         <button
                             type="button"
                             onClick={handleResendOTP}
                             disabled={resendTimer > 0}
                             className="auth-text-button"
                         >
-                            {resendTimer > 0 ? `Renvoyer le code dans ${resendTimer}s` : 'Renvoyer le code'}
+                            {resendTimer > 0 ? `Demander un nouveau code dans ${resendTimer}s` : 'Demander un nouveau code'}
                         </button>
                     </div>
                 </div>

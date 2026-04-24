@@ -97,7 +97,7 @@ const TABS = [
     { id: 'profile', label: 'Profil', icon: <PersonIcon fontSize="small" /> },
     { id: 'assistants', label: 'Assistants', icon: <GroupIcon fontSize="small" /> },
     { id: 'ai', label: 'Configuration IA', icon: <SmartToyIcon fontSize="small" /> },
-    { id: 'prescription', label: 'Ordonnance PDF', icon: <DescriptionIcon fontSize="small" /> },
+    { id: 'prescription', label: 'Édition Ordonnance', icon: <DescriptionIcon fontSize="small" /> },
 ];
 
 function DoctorSettings() {
@@ -578,7 +578,7 @@ function PrescriptionPdfTab() {
 
     const DEFAULT_ANALYSES = `Glycemie\nNFS + equilibre leucocytaire\nReticulocytes Frottis sanguin\nTest de COOMBS\nTP - TCK\nDosage IgE seriques\nASLO\nVS\nC-proteine reactive\nDosage ponderal des Ig\nHb A1C\nTSH\nFT3\nFT4\nPTH\nTransaminases (ASAT, ALAT)\nGamma GT\nEBV / MNI test\nRubeole\nCMV\nSerologie coeliaque\nGroupage Sg ABO/Rhesus D\nFer\nFerritine\nElectrophorese de l'Hb\nBilirubineTDI\nCalcium\nIonogramme sanguin\nUree - creatinine\nMicro albuminurie\nECBU\nDosage GH / iGf1\nCortisol\nPhosphatase alcaline\nCPK\nHepatite A - B - C\nVIH\nToxoplasmose\nAC anti-Transglutaminase\nAC IgG - A anti-Gliadine\nAC IgA anti-Endomysium\nAC Anti reticuline`;
 
-    const DEFAULT_LETTER = `Cher confrere,\n\nPermettez moi de vous adresser le patient sus nomme(e), sus age(e), aux ATCDs de ......\n\nQui presente .......\n.....\n......\n\nA l'examen clinique ...\n......\n.......\n\nJe vous le confie pour .....\n\n                                        confraternellement.`;
+    const DEFAULT_LETTER = `Cher confrère,\n\nPermettez-moi de vous adresser le patient susnommé(e), âgé(e) de [Âge], aux ATCDs de ......\n\nQui présente .......\n.....\n......\n\nA l'examen clinique ...\n......\n.......\n\nJe vous le confie pour .....\n\n                                        Confraternellement.`;
 
     useEffect(() => {
         loadAllConfigs();
@@ -675,7 +675,7 @@ function PrescriptionPdfTab() {
                 setFormData(nextConfig);
                 setLogoFile(null);
                 setLogoPreview(getUploadAssetUrl(nextConfig.logoPath));
-                setMessage({ type: 'success', text: 'Configuration de l ordonnance enregistree avec succes.' });
+                setMessage({ type: 'success', text: "Configuration de l'ordonnance enregistrée avec succès." });
             }
         } catch (error) {
             setMessage({ type: 'danger', text: error.message || 'Erreur lors de la sauvegarde de l ordonnance.' });
@@ -692,7 +692,7 @@ function PrescriptionPdfTab() {
         try {
             const response = await doctorService.updateAnalysesConfig({ analysesList });
             if (response.success) {
-                setAnalysesMessage({ type: 'success', text: 'Liste des analyses enregistree avec succes.' });
+                setAnalysesMessage({ type: 'success', text: 'Liste des bilans enregistrée avec succès.' });
             }
         } catch (error) {
             setAnalysesMessage({ type: 'danger', text: error.message || 'Erreur lors de la sauvegarde.' });
@@ -709,7 +709,7 @@ function PrescriptionPdfTab() {
         try {
             const response = await doctorService.updateLetterConfig({ letterTemplate });
             if (response.success) {
-                setLetterMessage({ type: 'success', text: 'Modele de lettre enregistre avec succes.' });
+                setLetterMessage({ type: 'success', text: 'Modèle de lettre enregistré avec succès.' });
             }
         } catch (error) {
             setLetterMessage({ type: 'danger', text: error.message || 'Erreur lors de la sauvegarde.' });
@@ -840,29 +840,29 @@ function PrescriptionPdfTab() {
                                 </div>
 
                                 <div className="input-group">
-                                    <label>Specialite affichee</label>
+                                    <label>Spécialité affichée</label>
                                     <input
                                         type="text"
                                         value={formData.specialtyText}
                                         onChange={(e) => handleFieldChange('specialtyText', e.target.value)}
                                         className="input-field"
                                         maxLength={180}
-                                        placeholder="Urologue, Medecin generaliste, Nutritionniste..."
+                                        placeholder="Urologue, Médecin généraliste, Nutritionniste..."
                                     />
                                 </div>
 
                                 <div className="input-group">
-                                    <label>Liste des services</label>
+                                    <label>Registre des services</label>
                                     <textarea
                                         value={formData.servicesText}
                                         onChange={(e) => handleFieldChange('servicesText', e.target.value)}
                                         className="input-field"
                                         rows="6"
                                         maxLength={1200}
-                                        placeholder={'Un service par ligne\\nEchographie\\nTraitement des calculs urinaires\\nSuivi nutritionnel'}
+                                        placeholder={'Un service par ligne\\nÉchographie\\nTraitement des calculs urinaires\\nSuivi nutritionnel'}
                                     />
                                     <p className="prescription-help-text">
-                                        Ecrivez chaque service sur une ligne separee. Ils apparaitront dans l entete du PDF.
+                                        Saisissez chaque service sur une ligne distincte. Ils apparaîtront dans l'en-tête du PDF.
                                     </p>
                                 </div>
                             </div>
@@ -886,8 +886,8 @@ function PrescriptionPdfTab() {
                         </div>
 
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                            L'en-tete du PDF utilise la meme configuration que l'ordonnance (logo, couleurs, specialite).
-                            Configurez ici la liste des analyses que vous utilisez.
+                            L'en-tête du PDF utilise la même configuration que l'ordonnance (logo, couleurs, spécialité).
+                            Configurez ici la liste des bilans biologiques que vous utilisez.
                         </p>
 
                         {analysesMessage.text && (
@@ -905,11 +905,11 @@ function PrescriptionPdfTab() {
                                     className="input-field"
                                     rows="12"
                                     maxLength={5000}
-                                    placeholder={'Glycemie\nNFS\nTP - TCK\n...'}
+                                    placeholder={'Glycémie\nNFS\nTP - TCK\n...'}
                                     style={{ fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: '1.6' }}
                                 />
                                 <p className="prescription-help-text">
-                                    Ecrivez chaque analyse sur une ligne separee. Cette liste apparaitra dans la page de details du cas pour selectionner les analyses souhaitees.
+                                    Saisissez chaque analyse sur une ligne distincte. Cette liste apparaîtra dans la page de détails du dossier.
                                 </p>
                             </div>
 
@@ -932,8 +932,8 @@ function PrescriptionPdfTab() {
                         </div>
 
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                            L'en-tete du PDF utilise la meme configuration que l'ordonnance.
-                            Ecrivez ici le modele de lettre d'orientation. Il sera pre-rempli lors de la consultation.
+                            L'en-tête du PDF utilise la même configuration que l'ordonnance.
+                            Configurez ici le modèle de lettre d'orientation pré-rempli.
                         </p>
 
                         {letterMessage.text && (
@@ -944,18 +944,18 @@ function PrescriptionPdfTab() {
 
                         <form onSubmit={handleSaveLetter}>
                             <div className="input-group">
-                                <label>Modele de lettre d'orientation</label>
+                                <label>Modèle de lettre d'orientation</label>
                                 <textarea
                                     value={letterTemplate}
                                     onChange={(e) => setLetterTemplate(e.target.value)}
                                     className="input-field"
                                     rows="12"
                                     maxLength={5000}
-                                    placeholder={'Cher confrere,\n\nPermettez moi de vous adresser le patient...'}
+                                    placeholder={'Cher confrère,\n\nPermettez-moi de vous adresser le patient...'}
                                     style={{ fontSize: '0.9rem', lineHeight: '1.7' }}
                                 />
                                 <p className="prescription-help-text">
-                                    Ce texte sera pre-rempli dans la page de consultation. Vous pourrez le modifier avant de generer le PDF.
+                                    Ce texte sera pré-rempli dans la page de consultation. Vous pourrez le modifier avant de générer le PDF.
                                 </p>
                             </div>
 
@@ -974,7 +974,7 @@ function PrescriptionPdfTab() {
                 <div className="profile-section-card">
                     <div className="section-header">
                         <div className="section-title">
-                            <span>Vue</span> Apercu rapide
+                            <span>Vue</span> Aperçu rapide
                         </div>
                     </div>
 
@@ -1028,11 +1028,11 @@ function PrescriptionPdfTab() {
                                     <strong>PATIENT</strong>
                                 </div>
                                 <div>
-                                    <span>Prenom</span>
+                                    <span>Prénom</span>
                                     <strong>EXEMPLE</strong>
                                 </div>
                                 <div>
-                                    <span>Age</span>
+                                    <span>Âge</span>
                                     <strong>45 ans</strong>
                                 </div>
                             </div>
