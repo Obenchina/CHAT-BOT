@@ -23,7 +23,15 @@ const config = {
 
     // JWT configuration
     jwt: {
-        secret: process.env.JWT_SECRET || (() => { console.warn('⚠️ WARNING: JWT_SECRET non défini dans .env — utilisation d\'une clé temporaire pour le développement.'); return 'dev_only_insecure_key_' + Date.now(); })(),
+        secret: (() => {
+            if (process.env.JWT_SECRET) return process.env.JWT_SECRET;
+            if (process.env.NODE_ENV === 'production') {
+                console.error('❌ FATAL: JWT_SECRET is required in production. Set it in .env and restart.');
+                process.exit(1);
+            }
+            console.warn('⚠️ WARNING: JWT_SECRET non défini — utilisation d\'une clé temporaire pour le développement.');
+            return 'dev_only_insecure_key_CHANGE_ME';
+        })(),
         expiresIn: process.env.JWT_EXPIRES_IN || '7d'
     },
 

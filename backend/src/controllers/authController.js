@@ -59,7 +59,7 @@ async function register(req, res) {
         }
 
         // Hash password
-        const passwordHash = await bcrypt.hash(password, 10);
+        const passwordHash = await bcrypt.hash(password, 12);
 
         // Generate OTP
         const otpCode = generateOTP();

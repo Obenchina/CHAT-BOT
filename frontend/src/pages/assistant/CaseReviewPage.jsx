@@ -10,7 +10,7 @@ import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import caseService from '../../services/caseService';
 import translations from '../../constants/translations';
-import { DOCUMENT_TYPES, CASE_STATUS, UPLOAD_URL } from '../../constants/config';
+import { DOCUMENT_TYPES, CASE_STATUS, UPLOAD_URL, getAuthUploadUrl } from '../../constants/config';
 import { showSuccess, showError, showConfirm } from '../../utils/toast';
 import CheckIcon from '@mui/icons-material/Check';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
@@ -331,7 +331,7 @@ function CaseReviewPage() {
                                                 >
                                                     <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', alignItems: 'center' }}>
                                                         <a
-                                                            href={`${UPLOAD_URL}/${doc.file_path || doc.filePath}`}
+                                                            href={getAuthUploadUrl(doc.file_path || doc.filePath)}
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                             style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}

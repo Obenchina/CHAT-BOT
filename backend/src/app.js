@@ -7,6 +7,7 @@ const express = require('express');
 const cors = require('cors');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
+const helmet = require('helmet');
 const config = require('./config/config');
 const { testConnection } = require('./config/database');
 
@@ -35,6 +36,9 @@ app.use(cors({
     credentials: true
 }));
 
+// Security headers (CSP, X-Frame-Options, HSTS, etc.)
+app.use(helmet());
+
 // Parse JSON bodies
 app.use(express.json());
 
@@ -61,8 +65,34 @@ uploadDirs.forEach(dir => {
     }
 });
 
-// Serve uploaded files statically
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+// Serve uploaded files with JWT authentication
+// Supports both: Authorization header (API calls) and ?token= query param (img/audio/a tags)
+const jwt = require('jsonwebtoken');
+app.use('/uploads', (req, res, next) => {
+    try {
+        let token = null;
+
+        // 1. Try Authorization header first
+        const authHeader = req.headers.authorization;
+        if (authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.split(' ')[1];
+        }
+
+        // 2. Fallback to query parameter (for <img>, <audio>, <a> tags)
+        if (!token && req.query.token) {
+            token = req.query.token;
+        }
+
+        if (!token) {
+            return res.status(401).json({ success: false, message: 'Accès non autorisé.' });
+        }
+
+        jwt.verify(token, config.jwt.secret);
+        next();
+    } catch (error) {
+        return res.status(401).json({ success: false, message: 'Token invalide ou expiré.' });
+    }
+}, express.static(path.join(__dirname, '../uploads')));
 
 // ======================
 // RATE LIMITING

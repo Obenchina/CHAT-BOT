@@ -15,7 +15,7 @@ import doctorService from '../../services/doctorService';
 import authService from '../../services/authService';
 import translations from '../../constants/translations';
 import { showSuccess, showError, showConfirm } from '../../utils/toast';
-import { SPECIALTY_OPTIONS, GENDER_OPTIONS, UPLOAD_URL } from '../../constants/config';
+import { SPECIALTY_OPTIONS, GENDER_OPTIONS, UPLOAD_URL, getAuthUploadUrl } from '../../constants/config';
 import '../../styles/profile.css';
 
 // MUI Icons
@@ -41,17 +41,8 @@ const DEFAULT_PRESCRIPTION_CONFIG = {
     servicesText: ''
 };
 
-function getUploadAssetUrl(filePath) {
-    if (!filePath) {
-        return '';
-    }
-
-    const normalizedPath = String(filePath)
-        .replace(/^uploads[\\/]/, '')
-        .replace(/\\/g, '/');
-
-    return `${UPLOAD_URL}/${normalizedPath}`;
-}
+// Use centralized getAuthUploadUrl from config.js
+const getUploadAssetUrl = getAuthUploadUrl;
 
 // ============================================================
 // AI MODEL OPTIONS

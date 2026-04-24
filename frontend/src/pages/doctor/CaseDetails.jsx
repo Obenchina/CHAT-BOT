@@ -11,7 +11,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import caseService from '../../services/caseService';
 import doctorService from '../../services/doctorService';
 import translations from '../../constants/translations';
-import { API_URL, UPLOAD_URL } from '../../constants/config';
+import { API_URL, UPLOAD_URL, getAuthUploadUrl } from '../../constants/config';
 
 const t = translations;
 
@@ -424,7 +424,7 @@ function CaseDetails() {
                                                     {(answer.audio_path || answer.audioPath) && (
                                                         <div style={{ background: 'var(--bg-card)', padding: 'var(--space-xs)', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-color)', display: 'inline-block', width: 'fit-content' }}>
                                                             <audio controls style={{ height: '36px', width: '250px' }}>
-                                                                <source src={`${UPLOAD_URL}/${answer.audio_path || answer.audioPath}`} type="audio/webm" />
+                                                                <source src={getAuthUploadUrl(answer.audio_path || answer.audioPath)} type="audio/webm" />
                                                             </audio>
                                                         </div>
                                                     )}
@@ -480,7 +480,7 @@ function CaseDetails() {
                                                     </div>
                                                 </div>
                                                 <a
-                                                    href={`${UPLOAD_URL}/${doc.filePath || doc.file_path}`}
+                                                    href={getAuthUploadUrl(doc.filePath || doc.file_path)}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
                                                     className="btn btn-ghost btn-icon btn-sm"

@@ -11,7 +11,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import caseService from '../../services/caseService';
 import patientService from '../../services/patientService';
 import translations from '../../constants/translations';
-import { UPLOAD_URL } from '../../constants/config';
+import { UPLOAD_URL, getAuthUploadUrl } from '../../constants/config';
 import { showError, showWarning } from '../../utils/toast';
 import '../../styles/questionnaire.css';
 import MicIcon from '@mui/icons-material/Mic';
@@ -113,7 +113,7 @@ function QuestionnairePage() {
 
                                 if (qId) {
                                     // FIX: Add /uploads/ prefix to audio path
-                                    const audioUrl = audioPath ? `${UPLOAD_URL}/${audioPath}` : null;
+                                    const audioUrl = audioPath ? getAuthUploadUrl(audioPath) : null;
                                     console.log(`Loading answer for Q${qId}: type=${answerType}, audioPath=${audioPath}, url=${audioUrl}`);
 
                                     existingAnswers[qId] = {

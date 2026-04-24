@@ -16,7 +16,7 @@ const User = {
         const { email, password, role, firstName, lastName } = userData;
 
         // Hash password
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(password, 12);
 
         const [result] = await pool.execute(
             `INSERT INTO users (email, password, first_name, last_name, role, is_active, created_at, updated_at)
@@ -82,7 +82,7 @@ const User = {
      * @returns {Promise<boolean>} Success status
      */
     async updatePassword(id, newPassword) {
-        const hashedPassword = await bcrypt.hash(newPassword, 10);
+        const hashedPassword = await bcrypt.hash(newPassword, 12);
 
         const [result] = await pool.execute(
             'UPDATE users SET password = ?, updated_at = NOW() WHERE id = ?',

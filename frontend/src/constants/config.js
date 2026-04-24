@@ -8,6 +8,19 @@ export const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000/ap
 // Uploads base URL
 export const UPLOAD_URL = import.meta.env.VITE_UPLOAD_URL || 'http://localhost:5000/uploads';
 
+/**
+ * Build an authenticated upload URL by appending the JWT token.
+ * Use this for <img>, <audio>, <a> tags that cannot send Authorization headers.
+ * @param {string} relativePath - The file path relative to /uploads/
+ * @returns {string} Full authenticated URL
+ */
+export function getAuthUploadUrl(relativePath) {
+    if (!relativePath) return '';
+    const token = localStorage.getItem('token');
+    const normalizedPath = String(relativePath).replace(/^uploads[\\/]/, '').replace(/\\/g, '/');
+    return `${UPLOAD_URL}/${normalizedPath}${token ? `?token=${token}` : ''}`;
+}
+
 // API Endpoints
 export const ENDPOINTS = {
     // Auth
