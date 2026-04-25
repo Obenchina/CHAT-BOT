@@ -52,6 +52,20 @@ const logoStorage = multer.diskStorage({
     }
 });
 
+// Configure storage for growth curves
+const curveStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadDir = path.join(__dirname, '../../uploads/curves');
+        fs.mkdirSync(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname) || '.png';
+        const uniqueName = `${uuidv4()}${ext}`;
+        cb(null, uniqueName);
+    }
+});
+
 // ======================
 // FILE FILTERS
 // ======================
@@ -102,6 +116,18 @@ const logoFilter = (req, file, cb) => {
     }
 };
 
+// Filter for growth curves (Images & PDFs)
+const curveFilter = (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'];
+    const allowedExtensions = /\.(jpg|jpeg|png|webp|pdf)$/i;
+
+    if (allowedTypes.includes(file.mimetype) || allowedExtensions.test(file.originalname)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Type de fichier non autorisé. Formats acceptés: JPG, PNG, WebP, PDF'), false);
+    }
+};
+
 // ======================
 // MULTER INSTANCES
 // ======================
@@ -128,6 +154,15 @@ const uploadAudio = multer({
 const uploadLogo = multer({
     storage: logoStorage,
     fileFilter: logoFilter,
+    limits: {
+        fileSize: config.upload.maxFileSize
+    }
+});
+
+// Upload handler for growth curves
+const uploadCurve = multer({
+    storage: curveStorage,
+    fileFilter: curveFilter,
     limits: {
         fileSize: config.upload.maxFileSize
     }
@@ -171,6 +206,8 @@ function handleUploadError(err, req, res, next) {
 module.exports = {
     uploadDocument,
     uploadAudio,
+    uploadAudio,
     uploadLogo,
+    uploadCurve,
     handleUploadError
 };

@@ -12,12 +12,20 @@ const Patient = {
      * @returns {Promise<Object>} Created patient
      */
     async create(patientData) {
-        const { doctorId, firstName, lastName, gender, age, phone } = patientData;
+        const {
+            doctorId, firstName, lastName, gender,
+            dateOfBirth, phone, address,
+            siblingsAlive, siblingsDeceased
+        } = patientData;
 
         const [result] = await pool.execute(
-            `INSERT INTO patients (doctor_id, first_name, last_name, gender, age, phone, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, NOW())`,
-            [doctorId, firstName, lastName, gender, age, phone]
+            `INSERT INTO patients (doctor_id, first_name, last_name, gender, date_of_birth, phone, address, siblings_alive, siblings_deceased, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())`,
+            [
+                doctorId, firstName, lastName, gender,
+                dateOfBirth, phone, address || null,
+                siblingsAlive || 0, siblingsDeceased || 0
+            ]
         );
 
         return {
@@ -27,13 +35,14 @@ const Patient = {
     },
 
     /**
-     * Find patient by ID
+     * Find patient by ID (with calculated age)
      * @param {number} id - Patient ID
      * @returns {Promise<Object|null>} Patient or null
      */
     async findById(id) {
         const [patients] = await pool.execute(
-            'SELECT * FROM patients WHERE id = ?',
+            `SELECT *, TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) AS age
+             FROM patients WHERE id = ?`,
             [id]
         );
 
@@ -41,17 +50,46 @@ const Patient = {
     },
 
     /**
-     * Get all patients for a doctor
+     * Get longitudinal measurements for a patient
+     * @param {number} patientId - Patient ID
+     * @returns {Promise<Array>} List of measurements
+     */
+    async getMeasurements(patientId) {
+        // We select the case date, the actual numeric value (from text_answer, safely cast later or returned as string), 
+        // and the clinical_measure type from the question.
+        const [measurements] = await pool.execute(
+            `SELECT 
+                c.id AS case_id,
+                c.created_at AS date,
+                q.clinical_measure,
+                ca.text_answer AS value
+             FROM cases c
+             JOIN case_answers ca ON c.id = ca.case_id
+             JOIN questions q ON ca.question_id = q.id
+             WHERE c.patient_id = ? 
+             AND ca.answer_type_snapshot = 'number'
+             AND q.clinical_measure IS NOT NULL 
+             AND q.clinical_measure != 'none'
+             ORDER BY c.created_at ASC`,
+            [patientId]
+        );
+
+        return measurements;
+    },
+
+    /**
+     * Get all patients for a doctor (with calculated age)
      * @param {number} doctorId - Doctor ID
      * @returns {Promise<Array>} List of patients
      */
     async findByDoctorId(doctorId) {
         const [patients] = await pool.execute(
             `SELECT p.*, 
-        (SELECT COUNT(*) FROM cases c WHERE c.patient_id = p.id) as case_count
-       FROM patients p
-       WHERE p.doctor_id = ?
-       ORDER BY p.last_name, p.first_name`,
+                TIMESTAMPDIFF(YEAR, p.date_of_birth, CURDATE()) AS age,
+                (SELECT COUNT(*) FROM cases c WHERE c.patient_id = p.id) as case_count
+             FROM patients p
+             WHERE p.doctor_id = ?
+             ORDER BY p.last_name, p.first_name`,
             [doctorId]
         );
 
@@ -68,10 +106,11 @@ const Patient = {
         const searchTerm = `%${query}%`;
 
         const [patients] = await pool.execute(
-            `SELECT * FROM patients 
-       WHERE doctor_id = ? 
-       AND (first_name LIKE ? OR last_name LIKE ? OR phone LIKE ?)
-       ORDER BY last_name, first_name`,
+            `SELECT *, TIMESTAMPDIFF(YEAR, date_of_birth, CURDATE()) AS age
+             FROM patients 
+             WHERE doctor_id = ? 
+             AND (first_name LIKE ? OR last_name LIKE ? OR phone LIKE ?)
+             ORDER BY last_name, first_name`,
             [doctorId, searchTerm, searchTerm, searchTerm]
         );
 
@@ -85,17 +124,30 @@ const Patient = {
      * @returns {Promise<boolean>} Success status
      */
     async update(id, updateData) {
-        const { firstName, lastName, gender, age, phone } = updateData;
+        const {
+            firstName, lastName, gender,
+            dateOfBirth, phone, address,
+            siblingsAlive, siblingsDeceased
+        } = updateData;
 
         const [result] = await pool.execute(
             `UPDATE patients SET 
-        first_name = COALESCE(?, first_name),
-        last_name = COALESCE(?, last_name),
-        gender = COALESCE(?, gender),
-        age = COALESCE(?, age),
-        phone = COALESCE(?, phone)
-       WHERE id = ?`,
-            [firstName, lastName, gender, age, phone, id]
+                first_name = COALESCE(?, first_name),
+                last_name = COALESCE(?, last_name),
+                gender = COALESCE(?, gender),
+                date_of_birth = COALESCE(?, date_of_birth),
+                phone = COALESCE(?, phone),
+                address = COALESCE(?, address),
+                siblings_alive = COALESCE(?, siblings_alive),
+                siblings_deceased = COALESCE(?, siblings_deceased)
+             WHERE id = ?`,
+            [
+                firstName, lastName, gender,
+                dateOfBirth, phone, address,
+                siblingsAlive !== undefined ? siblingsAlive : null,
+                siblingsDeceased !== undefined ? siblingsDeceased : null,
+                id
+            ]
         );
 
         return result.affectedRows > 0;
@@ -134,7 +186,7 @@ const Patient = {
     },
 
     /**
-     * Get patient with case history
+     * Get patient with case history (with calculated age)
      * @param {number} id - Patient ID
      * @returns {Promise<Object|null>} Patient with cases
      */
@@ -144,9 +196,9 @@ const Patient = {
 
         const [cases] = await pool.execute(
             `SELECT c.id, c.status, c.created_at, c.submitted_at, c.reviewed_at, c.doctor_diagnosis
-       FROM cases c
-       WHERE c.patient_id = ?
-       ORDER BY c.created_at DESC`,
+             FROM cases c
+             WHERE c.patient_id = ?
+             ORDER BY c.created_at DESC`,
             [id]
         );
 

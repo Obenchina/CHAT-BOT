@@ -33,26 +33,20 @@ export function AuthProvider({ children }) {
      */
     async function checkAuth() {
         try {
-            const token = localStorage.getItem('token');
-
-            if (!token) {
-                setLoading(false);
-                return;
-            }
-
-            // Verify token and get user info
+            // Verify token (via HttpOnly cookie) and get user info
             const response = await authService.getCurrentUser();
 
             if (response.success) {
                 setUser(response.data.user);
                 setProfile(response.data.profile);
             } else {
-                // Invalid token, clear storage
-                localStorage.removeItem('token');
+                setUser(null);
+                setProfile(null);
             }
         } catch (error) {
             console.error('Auth check error:', error);
-            localStorage.removeItem('token');
+            setUser(null);
+            setProfile(null);
         } finally {
             setLoading(false);
         }
@@ -69,8 +63,7 @@ export function AuthProvider({ children }) {
             const response = await authService.login(email, password);
 
             if (response.success) {
-                // Save token
-                localStorage.setItem('token', response.data.token);
+                // Token is now set in HttpOnly cookie by backend
 
                 // Update state
                 setUser(response.data.user);
@@ -123,8 +116,7 @@ export function AuthProvider({ children }) {
             const response = await authService.verifyRegistration(pendingId, code);
 
             if (response.success) {
-                // Save token
-                localStorage.setItem('token', response.data.token);
+                // Token is now set in HttpOnly cookie by backend
 
                 // Update state
                 setUser(response.data.user);
@@ -147,11 +139,18 @@ export function AuthProvider({ children }) {
     /**
      * Logout user
      */
-    function logout() {
+    async function logout() {
         // Clear all persistent toasts
         import('react-hot-toast').then(module => module.default.dismiss());
         
-        // Clear storage
+        try {
+            // Call API to clear HttpOnly cookie
+            await authService.logout();
+        } catch (err) {
+            console.error('Logout error:', err);
+        }
+
+        // Clear fallback localStorage just in case
         localStorage.removeItem('token');
 
         // Clear state

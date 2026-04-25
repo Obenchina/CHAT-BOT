@@ -8,6 +8,7 @@ const cors = require('cors');
 const path = require('path');
 const rateLimit = require('express-rate-limit');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const config = require('./config/config');
 const { testConnection } = require('./config/database');
 
@@ -18,6 +19,7 @@ const assistantRoutes = require('./routes/assistantRoutes');
 const patientRoutes = require('./routes/patientRoutes');
 const catalogueRoutes = require('./routes/catalogueRoutes');
 const caseRoutes = require('./routes/caseRoutes');
+const aiChatRoutes = require('./routes/aiChatRoutes');
 
 // Initialize Express app
 const app = express();
@@ -38,6 +40,9 @@ app.use(cors({
 
 // Security headers (CSP, X-Frame-Options, HSTS, etc.)
 app.use(helmet());
+
+// Parse cookies
+app.use(cookieParser());
 
 // Parse JSON bodies
 app.use(express.json());
@@ -72,13 +77,18 @@ app.use('/uploads', (req, res, next) => {
     try {
         let token = null;
 
-        // 1. Try Authorization header first
+        // 1. Try cookie first (safest)
+        if (req.cookies && req.cookies.token) {
+            token = req.cookies.token;
+        }
+
+        // 2. Try Authorization header
         const authHeader = req.headers.authorization;
-        if (authHeader && authHeader.startsWith('Bearer ')) {
+        if (!token && authHeader && authHeader.startsWith('Bearer ')) {
             token = authHeader.split(' ')[1];
         }
 
-        // 2. Fallback to query parameter (for <img>, <audio>, <a> tags)
+        // 3. Fallback to query parameter (legacy for <img>, <audio>, <a> tags)
         if (!token && req.query.token) {
             token = req.query.token;
         }
@@ -98,10 +108,10 @@ app.use('/uploads', (req, res, next) => {
 // RATE LIMITING
 // ======================
 
-// General API rate limit: 1000 requests per 15 minutes
+// General API rate limit
 const apiLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 1000,
+    max: 5000, // Increased for development
     message: {
         success: false,
         message: 'Trop de requetes, veuillez reessayer plus tard.'
@@ -110,10 +120,10 @@ const apiLimiter = rateLimit({
     legacyHeaders: false
 });
 
-// Stricter rate limit for authentication: 200 requests per 15 minutes
+// Stricter rate limit for authentication
 const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: 200,
+    max: 5000, // Increased for development
     message: {
         success: false,
         message: 'Trop de tentatives de connexion, veuillez reessayer plus tard.'
@@ -146,6 +156,9 @@ app.use('/api/catalogue', catalogueRoutes);
 
 // Case routes (medical cases workflow)
 app.use('/api/cases', caseRoutes);
+
+// AI Chat routes (doctor-AI conversation)
+app.use('/api/ai-chat', aiChatRoutes);
 
 // ======================
 // HEALTH CHECK ENDPOINT

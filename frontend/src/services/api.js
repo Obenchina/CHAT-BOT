@@ -9,6 +9,7 @@ import { API_URL } from '../constants/config';
 // Create axios instance with default config
 const api = axios.create({
     baseURL: API_URL,
+    withCredentials: true,
     headers: {
         'Content-Type': 'application/json'
     }
@@ -17,12 +18,11 @@ const api = axios.create({
 // Request interceptor - Add auth token to requests
 api.interceptors.request.use(
     (config) => {
+        // Fallback for legacy code that still sets token in localStorage
         const token = localStorage.getItem('token');
-
         if (token) {
             config.headers.Authorization = `Bearer ${token}`;
         }
-
         return config;
     },
     (error) => {

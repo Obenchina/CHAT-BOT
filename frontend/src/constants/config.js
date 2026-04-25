@@ -73,7 +73,40 @@ export const CASE_STATUS = {
 export const ANSWER_TYPES = {
     YES_NO: 'yes_no',
     VOICE: 'voice',
-    CHOICES: 'choices'
+    CHOICES: 'choices',
+    TEXT_SHORT: 'text_short',
+    TEXT_LONG: 'text_long',
+    NUMBER: 'number'
+};
+
+// Answer type display labels
+export const ANSWER_TYPE_LABELS = {
+    yes_no: 'Oui / Non',
+    voice: 'Réponse vocale',
+    choices: 'Choix multiples',
+    text_short: 'Texte court',
+    text_long: 'Texte long',
+    number: 'Nombre'
+};
+
+// Clinical measure types for number-type questions
+export const CLINICAL_MEASURES = {
+    NONE: 'none',
+    TEMPERATURE: 'temperature',
+    WEIGHT: 'weight',
+    HEIGHT: 'height',
+    HEAD_CIRCUMFERENCE: 'head_circumference',
+    BLOOD_PRESSURE: 'blood_pressure'
+};
+
+// Clinical measure display labels and units
+export const CLINICAL_MEASURE_LABELS = {
+    none: { label: 'Aucune', unit: '' },
+    temperature: { label: 'Température', unit: '°C' },
+    weight: { label: 'Poids', unit: 'kg' },
+    height: { label: 'Taille', unit: 'cm' },
+    head_circumference: { label: 'Périmètre crânien', unit: 'cm' },
+    blood_pressure: { label: 'Tension artérielle', unit: 'mmHg' }
 };
 
 // Document types

@@ -17,6 +17,11 @@ const authService = {
         return api.post(ENDPOINTS.LOGIN, { email, password });
     },
 
+    async logout() {
+        localStorage.removeItem('token');
+        return api.post('/auth/logout');
+    },
+
     async register(data) {
         return api.post(ENDPOINTS.REGISTER, data);
     },

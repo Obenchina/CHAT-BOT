@@ -10,6 +10,7 @@ import Modal from '../../components/common/Modal';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import catalogueService from '../../services/catalogueService';
 import translations from '../../constants/translations';
+import { CLINICAL_MEASURE_LABELS } from '../../constants/config';
 import { showConfirm, showError, showSuccess } from '../../utils/toast';
 import '../../styles/dragdrop.css';
 import EditIcon from '@mui/icons-material/Edit';
@@ -44,7 +45,8 @@ function CatalogueManagement() {
         answerType: 'voice',
         isRequired: true,
         isActive: true,
-        choices: ''
+        choices: '',
+        clinicalMeasure: 'none'
     });
     const [formErrors, setFormErrors] = useState({});
 
@@ -321,7 +323,7 @@ function CatalogueManagement() {
     function openAddQuestionModal(catalogueItem = catalogue) {
         if (!catalogueItem) return;
         setEditingQuestion(null);
-        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '' });
+        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '', clinicalMeasure: 'none' });
         setFormErrors({});
         setShowQuestionModal(true);
     }
@@ -333,7 +335,8 @@ function CatalogueManagement() {
             answerType: question.answer_type || question.answerType,
             isRequired: question.is_required ?? question.isRequired ?? true,
             isActive: question.is_active ?? question.isActive ?? true,
-            choices: Array.isArray(question.choices) ? question.choices.join('\n') : ''
+            choices: Array.isArray(question.choices) ? question.choices.join('\n') : '',
+            clinicalMeasure: question.clinical_measure || question.clinicalMeasure || 'none'
         });
         setFormErrors({});
         setShowQuestionModal(true);
@@ -862,6 +865,17 @@ function CatalogueManagement() {
                             <option value="voice">{t.catalogue.voice}</option>
                             <option value="yes_no">{t.catalogue.yesNo}</option>
                             <option value="choices">{t.catalogue.choices}</option>
+                        </select>
+                    </div>
+
+                    <div className="form-group">
+                        <label className="form-label">Mesure clinique associée</label>
+                        <select name="clinicalMeasure" value={formData.clinicalMeasure} onChange={handleQuestionFormChange} className="form-input form-select">
+                            {Object.entries(CLINICAL_MEASURE_LABELS).map(([key, item]) => (
+                                <option key={key} value={key}>
+                                    {item.label} {item.unit ? `(${item.unit})` : ''}
+                                </option>
+                            ))}
                         </select>
                     </div>
 

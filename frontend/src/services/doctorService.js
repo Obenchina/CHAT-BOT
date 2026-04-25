@@ -135,6 +135,52 @@ const doctorService = {
      */
     async deleteAssistant(id) {
         return api.delete(`${ENDPOINTS.ASSISTANTS}/${id}`);
+    },
+
+    // ======================
+    // GROWTH CURVES
+    // ======================
+
+    async getGrowthCurves() {
+        return api.get('/doctor/growth-curves');
+    },
+
+    async uploadGrowthCurve(formData) {
+        return api.post('/doctor/growth-curves', formData, {
+            headers: {
+                'Content-Type': 'multipart/form-data'
+            }
+        });
+    },
+
+    async calibrateGrowthCurve(id, calibrationData) {
+        return api.patch(`/doctor/growth-curves/${id}/calibrate`, calibrationData);
+    },
+
+    async deleteGrowthCurve(id) {
+        return api.delete(`/doctor/growth-curves/${id}`);
+    },
+
+    // ======================
+    // MEDICATIONS CSV
+    // ======================
+
+    async getMedications() {
+        return api.get('/doctor/medications');
+    },
+
+    async searchMedications(query) {
+        return api.get(`/doctor/medications/search?q=${encodeURIComponent(query)}`);
+    },
+
+    async uploadMedicationCSV(formData) {
+        return api.post('/doctor/medications/csv', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
+    },
+
+    async deleteMedications() {
+        return api.delete('/doctor/medications');
     }
 };
 

@@ -68,6 +68,9 @@ router.post('/:id/retranscribe', doctorOnly, caseController.retranscribeCase);
 // Reanalyze with AI (doctor only)
 router.post('/:id/reanalyze', doctorOnly, caseController.reanalyzeCase);
 
+// Suggest medications via AI (doctor only, on-demand)
+router.post('/:id/suggest-medications', doctorOnly, caseController.suggestMedications);
+
 // Delete case (doctor or assistant with restrictions)
 router.delete('/:id', doctorOrAssistant, caseController.deleteCase);
 

@@ -31,6 +31,8 @@ import VisibilityIcon from '@mui/icons-material/Visibility';
 import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SaveIcon from '@mui/icons-material/Save';
+import MedicationIcon from '@mui/icons-material/Medication';
+import MedicationCsvTab from '../../components/doctor/settings/MedicationCsvTab';
 
 const t = translations;
 const DEFAULT_PRESCRIPTION_CONFIG = {
@@ -89,6 +91,7 @@ const TABS = [
     { id: 'assistants', label: 'Assistants', icon: <GroupIcon fontSize="small" /> },
     { id: 'ai', label: 'Configuration IA', icon: <SmartToyIcon fontSize="small" /> },
     { id: 'prescription', label: 'Édition Ordonnance', icon: <DescriptionIcon fontSize="small" /> },
+    { id: 'medications', label: 'Médicaments', icon: <MedicationIcon fontSize="small" /> },
 ];
 
 function DoctorSettings() {
@@ -169,6 +172,7 @@ function DoctorSettings() {
                     {activeTab === 'assistants' && <AssistantsTab />}
                     {activeTab === 'ai' && <AiConfigTab />}
                     {activeTab === 'prescription' && <PrescriptionPdfTab />}
+                    {activeTab === 'medications' && <MedicationCsvTab />}
                 </div>
             </main>
         </div>

@@ -118,6 +118,15 @@ const caseService = {
      */
     async deleteCase(caseId) {
         return api.delete(`${ENDPOINTS.CASES}/${caseId}`);
+    },
+
+    /**
+     * Suggest medications via AI (on-demand, doctor clicks button)
+     * @param {number} caseId - Case ID
+     * @returns {Promise<Object>} API response
+     */
+    async suggestMedications(caseId) {
+        return api.post(`${ENDPOINTS.CASES}/${caseId}/suggest-medications`);
     }
 };
 

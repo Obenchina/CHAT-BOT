@@ -191,24 +191,30 @@ function buildAnalysisPrompt(caseData) {
     const { patient, answers, documents } = caseData;
     const hasDocs = documents && documents.length > 0;
 
+    // Use computed age from backend (TIMESTAMPDIFF), fallback to manual calculation from date_of_birth
+    let patientAge = patient.age;
+    if (!patientAge && patient.date_of_birth) {
+        const dob = new Date(patient.date_of_birth);
+        const now = new Date();
+        patientAge = Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000));
+    }
+
     let prompt = `أنت "طبيب استشاري ذكي" (Senior Medical AI Specialist).
 مهمتك ليست مجرد التلخيص، بل تقديم تحليل سريري احترافي عالي الدقة.
 
 ملاحظة مهنية هامة: المريض جزائري ويتحدث بـ "الدارجة الجزائرية" (بما فيها من مصطلحات فرنسية وعامية). يجب أن تفهم شكواه بدقة (مثلاً: "عندي السطر" تعني ألم، "التخمام" قد تعني دوار أو قلق، إلخ).
 
 مطلوباتك الصارمة:
-1. التلخيص السريري: لخص الحالة بناءً على الإجابات. ${hasDocs ? 'يوجد مستندات مرفقة (تحاليل/أشعة)، يجب قراءتها وتضمين تفاصيلها التقنية في الملخص.' : 'اذكر في نهاية الملخص: (لا توجد ملفات مرفقة).'}
+1. التلخيص السريري: لخص الحالة في 4 أسطر كحد أقصى بناءً على الإجابات. ${hasDocs ? 'يوجد مستندات مرفقة (تحاليل/أشعة)، يجب قراءتها وتضمين تفاصيلها التقنية في الملخص.' : 'اذكر في نهاية الملخص: (لا توجد ملفات مرفقة).'}
 2. التشخيص التفريقي: قدم التشخيصات الأكثر احتمالية مع نسبة مئوية.
-3. خطة العلاج (تنبيه هام): 
-   - ⚠️ ممنوع تقديم أدوية عامة (مثل Paracetamol فقط) لجميع الحالات.
-   - يجب أن يكون العلاج "متخصصاً" ومرتبطاً مباشرة بالتشخيص (مثلاً: أدوية ربو لحالات الصدر، مضادات حيوية مناسبة للعدوى البكتيرية، إلخ).
+3. ملاحظات مهمة:
    - في حالات "الطوارئ الجراحية" أو الحالات الخطيرة (مثل التواء الخصية Torsion، أو اشتباه احتشاء عضلة القلب، إلخ)، يجب أن يبدأ ردك في قسم الملاحظات بعبارة: [!!! URGENCE CHIRURGICALE / MÉDICALE !!!] مع توجيه الطبيب للإجراء الفوري.
 
 ═══════════════════════════════
-معلومات المريض:
+معلومات المريض (بدون اسم لأسباب الخصوصية):
 ═══════════════════════════════
 - الجنس: ${patient.gender === 'male' ? 'ذكر' : patient.gender === 'female' ? 'أنثى' : 'غير محدد'}
-- العمر: ${patient.age} سنة
+- العمر: ${patientAge || 'غير محدد'} سنة
 
 ═══════════════════════════════
 إجابات الاستبيان الطبي:
@@ -227,21 +233,13 @@ function buildAnalysisPrompt(caseData) {
 المطلوب (Format JSON):
 ═══════════════════════════════
 
-قدم تحليلك بصيغة JSON التالية (بالعربية، وقسم الأدوية بالفرنسية العلمية - DCI):
+قدم تحليلك بصيغة JSON التالية (بالعربية):
 {
-  "summary": "ملخص سريري احترافي يتضمن التاريخ المرضي والأعراض الحالية وتفاصيل الملفات المرفقة إن وجدت.",
+  "summary": "ملخص سريري احترافي في 4 أسطر كحد أقصى يتضمن التاريخ المرضي والأعراض الحالية وتفاصيل الملفات المرفقة إن وجدت.",
   "diagnoses": [
     {
       "name": "الاسم العلمي بالفرنسية + العربي (مثال: Appendicite - التهاب الزائدة 80%)",
       "reasoning": "التبرير السريري بناءً على الأعراض والفحص."
-    }
-  ],
-  "medications": [
-    {
-      "name": "Nom du médicament (DCI de préférence)",
-      "dosage": "Posologie (ex: 500mg)",
-      "frequency": "Fréquence (ex: 1 tab x 3/j)",
-      "duration": "Durée du traitement"
     }
   ],
   "additionalNotes": "ضع هنا أي تنبيهات طوارئ أو نصائح طبية تخصصية للطبيب."
@@ -771,7 +769,215 @@ function isHallucinatedTranscription(text) {
     return false;
 }
 
+/**
+ * Build system prompt for doctor-AI chat with patient context
+ */
+function buildChatSystemPrompt(caseData) {
+    const { patient, answers, documents } = caseData;
+    
+    let patientAge = patient.age;
+    if (!patientAge && patient.date_of_birth) {
+        const dob = new Date(patient.date_of_birth);
+        const now = new Date();
+        patientAge = Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000));
+    }
+
+    let context = `أنت مساعد طبي ذكي (Senior Medical AI Consultant).
+أنت في محادثة مع الطبيب المعالج حول حالة مريض.
+يجب أن تكون إجاباتك دقيقة، علمية، ومفيدة سريرياً.
+أجب بالعربية مع المصطلحات الطبية بالفرنسية/الإنجليزية عند الحاجة.
+
+═══════════════════════════════
+سياق المريض:
+═══════════════════════════════
+- الجنس: ${patient.gender === 'male' ? 'ذكر' : patient.gender === 'female' ? 'أنثى' : 'غير محدد'}
+- العمر: ${patientAge || 'غير محدد'} سنة
+
+═══════════════════════════════
+إجابات الاستبيان الطبي:
+═══════════════════════════════`;
+
+    if (answers && answers.length > 0) {
+        answers.forEach((answer, index) => {
+            const answerText = answer.transcribed_text || 'لم يتم تقديم إجابة';
+            context += `\n${index + 1}. ${answer.question_text}: ${answerText}`;
+        });
+    }
+
+    const aiAnalysis = caseData.ai_analysis || caseData.aiAnalysis;
+    if (aiAnalysis) {
+        context += `\n\n═══════════════════════════════\nالتحليل السابق للذكاء الاصطناعي:\n═══════════════════════════════`;
+        if (aiAnalysis.summary) context += `\nالملخص: ${aiAnalysis.summary}`;
+        if (aiAnalysis.diagnoses) {
+            context += `\nالتشخيصات المقترحة:`;
+            aiAnalysis.diagnoses.forEach(d => {
+                context += `\n- ${d.name}: ${d.reasoning || ''}`;
+            });
+        }
+    }
+
+    return context;
+}
+
+/**
+ * Chat with AI about a patient case
+ * @param {string} systemContext - System prompt with patient context
+ * @param {Array} chatHistory - Previous messages [{role, content}]
+ * @param {string} newMessage - Doctor's new message
+ * @param {Object} aiConfig - AI configuration
+ * @returns {Promise<string>} AI response text
+ */
+async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = null) {
+    const cfg = aiConfig || { provider: 'gemini', apiKey: config.ai.apiKey, model: config.ai.model };
+
+    if (!cfg.apiKey) {
+        throw Object.assign(new Error('مفتاح API غير مُعَدّ'), { code: 'MISSING_API_KEY' });
+    }
+
+    if (cfg.provider === 'openai') {
+        // OpenAI Chat Completions format
+        const messages = [
+            { role: 'system', content: systemContext },
+            ...chatHistory.map(m => ({
+                role: m.role === 'doctor' ? 'user' : 'assistant',
+                content: m.content
+            })),
+            { role: 'user', content: newMessage }
+        ];
+
+        const response = await fetch('https://api.openai.com/v1/chat/completions', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${cfg.apiKey}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                model: cfg.model || 'gpt-4o-mini',
+                messages,
+                temperature: 0.4,
+                max_tokens: 2048
+            })
+        });
+
+        if (!response.ok) {
+            const errText = await response.text();
+            if (response.status === 429) throw Object.assign(new Error('Quota dépassé'), { code: 'QUOTA_EXCEEDED' });
+            throw Object.assign(new Error(`Erreur OpenAI: ${errText}`), { code: 'API_ERROR' });
+        }
+
+        const data = await response.json();
+        return data.choices?.[0]?.message?.content || 'لم يتمكن الذكاء الاصطناعي من الرد.';
+    }
+
+    // Gemini format — use multi-turn conversation
+    const apiKey = cfg.apiKey;
+    const model = cfg.model || 'gemini-2.5-flash';
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
+
+    const contents = [];
+    
+    // Add system context as first user message
+    contents.push({ role: 'user', parts: [{ text: systemContext + '\n\nابدأ المحادثة. أنا الطبيب المعالج.' }] });
+    contents.push({ role: 'model', parts: [{ text: 'مرحباً دكتور. أنا مستعد لمناقشة هذه الحالة معك. كيف يمكنني مساعدتك؟' }] });
+    
+    // Add chat history
+    chatHistory.forEach(m => {
+        contents.push({
+            role: m.role === 'doctor' ? 'user' : 'model',
+            parts: [{ text: m.content }]
+        });
+    });
+    
+    // Add new message
+    contents.push({ role: 'user', parts: [{ text: newMessage }] });
+
+    const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+            contents,
+            generationConfig: { temperature: 0.4, maxOutputTokens: 2048 }
+        })
+    });
+
+    if (!response.ok) {
+        if (response.status === 429) throw Object.assign(new Error('Quota dépassé'), { code: 'QUOTA_EXCEEDED' });
+        const errText = await response.text();
+        throw Object.assign(new Error(`Erreur Gemini: ${errText}`), { code: 'API_ERROR' });
+    }
+
+    const data = await response.json();
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || 'لم يتمكن الذكاء الاصطناعي من الرد.';
+}
+
+/**
+ * Suggest medications for a case (called on-demand by doctor)
+ * @param {Object} caseData - Full case data
+ * @param {Object} aiConfig - AI configuration
+ * @returns {Promise<Array>} Suggested medications
+ */
+async function suggestMedications(caseData, aiConfig = null) {
+    const cfg = aiConfig || { provider: 'gemini', apiKey: config.ai.apiKey, model: config.ai.model };
+
+    if (!cfg.apiKey) {
+        throw Object.assign(new Error('مفتاح API غير مُعَدّ'), { code: 'MISSING_API_KEY' });
+    }
+
+    const { patient, answers } = caseData;
+    let patientAge = patient.age;
+    if (!patientAge && patient.date_of_birth) {
+        const dob = new Date(patient.date_of_birth);
+        patientAge = Math.floor((new Date() - dob) / (365.25 * 24 * 60 * 60 * 1000));
+    }
+
+    const aiAnalysis = caseData.ai_analysis || caseData.aiAnalysis;
+    
+    const prompt = `أنت صيدلي سريري خبير (Expert Clinical Pharmacist).
+بناءً على المعلومات التالية، اقترح الأدوية المناسبة.
+
+المريض:
+- الجنس: ${patient.gender === 'male' ? 'ذكر' : 'أنثى'}
+- العمر: ${patientAge || 'غير محدد'} سنة
+
+${aiAnalysis?.summary ? `ملخص الحالة: ${aiAnalysis.summary}` : ''}
+${aiAnalysis?.diagnoses ? `التشخيصات: ${aiAnalysis.diagnoses.map(d => d.name).join(', ')}` : ''}
+
+أجب بصيغة JSON فقط:
+[
+  {
+    "name": "اسم الدواء (DCI بالفرنسية)",
+    "dosage": "الجرعة",
+    "frequency": "عدد المرات يومياً",
+    "duration": "المدة"
+  }
+]
+
+ملاحظة: هذا اقتراح فقط. الطبيب هو من يقرر الوصفة النهائية.`;
+
+    let responseText;
+    if (cfg.provider === 'openai') {
+        responseText = await callOpenAIAPI([{ type: 'text', text: prompt }], cfg);
+    } else {
+        responseText = await callGeminiAPI([{ text: prompt }], cfg);
+    }
+
+    // Parse JSON from response
+    try {
+        const jsonMatch = responseText.match(/\[[\s\S]*?\]/);
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+    } catch (e) {
+        console.error('Failed to parse medication suggestion:', e.message);
+    }
+
+    return [];
+}
+
 module.exports = {
     analyzeCase,
-    transcribeAudio
+    transcribeAudio,
+    chatWithAI,
+    buildChatSystemPrompt,
+    suggestMedications
 };

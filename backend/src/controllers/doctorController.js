@@ -1,585 +1,413 @@
-/**
- * Doctor Controller
- * Handles doctor profile and dashboard operations
- */
-
 const Doctor = require('../models/Doctor');
-const User = require('../models/User');
-const Assistant = require('../models/Assistant');
-const Case = require('../models/Case');
 const Catalogue = require('../models/Catalogue');
 const Patient = require('../models/Patient');
 const AiConfig = require('../models/AiConfig');
+const GrowthCurve = require('../models/GrowthCurve');
 
 function normalizeOptionalText(value, maxLength) {
     if (value === undefined || value === null) {
-        return null;
+        return '';
     }
-
-    const trimmed = String(value).trim();
-    if (!trimmed) {
-        return null;
-    }
-
-    return trimmed.slice(0, maxLength);
-}
-
-function normalizeHexColor(value) {
-    if (value === undefined || value === null) {
-        return null;
-    }
-
-    const trimmed = String(value).trim();
-    if (!trimmed) {
-        return null;
-    }
-
-    const normalized = trimmed.startsWith('#') ? trimmed : `#${trimmed}`;
-    return /^#[0-9A-Fa-f]{6}$/.test(normalized) ? normalized.toUpperCase() : null;
-}
-
-function serializePrescriptionConfig(config) {
-    return {
-        logoPath: config?.prescription_logo_path || '',
-        primaryColor: config?.prescription_primary_color || '',
-        accentColor: config?.prescription_accent_color || '',
-        specialtyText: config?.prescription_specialty_text || '',
-        servicesText: config?.prescription_services_text || ''
-    };
+    const str = String(value).trim();
+    return maxLength ? str.substring(0, maxLength) : str;
 }
 
 /**
- * Get doctor dashboard statistics
- * GET /api/doctor/dashboard
+ * Get dashboard stats
  */
 async function getDashboard(req, res) {
     try {
-        // Get doctor profile
         const doctor = await Doctor.findByUserId(req.user.id);
-
         if (!doctor) {
-            return res.status(404).json({
-                success: false,
-                message: 'Doctor profile not found'
-            });
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
         }
 
-        // Get statistics
-        const pendingCases = await Case.findByDoctorId(doctor.id, 'submitted');
-        const reviewedCases = await Case.findByDoctorId(doctor.id, 'reviewed');
-        const assistants = await Assistant.findByDoctorId(doctor.id);
-        const patients = await Patient.findByDoctorId(doctor.id);
-
+        // Stats: total patients, cases today, etc.
+        // For now returning basic info
         res.json({
             success: true,
             data: {
-                doctor: {
-                    id: doctor.id,
-                    firstName: doctor.first_name,
-                    lastName: doctor.last_name,
-                    specialty: doctor.specialty
-                },
-                stats: {
-                    pendingCases: pendingCases.length,
-                    reviewedCases: reviewedCases.length,
-                    totalAssistants: assistants.length,
-                    activeAssistants: assistants.filter(a => a.is_active).length,
-                    totalPatients: patients.length
-                }
+                doctorName: doctor.first_name + ' ' + doctor.last_name,
+                specialty: doctor.specialty
             }
         });
     } catch (error) {
         console.error('Dashboard error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to load dashboard'
-        });
+        res.status(500).json({ success: false, message: 'Failed to load dashboard' });
     }
 }
 
 /**
  * Get doctor profile
- * GET /api/doctor/profile
  */
 async function getProfile(req, res) {
     try {
-        const doctor = await Doctor.getFullProfile(req.user.id);
-
+        const doctor = await Doctor.findByUserId(req.user.id);
         if (!doctor) {
-            return res.status(404).json({
-                success: false,
-                message: 'Doctor profile not found'
-            });
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
         }
-
-        res.json({
-            success: true,
-            data: {
-                id: doctor.id,
-                firstName: doctor.first_name,
-                lastName: doctor.last_name,
-                gender: doctor.gender,
-                phone: doctor.phone,
-                email: doctor.email,
-                address: doctor.address,
-                specialty: doctor.specialty,
-                accountCreated: doctor.account_created
-            }
-        });
+        res.json({ success: true, data: doctor });
     } catch (error) {
         console.error('Get profile error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to get profile'
-        });
+        res.status(500).json({ success: false, message: 'Failed to load profile' });
     }
 }
 
 /**
  * Update doctor profile
- * PUT /api/doctor/profile
  */
 async function updateProfile(req, res) {
     try {
-        const { firstName, lastName, gender, phone, email, address, specialty } = req.body;
-
-        // Update name in users table
-        if (firstName || lastName) {
-            await User.updateName(req.user.id, firstName, lastName);
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) {
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
         }
 
-        // Update email in users table if changed
-        if (email) {
-            await User.updateEmail(req.user.id, email);
-        }
-
-        // Update doctor-specific fields
-        const updated = await Doctor.update(req.user.id, {
-            gender,
-            phone,
-            address,
-            specialty
-        });
-
-        if (!updated) {
-            return res.status(404).json({
-                success: false,
-                message: 'Doctor profile not found'
-            });
-        }
-
-        // Get updated profile
-        const doctor = await Doctor.getFullProfile(req.user.id);
-
-        res.json({
-            success: true,
-            message: 'Profile updated successfully',
-            data: {
-                id: doctor.id,
-                firstName: doctor.first_name,
-                lastName: doctor.last_name,
-                gender: doctor.gender,
-                phone: doctor.phone,
-                email: doctor.email,
-                address: doctor.address,
-                specialty: doctor.specialty
-            }
-        });
+        const updated = await Doctor.update(doctor.id, req.body);
+        res.json({ success: true, message: 'Profile updated successfully', data: updated });
     } catch (error) {
         console.error('Update profile error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update profile'
-        });
+        res.status(500).json({ success: false, message: 'Failed to update profile' });
     }
 }
 
 /**
- * Get doctor's prescription PDF customization
- * GET /api/doctor/prescription-config
+ * Get prescription configuration
  */
 async function getPrescriptionConfig(req, res) {
     try {
-        const config = await Doctor.getPrescriptionConfig(req.user.id);
-
-        if (!config) {
-            return res.status(404).json({
-                success: false,
-                message: 'Doctor profile not found'
-            });
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) {
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
         }
-
-        res.json({
-            success: true,
-            data: serializePrescriptionConfig(config)
-        });
+        res.json({ success: true, data: doctor.prescription_config || {} });
     } catch (error) {
         console.error('Get prescription config error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to get prescription config'
-        });
+        res.status(500).json({ success: false, message: 'Failed to load config' });
     }
 }
 
 /**
- * Update doctor's prescription PDF customization
- * PUT /api/doctor/prescription-config
+ * Update prescription configuration (including logo upload)
  */
 async function updatePrescriptionConfig(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
-
         if (!doctor) {
-            return res.status(404).json({
-                success: false,
-                message: 'Doctor profile not found'
-            });
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
         }
 
-        const primaryColor = normalizeHexColor(req.body.primaryColor);
-        const accentColor = normalizeHexColor(req.body.accentColor);
-
-        if (req.body.primaryColor && !primaryColor) {
-            return res.status(400).json({
-                success: false,
-                message: 'Primary color must be a valid hex color'
-            });
+        const config = { ...req.body };
+        if (req.file) {
+            config.logo_url = `uploads/logos/${req.file.filename}`;
         }
 
-        if (req.body.accentColor && !accentColor) {
-            return res.status(400).json({
-                success: false,
-                message: 'Accent color must be a valid hex color'
-            });
-        }
-
-        const logoPath = req.file
-            ? `uploads/logos/${req.file.filename}`
-            : (doctor.prescription_logo_path || null);
-
-        const saved = await Doctor.updatePrescriptionConfig(req.user.id, {
-            logoPath,
-            primaryColor,
-            accentColor,
-            specialtyText: normalizeOptionalText(req.body.specialtyText, 180),
-            servicesText: normalizeOptionalText(req.body.servicesText, 1200)
-        });
-
-        if (!saved) {
-            return res.status(404).json({
-                success: false,
-                message: 'Doctor profile not found'
-            });
-        }
-
-        const updatedConfig = await Doctor.getPrescriptionConfig(req.user.id);
-
-        res.json({
-            success: true,
-            message: 'Prescription configuration updated successfully',
-            data: serializePrescriptionConfig(updatedConfig)
-        });
+        const updated = await Doctor.updatePrescriptionConfig(doctor.id, config);
+        res.json({ success: true, message: 'Configuration updated successfully', data: updated });
     } catch (error) {
-        console.error('Update prescription config error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update prescription config'
-        });
+        console.error('Update config error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update config' });
     }
 }
 
 /**
- * Get doctor's AI configuration
- * GET /api/doctor/ai-config
+ * AI Configuration endpoints
  */
 async function getAiConfig(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
-        if (!doctor) {
-            return res.status(404).json({ success: false, message: 'Doctor not found' });
-        }
-
-        const allConfigs = await AiConfig.getAllConfigs(doctor.id);
-        const activeConfig = await AiConfig.findActiveConfig(doctor.id);
-
-        const configsMap = {};
-        allConfigs.forEach(conf => {
-            configsMap[conf.provider] = {
-                apiKey: conf.api_key ? '••••' + conf.api_key.slice(-4) : '',
-                model: conf.model,
-                hasKey: !!conf.api_key
-            };
-        });
-
-        res.json({
-            success: true,
-            data: {
-                activeProvider: activeConfig ? activeConfig.provider : 'gemini',
-                configs: configsMap
-            }
-        });
+        const configs = await AiConfig.getAllConfigs(doctor.id);
+        res.json({ success: true, data: configs });
     } catch (error) {
         console.error('Get AI config error:', error);
-        res.status(500).json({ success: false, message: 'Failed to get AI config' });
+        res.status(500).json({ success: false, message: 'Failed to load AI config' });
     }
 }
 
-/**
- * Update doctor's AI configuration
- * PUT /api/doctor/ai-config
- */
 async function updateAiConfig(req, res) {
     try {
-        const { provider, apiKey, model } = req.body;
-
-        if (!provider || !['gemini', 'openai'].includes(provider)) {
-            return res.status(400).json({ success: false, message: 'Invalid provider' });
-        }
-        if (!model) {
-            return res.status(400).json({ success: false, message: 'Model is required' });
-        }
-
         const doctor = await Doctor.findByUserId(req.user.id);
-        if (!doctor) {
-            return res.status(404).json({ success: false, message: 'Doctor not found' });
-        }
-
-        // If apiKey is masked (starts with ••••), keep the existing one for THIS provider
-        let finalApiKey = apiKey;
-        if (apiKey && apiKey.startsWith('••••')) {
-            const existing = await AiConfig.findByProvider(doctor.id, provider);
-            finalApiKey = existing ? existing.api_key : '';
-        }
-
-        await AiConfig.upsert(doctor.id, {
+        const { provider, api_key, model } = req.body;
+        
+        const config = await AiConfig.upsert(doctor.id, {
             provider,
-            apiKey: finalApiKey || '',
+            apiKey: api_key,
             model
         });
 
-        res.json({
-            success: true,
-            message: 'AI configuration updated successfully'
-        });
+        res.json({ success: true, message: 'AI configuration saved' });
     } catch (error) {
         console.error('Update AI config error:', error);
-        res.status(500).json({ success: false, message: 'Failed to update AI config' });
+        res.status(500).json({ success: false, message: 'Failed to save AI config' });
     }
 }
 
-/**
- * Activate a specific AI configuration instantly
- * PUT /api/doctor/ai-config/activate
- */
 async function activateAiConfig(req, res) {
     try {
-        const { provider } = req.body;
-        if (!provider || !['gemini', 'openai'].includes(provider)) {
-            return res.status(400).json({ success: false, message: 'Invalid provider' });
-        }
-
         const doctor = await Doctor.findByUserId(req.user.id);
-        if (!doctor) {
-            return res.status(404).json({ success: false, message: 'Doctor not found' });
-        }
-
+        const { provider } = req.body;
         await AiConfig.setActiveProvider(doctor.id, provider);
-
-        res.json({
-            success: true,
-            message: `Provider ${provider} activated successfully`
-        });
+        res.json({ success: true, message: `${provider} activated` });
     } catch (error) {
-        console.error('Activate AI config error:', error);
-        res.status(500).json({ success: false, message: 'Failed to activate AI config' });
+        console.error('Activate AI error:', error);
+        res.status(500).json({ success: false, message: 'Activation failed' });
     }
 }
 
-/**
- * Get AI global availability status
- * Checks the last 5 cases to see if API errors or quota limits were hit.
- * GET /api/doctor/ai-config/status
- */
 async function getAiStatus(req, res) {
     try {
-        const { pool } = require('../config/database');
-        const AiConfig = require('../models/AiConfig');
-        const Doctor = require('../models/Doctor');
-
-        const profile = await Doctor.findByUserId(req.user.id);
-        if (!profile) return res.json({ hasError: false });
-
-        // Check if config exists and is valid
-        try {
-            await AiConfig.getEffectiveConfig(profile.id);
-        } catch (e) {
-            if (e.code === 'MISSING_API_KEY') {
-                return res.json({ hasError: true, code: 'MISSING_API_KEY', message: "Clé API non configurée." });
-            }
-        }
-
-        // Check the MOST RECENT case only — if it succeeded, no banner needed
-        const [recentCases] = await pool.execute(
-            `SELECT c.ai_analysis FROM cases c 
-             JOIN patients p ON c.patient_id = p.id 
-             WHERE p.doctor_id = ? AND c.ai_analysis IS NOT NULL
-             ORDER BY c.created_at DESC LIMIT 1`,
-            [profile.id]
-        );
-
-        if (recentCases.length > 0) {
-            let analysis = recentCases[0].ai_analysis;
-            if (typeof analysis === 'string') {
-                try { analysis = JSON.parse(analysis); } catch (e) { /* ignore */ }
-            }
-
-            if (analysis && (analysis.error_code === 'QUOTA_EXCEEDED' || analysis.error_code === 'API_ERROR')) {
-                const msg = analysis.error_code === 'QUOTA_EXCEEDED' ? "Crédit API épuisé ou limite atteinte." : "Clé API invalide.";
-                return res.json({ hasError: true, code: analysis.error_code, message: msg });
-            }
-        }
-
-        res.json({ hasError: false });
-    } catch (e) {
-        console.error('getAiStatus error:', e);
-        res.json({ hasError: false });
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const active = await AiConfig.findActiveConfig(doctor.id);
+        res.json({ success: true, activeProvider: active ? active.provider : null });
+    } catch (error) {
+        console.error('Get AI status error:', error);
+        res.status(500).json({ success: false, message: 'Failed to get AI status' });
     }
 }
 
 /**
- * Get doctor's analyses PDF configuration
- * GET /api/doctor/analyses-config
+ * Analyses PDF customization
  */
 async function getAnalysesConfig(req, res) {
     try {
-        const config = await Doctor.getAnalysesConfig(req.user.id);
-
-        if (!config) {
-            return res.status(404).json({
-                success: false,
-                message: 'Doctor profile not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: {
-                analysesList: config.analyses_list || ''
-            }
-        });
+        const doctor = await Doctor.findByUserId(req.user.id);
+        res.json({ success: true, data: doctor.analyses_config || '' });
     } catch (error) {
-        console.error('Get analyses config error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to get analyses config'
-        });
+        res.status(500).json({ success: false, message: 'Failed to get analyses config' });
     }
 }
 
-/**
- * Update doctor's analyses PDF configuration
- * PUT /api/doctor/analyses-config
- */
 async function updateAnalysesConfig(req, res) {
     try {
-        const { analysesList } = req.body;
-
-        const saved = await Doctor.updateAnalysesConfig(
-            req.user.id,
-            normalizeOptionalText(analysesList, 5000)
-        );
-
-        if (!saved) {
-            return res.status(404).json({
-                success: false,
-                message: 'Doctor profile not found'
-            });
-        }
-
-        const updated = await Doctor.getAnalysesConfig(req.user.id);
-
-        res.json({
-            success: true,
-            message: 'Analyses configuration updated successfully',
-            data: {
-                analysesList: updated.analyses_list || ''
-            }
-        });
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const { analyses } = req.body;
+        await Doctor.updateAnalysesConfig(doctor.id, analyses);
+        res.json({ success: true, message: 'Analyses updated' });
     } catch (error) {
-        console.error('Update analyses config error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update analyses config'
-        });
+        res.status(500).json({ success: false, message: 'Failed to update analyses' });
     }
 }
 
 /**
- * Get doctor's letter template configuration
- * GET /api/doctor/letter-config
+ * Letter PDF customization
  */
 async function getLetterConfig(req, res) {
     try {
-        const config = await Doctor.getLetterConfig(req.user.id);
-
-        if (!config) {
-            return res.status(404).json({
-                success: false,
-                message: 'Doctor profile not found'
-            });
-        }
-
-        res.json({
-            success: true,
-            data: {
-                letterTemplate: config.letter_template || ''
-            }
-        });
+        const doctor = await Doctor.findByUserId(req.user.id);
+        res.json({ success: true, data: doctor.letter_config || '' });
     } catch (error) {
-        console.error('Get letter config error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to get letter config'
-        });
+        res.status(500).json({ success: false, message: 'Failed to get letter config' });
+    }
+}
+
+async function updateLetterConfig(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const { letter } = req.body;
+        await Doctor.updateLetterConfig(doctor.id, letter);
+        res.json({ success: true, message: 'Letter template updated' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to update letter config' });
     }
 }
 
 /**
- * Update doctor's letter template configuration
- * PUT /api/doctor/letter-config
+ * Get doctor's growth curves
  */
-async function updateLetterConfig(req, res) {
+async function getGrowthCurves(req, res) {
     try {
-        const { letterTemplate } = req.body;
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const curves = await GrowthCurve.findByDoctorId(doctor.id);
+        res.json({ success: true, data: curves });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to get growth curves' });
+    }
+}
 
-        const saved = await Doctor.updateLetterConfig(
-            req.user.id,
-            normalizeOptionalText(letterTemplate, 5000)
-        );
+/**
+ * Upload a growth curve background
+ */
+async function uploadGrowthCurve(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!req.file) return res.status(400).json({ success: false, message: 'File is required' });
 
-        if (!saved) {
-            return res.status(404).json({
-                success: false,
-                message: 'Doctor profile not found'
+        const { measureKey, gender, p1_x, p1_y, p1_val_x, p1_val_y, p2_x, p2_y, p2_val_x, p2_val_y, is_calibrated } = req.body;
+
+        const curve = await GrowthCurve.create({
+            doctor_id: doctor.id,
+            measure_key: measureKey,
+            gender: gender || 'both',
+            file_path: `uploads/curves/${req.file.filename}`,
+            p1_x: parseFloat(p1_x) || 0,
+            p1_y: parseFloat(p1_y) || 0,
+            p1_val_x: parseFloat(p1_val_x) || 0,
+            p1_val_y: parseFloat(p1_val_y) || 0,
+            p2_x: parseFloat(p2_x) || 0,
+            p2_y: parseFloat(p2_y) || 0,
+            p2_val_x: parseFloat(p2_val_x) || 60,
+            p2_val_y: parseFloat(p2_val_y) || 30,
+            is_calibrated: is_calibrated === 'true' || is_calibrated === true
+        });
+
+        res.status(201).json({ success: true, data: curve });
+    } catch (error) {
+        console.error('Upload curve error:', error);
+        res.status(500).json({ success: false, message: 'Failed to upload' });
+    }
+}
+
+/**
+ * Update calibration points
+ */
+async function calibrateGrowthCurve(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const success = await GrowthCurve.updateCalibration(req.params.id, doctor.id, req.body);
+        if (!success) return res.status(404).json({ success: false, message: 'Curve not found' });
+        res.json({ success: true, message: 'Calibration updated' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to calibrate' });
+    }
+}
+
+/**
+ * Delete a growth curve
+ */
+async function deleteGrowthCurve(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const deleted = await GrowthCurve.delete(req.params.id, doctor.id);
+        if (!deleted) return res.status(404).json({ success: false, message: 'Curve not found' });
+        res.json({ success: true, message: 'Curve deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to delete' });
+    }
+}
+
+/**
+ * Upload medication CSV
+ * POST /api/doctor/medications/csv
+ */
+async function uploadMedicationCSV(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!req.file) return res.status(400).json({ success: false, message: 'Fichier CSV requis' });
+
+        const fs = require('fs');
+        const csvContent = fs.readFileSync(req.file.path, 'utf-8');
+        const lines = csvContent.split('\n').map(l => l.trim()).filter(Boolean);
+
+        if (lines.length < 2) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'Fichier CSV vide ou invalide' });
+        }
+
+        // Parse header
+        const header = lines[0].toLowerCase().split(/[;,\t]/);
+        const nameIdx = header.findIndex(h => h.includes('nom') || h.includes('name') || h.includes('médicament') || h.includes('medicament'));
+        const dosageFormIdx = header.findIndex(h => h.includes('forme') || h.includes('form'));
+        const dosageIdx = header.findIndex(h => h.includes('dosage') || h.includes('dose'));
+        const freqIdx = header.findIndex(h => h.includes('fréq') || h.includes('freq') || h.includes('frequency'));
+        const notesIdx = header.findIndex(h => h.includes('note') || h.includes('remarque'));
+
+        if (nameIdx === -1) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ 
+                success: false, 
+                message: 'Colonne "nom" ou "name" introuvable dans le CSV. Colonnes détectées: ' + header.join(', ') 
             });
         }
 
-        const updated = await Doctor.getLetterConfig(req.user.id);
+        // Delete existing medications for this doctor
+        const { pool } = require('../config/database');
+        await pool.execute('DELETE FROM doctor_medications WHERE doctor_id = ?', [doctor.id]);
 
-        res.json({
-            success: true,
-            message: 'Letter configuration updated successfully',
-            data: {
-                letterTemplate: updated.letter_template || ''
-            }
-        });
+        // Parse and insert
+        let inserted = 0;
+        const separator = lines[0].includes(';') ? ';' : lines[0].includes('\t') ? '\t' : ',';
+        
+        for (let i = 1; i < lines.length; i++) {
+            const cols = lines[i].split(separator);
+            const name = (cols[nameIdx] || '').trim().replace(/^["']|["']$/g, '');
+            if (!name) continue;
+
+            await pool.execute(
+                'INSERT INTO doctor_medications (doctor_id, name, dosage_form, default_dosage, default_frequency, notes) VALUES (?, ?, ?, ?, ?, ?)',
+                [
+                    doctor.id,
+                    name,
+                    dosageFormIdx >= 0 ? (cols[dosageFormIdx] || '').trim() : null,
+                    dosageIdx >= 0 ? (cols[dosageIdx] || '').trim() : null,
+                    freqIdx >= 0 ? (cols[freqIdx] || '').trim() : null,
+                    notesIdx >= 0 ? (cols[notesIdx] || '').trim() : null
+                ]
+            );
+            inserted++;
+        }
+
+        // Cleanup temp file
+        fs.unlinkSync(req.file.path);
+
+        res.json({ success: true, message: `${inserted} médicaments importés`, count: inserted });
     } catch (error) {
-        console.error('Update letter config error:', error);
-        res.status(500).json({
-            success: false,
-            message: 'Failed to update letter config'
-        });
+        console.error('Upload CSV error:', error);
+        res.status(500).json({ success: false, message: 'Échec de l\'importation CSV' });
+    }
+}
+
+/**
+ * Search medications
+ * GET /api/doctor/medications/search?q=...
+ */
+async function searchMedications(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const { q } = req.query;
+        if (!q || q.length < 2) return res.json({ success: true, data: [] });
+
+        const { pool } = require('../config/database');
+        const [rows] = await pool.execute(
+            'SELECT * FROM doctor_medications WHERE doctor_id = ? AND name LIKE ? LIMIT 20',
+            [doctor.id, `%${q}%`]
+        );
+
+        res.json({ success: true, data: rows });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Erreur de recherche' });
+    }
+}
+
+/**
+ * Get all medications (paginated)
+ * GET /api/doctor/medications
+ */
+async function getMedications(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const { pool } = require('../config/database');
+        const [rows] = await pool.execute(
+            'SELECT * FROM doctor_medications WHERE doctor_id = ? ORDER BY name LIMIT 500',
+            [doctor.id]
+        );
+        res.json({ success: true, data: rows, count: rows.length });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Erreur' });
+    }
+}
+
+/**
+ * Delete all medications
+ * DELETE /api/doctor/medications
+ */
+async function deleteMedications(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const { pool } = require('../config/database');
+        await pool.execute('DELETE FROM doctor_medications WHERE doctor_id = ?', [doctor.id]);
+        res.json({ success: true, message: 'Tous les médicaments supprimés' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Échec de la suppression' });
     }
 }
 
@@ -596,5 +424,13 @@ module.exports = {
     getAnalysesConfig,
     updateAnalysesConfig,
     getLetterConfig,
-    updateLetterConfig
+    updateLetterConfig,
+    getGrowthCurves,
+    uploadGrowthCurve,
+    calibrateGrowthCurve,
+    deleteGrowthCurve,
+    uploadMedicationCSV,
+    searchMedications,
+    getMedications,
+    deleteMedications
 };

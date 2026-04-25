@@ -15,18 +15,20 @@ const { pool } = require('../config/database');
  */
 async function authenticate(req, res, next) {
     try {
-        // Get token from Authorization header
+        // Get token from cookie or Authorization header
+        let token = req.cookies && req.cookies.token;
         const authHeader = req.headers.authorization;
 
-        if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        if (!token && authHeader && authHeader.startsWith('Bearer ')) {
+            token = authHeader.split(' ')[1];
+        }
+
+        if (!token) {
             return res.status(401).json({
                 success: false,
                 message: 'Access denied. No token provided.'
             });
         }
-
-        // Extract token
-        const token = authHeader.split(' ')[1];
 
         // Verify token
         const decoded = jwt.verify(token, config.jwt.secret);

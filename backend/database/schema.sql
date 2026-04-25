@@ -72,8 +72,11 @@ CREATE TABLE IF NOT EXISTS patients (
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
     gender ENUM('male', 'female', 'other') NOT NULL,
-    age INT NOT NULL,
+    date_of_birth DATE NOT NULL,
     phone VARCHAR(20) NOT NULL,
+    address TEXT NULL,
+    siblings_alive INT NOT NULL DEFAULT 0,
+    siblings_deceased INT NOT NULL DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     INDEX idx_doctor_id (doctor_id),
@@ -101,19 +104,23 @@ CREATE TABLE IF NOT EXISTS catalogues (
 -- ======================
 -- QUESTIONS TABLE
 -- Stores questions within catalogues
+-- Phase 2: Added section_name, section_order, clinical_measure, expanded answer_type
 -- ======================
 CREATE TABLE IF NOT EXISTS questions (
     id INT PRIMARY KEY AUTO_INCREMENT,
     catalogue_id INT NOT NULL,
+    section_name VARCHAR(150) NULL DEFAULT NULL,
+    section_order INT DEFAULT 0,
     question_text TEXT NOT NULL,
-    answer_type ENUM('yes_no', 'voice', 'choices') NOT NULL,
+    answer_type ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NOT NULL,
+    clinical_measure ENUM('none', 'temperature', 'weight', 'height', 'head_circumference', 'blood_pressure') NOT NULL DEFAULT 'none',
     choices JSON,
     is_required BOOLEAN DEFAULT TRUE,
     is_active BOOLEAN DEFAULT TRUE,
     order_index INT NOT NULL DEFAULT 0,
     FOREIGN KEY (catalogue_id) REFERENCES catalogues(id) ON DELETE CASCADE,
     INDEX idx_catalogue_id (catalogue_id),
-    INDEX idx_order (catalogue_id, order_index)
+    INDEX idx_order (catalogue_id, section_order, order_index)
 ) ENGINE=InnoDB;
 
 -- ======================
@@ -144,6 +151,7 @@ CREATE TABLE IF NOT EXISTS cases (
 -- ======================
 -- CASE_ANSWERS TABLE
 -- Stores answers to questionnaire
+-- Phase 2: Expanded answer_type_snapshot to include new types
 -- ======================
 CREATE TABLE IF NOT EXISTS case_answers (
     id INT PRIMARY KEY AUTO_INCREMENT,
@@ -152,7 +160,7 @@ CREATE TABLE IF NOT EXISTS case_answers (
     audio_path VARCHAR(500),
     transcribed_text TEXT,
     question_text_snapshot TEXT,
-    answer_type_snapshot ENUM('yes_no', 'voice', 'choices') NULL,
+    answer_type_snapshot ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NULL,
     order_index_snapshot INT NULL,
     FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
     FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
@@ -174,8 +182,6 @@ CREATE TABLE IF NOT EXISTS documents (
     INDEX idx_case_id (case_id),
     INDEX idx_type (document_type)
 ) ENGINE=InnoDB;
-
-
 
 -- ======================
 -- PENDING REGISTRATIONS TABLE
@@ -228,6 +234,65 @@ CREATE TABLE IF NOT EXISTS password_resets (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     INDEX idx_email (email)
+) ENGINE=InnoDB;
+
+-- ======================
+-- DOCTOR GROWTH CURVES TABLE
+-- Stores metadata for custom curve background uploads with calibration
+-- ======================
+CREATE TABLE IF NOT EXISTS doctor_growth_curves (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    doctor_id INT NOT NULL,
+    measure_key VARCHAR(50) NOT NULL, -- 'weight', 'height', 'head', 'bmi'
+    gender ENUM('male', 'female', 'both') NOT NULL DEFAULT 'both',
+    file_path VARCHAR(255) NOT NULL,
+    -- Calibration Points: Mapping pixel coordinates to physical values
+    -- P1: Typically the Origin (0,0) or bottom-left of grid
+    p1_x FLOAT DEFAULT 0, -- Pixel X for P1
+    p1_y FLOAT DEFAULT 0, -- Pixel Y for P1
+    p1_val_x FLOAT DEFAULT 0, -- Age/Months for P1
+    p1_val_y FLOAT DEFAULT 0, -- Weight/Height for P1
+    -- P2: A reference point (e.g., top-right of grid)
+    p2_x FLOAT DEFAULT 0, -- Pixel X for P2
+    p2_y FLOAT DEFAULT 0, -- Pixel Y for P2
+    p2_val_x FLOAT DEFAULT 60, -- Age/Months for P2
+    p2_val_y FLOAT DEFAULT 30, -- Weight/Height for P2
+    is_calibrated BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
+) ENGINE=InnoDB;
+
+-- ======================
+-- AI CHAT MESSAGES TABLE
+-- Stores doctor-AI conversation history per case
+-- ======================
+CREATE TABLE IF NOT EXISTS ai_chat_messages (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    case_id INT NOT NULL,
+    doctor_id INT NOT NULL,
+    role ENUM('doctor', 'ai') NOT NULL,
+    content TEXT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
+    INDEX idx_case (case_id),
+    INDEX idx_doctor (doctor_id)
+) ENGINE=InnoDB;
+
+-- ======================
+-- DOCTOR MEDICATIONS TABLE
+-- Stores medications from CSV upload for search/selection
+-- ======================
+CREATE TABLE IF NOT EXISTS doctor_medications (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    doctor_id INT NOT NULL,
+    name VARCHAR(255) NOT NULL,
+    dosage_form VARCHAR(100),
+    default_dosage VARCHAR(100),
+    default_frequency VARCHAR(100),
+    notes TEXT,
+    FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
+    INDEX idx_doctor_name (doctor_id, name)
 ) ENGINE=InnoDB;
 
 -- ======================

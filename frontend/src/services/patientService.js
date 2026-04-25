@@ -59,6 +59,15 @@ const patientService = {
      */
     async delete(id) {
         return api.delete(`${ENDPOINTS.PATIENTS}/${id}`);
+    },
+
+    /**
+     * Get patient measurements
+     * @param {number} id - Patient ID
+     * @returns {Promise<Object>} API response
+     */
+    async getMeasurements(id) {
+        return api.get(`${ENDPOINTS.PATIENTS}/${id}/measurements`);
     }
 };
 

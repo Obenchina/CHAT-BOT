@@ -202,6 +202,14 @@ async function verifyRegistration(req, res) {
         // Generate token
         const token = generateToken({ id: userId, role: 'doctor' });
 
+        // Set HttpOnly cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        });
+
         console.log(`✅ Doctor account created: ${pending.email} (userId: ${userId})`);
 
         res.status(201).json({
@@ -348,6 +356,14 @@ async function login(req, res) {
 
         // Generate token
         const token = generateToken(user);
+
+        // Set HttpOnly cookie
+        res.cookie('token', token, {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'strict',
+            maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        });
 
         res.json({
             success: true,
@@ -567,11 +583,29 @@ async function getCurrentUser(req, res) {
     }
 }
 
+/**
+ * Logout user
+ * POST /api/auth/logout
+ */
+function logout(req, res) {
+    res.clearCookie('token', {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'strict'
+    });
+    
+    res.json({
+        success: true,
+        message: 'Logged out successfully'
+    });
+}
+
 module.exports = {
     register,
     verifyRegistration,
     resendOtp,
     login,
+    logout,
     forgotPassword,
     resetPassword,
     changePassword,

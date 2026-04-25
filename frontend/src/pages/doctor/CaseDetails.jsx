@@ -12,6 +12,8 @@ import caseService from '../../services/caseService';
 import doctorService from '../../services/doctorService';
 import translations from '../../constants/translations';
 import { API_URL, UPLOAD_URL, getAuthUploadUrl } from '../../constants/config';
+import AiChatPanel from '../../components/doctor/AiChatPanel';
+import MedicationSearch from '../../components/doctor/MedicationSearch';
 
 const t = translations;
 
@@ -35,6 +37,7 @@ function CaseDetails() {
     const [allAnalyses, setAllAnalyses] = useState([]);
     const [selectedAnalyses, setSelectedAnalyses] = useState([]);
     const [letterContent, setLetterContent] = useState('');
+    const [suggestingMeds, setSuggestingMeds] = useState(false);
 
     // Refs for auto-save
     const autoSaveTimerRef = useRef(null);
@@ -75,12 +78,8 @@ function CaseDetails() {
                 setCaseData(response.data);
                 setDiagnosis(response.data.doctor_diagnosis || response.data.doctorDiagnosis || '');
 
-                // Initialize medications from AI analysis or saved prescription
-                const aiAnalysis = response.data.aiAnalysis || response.data.ai_analysis;
-                if (aiAnalysis && aiAnalysis.medications) {
-                    setMedications(aiAnalysis.medications.map((m, i) => ({ ...m, id: i + 1 })));
-                } else if (response.data.doctor_prescription || response.data.doctorPrescription) {
-                    // Parse existing prescription (simple format)
+                // Initialize medications from saved prescription ONLY (AI no longer auto-suggests)
+                if (response.data.doctor_prescription || response.data.doctorPrescription) {
                     try {
                         const savedMeds = JSON.parse(response.data.doctor_prescription || response.data.doctorPrescription);
                         if (Array.isArray(savedMeds)) {
@@ -389,8 +388,8 @@ function CaseDetails() {
                                         <strong style={{ textAlign: 'right' }}>{patient.gender === 'male' ? 'Homme' : patient.gender === 'female' ? 'Femme' : '-'}</strong>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-xs)' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>Âge:</span>
-                                        <strong style={{ textAlign: 'right' }}>{patient.age || '-'} ans</strong>
+                                        <span style={{ color: 'var(--text-secondary)' }}>Date de naissance:</span>
+                                        <strong style={{ textAlign: 'right' }}>{patient.date_of_birth || patient.dateOfBirth || patient.age || '-'}</strong>
                                     </div>
                                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                         <span style={{ color: 'var(--text-secondary)' }}>Téléphone:</span>
@@ -578,12 +577,35 @@ function CaseDetails() {
                                 {/* Ordonnance Tab */}
                                 {documentType === 'ordonnance' && (
                                     <div>
-                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)' }}>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 'var(--space-md)', flexWrap: 'wrap', gap: 'var(--space-sm)' }}>
                                             <h3 style={{ margin: 0, fontSize: '1rem', color: 'var(--text-primary)' }}>Prescription</h3>
-                                            <Button variant="primary" onClick={addMedication} style={{ padding: 'var(--space-xs) var(--space-md)' }}>
-                                                + Ajouter
-                                            </Button>
+                                            <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
+                                                <Button
+                                                    variant="secondary"
+                                                    onClick={async () => {
+                                                        setSuggestingMeds(true);
+                                                        try {
+                                                            const res = await caseService.suggestMedications(id);
+                                                            if (res.success && res.data && res.data.length > 0) {
+                                                                const newMeds = res.data.map((m, i) => ({ ...m, id: Date.now() + i }));
+                                                                setMedications(prev => [...prev, ...newMeds]);
+                                                            }
+                                                        } catch (e) { console.error(e); }
+                                                        setSuggestingMeds(false);
+                                                    }}
+                                                    disabled={suggestingMeds}
+                                                    style={{ padding: 'var(--space-xs) var(--space-md)', fontSize: '0.8rem' }}
+                                                >
+                                                    {suggestingMeds ? '⏳ IA...' : '🤖 Proposer via IA'}
+                                                </Button>
+                                                <Button variant="primary" onClick={addMedication} style={{ padding: 'var(--space-xs) var(--space-md)' }}>
+                                                    + Ajouter
+                                                </Button>
+                                            </div>
                                         </div>
+                                        <MedicationSearch onSelect={(med) => {
+                                            setMedications(prev => [...prev, { ...med, id: Date.now() }]);
+                                        }} />
                                         {medications.length > 0 ? (
                                             <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
                                                 {medications.map((med, index) => (
@@ -790,6 +812,11 @@ function CaseDetails() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* AI Chat Panel */}
+                        {caseData && caseData.status !== 'in_progress' && (
+                            <AiChatPanel caseId={id} />
+                        )}
 
                     </div>
                 </div> {/* closes page-content */}

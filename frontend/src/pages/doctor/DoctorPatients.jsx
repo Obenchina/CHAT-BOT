@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Doctor Patients List Page
  * Read-only view of patients with history
  */
@@ -22,6 +22,7 @@ import SearchIcon from '@mui/icons-material/Search';
 import CloseIcon from '@mui/icons-material/Close';
 import GroupOffIcon from '@mui/icons-material/GroupOff';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
+import PatientMeasurementsChart from '../../components/patient/PatientMeasurementsChart';
 
 const t = translations;
 
@@ -45,15 +46,24 @@ function DoctorPatients() {
         firstName: '',
         lastName: '',
         gender: 'male',
-        age: '',
-        phone: ''
+        dateOfBirth: '',
+        phone: '',
+        address: '',
+        siblingsAlive: 0,
+        siblingsDeceased: 0
     });
     const [formErrors, setFormErrors] = useState({});
 
     // History State
     const [expandedPatientId, setExpandedPatientId] = useState(null);
+    const [expandedTab, setExpandedTab] = useState({}); // { patientId: 'consultations' | 'courbes' }
     const [historyData, setHistoryData] = useState({});
     const [historyLoading, setHistoryLoading] = useState({});
+
+    // Measurements State
+    const [measurementsData, setMeasurementsData] = useState({});
+    const [measurementsLoading, setMeasurementsLoading] = useState({});
+    const [selectedMeasure, setSelectedMeasure] = useState({}); // { patientId: 'weight' }
 
     const navigate = useNavigate();
 
@@ -118,9 +128,9 @@ function DoctorPatients() {
                     return nameA.localeCompare(nameB);
                 }
                 case 'age_desc':
-                    return (b.age || 0) - (a.age || 0);
+                    return new Date(b.dateOfBirth || b.date_of_birth || 0) - new Date(a.dateOfBirth || a.date_of_birth || 0);
                 case 'age_asc':
-                    return (a.age || 0) - (b.age || 0);
+                    return new Date(a.dateOfBirth || a.date_of_birth || 0) - new Date(b.dateOfBirth || b.date_of_birth || 0);
                 case 'newest':
                 default:
                     return b.id - a.id;
@@ -146,6 +156,10 @@ function DoctorPatients() {
 
         setExpandedPatientId(patientId);
 
+        if (!expandedTab[patientId]) {
+            setExpandedTab(prev => ({ ...prev, [patientId]: 'consultations' }));
+        }
+
         // Load if not loaded (or force reload to get latest status)
         setHistoryLoading(prev => ({ ...prev, [patientId]: true }));
         try {
@@ -162,6 +176,27 @@ function DoctorPatients() {
         } finally {
             setHistoryLoading(prev => ({ ...prev, [patientId]: false }));
         }
+
+        // Load measurements
+        setMeasurementsLoading(prev => ({ ...prev, [patientId]: true }));
+        try {
+            const mResponse = await patientService.getMeasurements(patientId);
+            if (mResponse.success && mResponse.data) {
+                setMeasurementsData(prev => ({ ...prev, [patientId]: mResponse.data }));
+
+                // Set default selected measure if not set and data exists
+                if (!selectedMeasure[patientId]) {
+                    const keys = Object.keys(mResponse.data);
+                    if (keys.length > 0) {
+                        setSelectedMeasure(prev => ({ ...prev, [patientId]: keys[0] }));
+                    }
+                }
+            }
+        } catch (error) {
+            console.error('Failed to load measurements:', error);
+        } finally {
+            setMeasurementsLoading(prev => ({ ...prev, [patientId]: false }));
+        }
     }
 
     // --- Edit Patient Logic ---
@@ -169,12 +204,21 @@ function DoctorPatients() {
     function handleEditClick(e, patient) {
         e.stopPropagation();
         setSelectedPatient(patient);
+        let dob = patient.dateOfBirth || patient.date_of_birth || '';
+        if (dob && typeof dob === 'string' && dob.includes('T')) {
+            dob = dob.split('T')[0];
+        } else if (dob instanceof Date) {
+            dob = dob.toISOString().split('T')[0];
+        }
         setFormData({
             firstName: patient.firstName || patient.first_name || '',
             lastName: patient.lastName || patient.last_name || '',
             gender: patient.gender || 'male',
-            age: patient.age || '',
-            phone: patient.phone || ''
+            dateOfBirth: dob,
+            phone: patient.phone || '',
+            address: patient.address || '',
+            siblingsAlive: patient.siblingsAlive ?? patient.siblings_alive ?? 0,
+            siblingsDeceased: patient.siblingsDeceased ?? patient.siblings_deceased ?? 0
         });
         setFormErrors({});
         setShowModal(true);
@@ -190,8 +234,14 @@ function DoctorPatients() {
         const errors = {};
         if (!formData.firstName.trim()) errors.firstName = t.errors.required;
         if (!formData.lastName.trim()) errors.lastName = t.errors.required;
-        if (!formData.age || formData.age < 0) errors.age = t.errors.required;
+        if (!formData.dateOfBirth) {
+            errors.dateOfBirth = 'La date de naissance est requise.';
+        } else if (new Date(formData.dateOfBirth) > new Date()) {
+            errors.dateOfBirth = 'La date de naissance ne peut pas être dans le futur.';
+        }
         if (!formData.phone.trim()) errors.phone = t.errors.required;
+        if (formData.siblingsAlive < 0) errors.siblingsAlive = 'Doit être positif.';
+        if (formData.siblingsDeceased < 0) errors.siblingsDeceased = 'Doit être positif.';
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
     }
@@ -221,7 +271,7 @@ function DoctorPatients() {
     function closeModal() {
         setShowModal(false);
         setSelectedPatient(null);
-        setFormData({ firstName: '', lastName: '', gender: 'male', age: '', phone: '' });
+        setFormData({ firstName: '', lastName: '', gender: 'male', dateOfBirth: '', phone: '', address: '', siblingsAlive: 0, siblingsDeceased: 0 });
         setFormErrors({});
     }
 
@@ -361,7 +411,7 @@ function DoctorPatients() {
                                             <th className="col-hide-md" style={{ width: '12%' }}>Date</th>
                                             <th>Patient</th>
                                             <th style={{ width: '10%' }}>{t.patient.gender}</th>
-                                            <th style={{ width: '8%' }}>{t.patient.age}</th>
+                                            <th style={{ width: '8%' }}>Date de naissance</th>
                                             <th className="col-hide-md" style={{ width: '14%' }}>{t.patient.phone}</th>
                                             <th className="col-actions" style={{ width: '100px' }}>Actions</th>
                                         </tr>
@@ -391,7 +441,7 @@ function DoctorPatients() {
                                                                 patient.gender === 'female' ? t.patient.female : t.patient.other}
                                                         </span>
                                                     </td>
-                                                    <td data-label={t.patient.age}>{patient.age} ans</td>
+                                                    <td data-label="Date de naissance">{patient.dateOfBirth || patient.date_of_birth || '—'}</td>
                                                     <td data-label={t.patient.phone} className="col-hide-md" style={{ color: 'var(--text-secondary)' }}>{patient.phone || '-'}</td>
                                                     <td data-label="Actions" className="col-actions">
                                                         <div>
@@ -425,15 +475,56 @@ function DoctorPatients() {
                                                     <tr style={{ backgroundColor: 'var(--gray-50)', borderBottom: '1px solid var(--border-color)' }}>
                                                         <td colSpan="7" style={{ padding: 'var(--space-lg) var(--space-xl)' }}>
                                                             <div className="card" style={{ border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                                                                <div className="card-header" style={{ padding: 'var(--space-md) var(--space-lg)' }}>
-                                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                                        <h4 style={{ margin: 0, fontSize: '0.95rem' }}>Historique des visites</h4>
-                                                                        <span className="badge badge-info">Patient ID: {patient.id}</span>
-                                                                    </div>
+                                                                <div className="card-header" style={{ padding: '0', borderBottom: '1px solid var(--border-color)', display: 'flex', background: 'var(--bg-subtle)' }}>
+                                                                    <button
+                                                                        className={`tab-btn ${expandedTab[patient.id] === 'consultations' ? 'active' : ''}`}
+                                                                        onClick={() => setExpandedTab(prev => ({ ...prev, [patient.id]: 'consultations' }))}
+                                                                        style={{ flex: 1, padding: 'var(--space-md)', background: 'transparent', border: 'none', borderBottom: expandedTab[patient.id] === 'consultations' ? '2px solid var(--primary)' : '2px solid transparent', fontWeight: expandedTab[patient.id] === 'consultations' ? '600' : 'normal', color: expandedTab[patient.id] === 'consultations' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}
+                                                                    >
+                                                                        Consultations ({historyData[patient.id]?.length || 0})
+                                                                    </button>
+                                                                    <button
+                                                                        className={`tab-btn ${expandedTab[patient.id] === 'courbes' ? 'active' : ''}`}
+                                                                        onClick={() => setExpandedTab(prev => ({ ...prev, [patient.id]: 'courbes' }))}
+                                                                        style={{ flex: 1, padding: 'var(--space-md)', background: 'transparent', border: 'none', borderBottom: expandedTab[patient.id] === 'courbes' ? '2px solid var(--primary)' : '2px solid transparent', fontWeight: expandedTab[patient.id] === 'courbes' ? '600' : 'normal', color: expandedTab[patient.id] === 'courbes' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}
+                                                                    >
+                                                                        Courbes Cliniques
+                                                                    </button>
                                                                 </div>
 
                                                                 <div className="card-body" style={{ padding: '0' }}>
-                                                                    {historyLoading[patient.id] ? (
+                                                                    {expandedTab[patient.id] === 'courbes' ? (
+                                                                        <div style={{ padding: 'var(--space-lg)' }}>
+                                                                            {measurementsLoading[patient.id] ? (
+                                                                                <div className="flex justify-center"><LoadingSpinner size="sm" /></div>
+                                                                            ) : Object.keys(measurementsData[patient.id] || {}).length > 0 ? (
+                                                                                <div>
+                                                                                    <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                                                                                        {Object.keys(measurementsData[patient.id]).map(measureKey => (
+                                                                                            <button
+                                                                                                key={measureKey}
+                                                                                                className={`badge ${selectedMeasure[patient.id] === measureKey ? 'badge-primary' : 'badge-gray'}`}
+                                                                                                style={{ cursor: 'pointer', border: 'none', padding: '6px 12px', fontSize: '0.85rem' }}
+                                                                                                onClick={() => setSelectedMeasure(prev => ({ ...prev, [patient.id]: measureKey }))}
+                                                                                            >
+                                                                                                {measureKey.toUpperCase()}
+                                                                                            </button>
+                                                                                        ))}
+                                                                                    </div>
+                                                                                    {selectedMeasure[patient.id] && measurementsData[patient.id][selectedMeasure[patient.id]] && (
+                                                                                        <PatientMeasurementsChart
+                                                                                            data={measurementsData[patient.id][selectedMeasure[patient.id]]}
+                                                                                            measureKey={selectedMeasure[patient.id]}
+                                                                                        />
+                                                                                    )}
+                                                                                </div>
+                                                                            ) : (
+                                                                                <div className="text-center" style={{ padding: 'var(--space-xl)', color: 'var(--text-muted)' }}>
+                                                                                    <p style={{ margin: 0 }}>Aucune mesure clinique enregistrée pour ce patient.</p>
+                                                                                </div>
+                                                                            )}
+                                                                        </div>
+                                                                    ) : historyLoading[patient.id] ? (
                                                                         <div className="flex justify-center" style={{ padding: 'var(--space-xl)' }}>
                                                                             <LoadingSpinner size="sm" />
                                                                         </div>
@@ -527,7 +618,7 @@ function DoctorPatients() {
                                                         {patient.firstName || patient.first_name} {patient.lastName || patient.last_name}
                                                     </p>
                                                     <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                        {patient.age} ans · {patient.gender === 'female' ? 'Femme' : 'Homme'} {patient.phone ? `· ${patient.phone}` : ''}
+                                                        {patient.dateOfBirth || patient.date_of_birth || '—'} · {patient.gender === 'female' ? 'Femme' : 'Homme'} {patient.phone ? `· ${patient.phone}` : ''}
                                                     </p>
                                                 </div>
                                             </div>
@@ -545,15 +636,59 @@ function DoctorPatients() {
                                         {/* Expanded History for Mobile */}
                                         {expandedPatientId === patient.id && (
                                             <div className="mobile-list-content">
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-md) 0', borderBottom: '1px solid var(--border-color)' }}>
-                                                    <h5 style={{ margin: 0, fontSize: '0.8rem', textTransform: 'uppercase', color: 'var(--text-muted)' }}>Consultations</h5>
-                                                    <div style={{ display: 'flex', gap: '4px' }}>
-                                                        <Button variant="ghost" size="sm" className="btn-icon" onClick={(e) => handleEditClick(e, patient)}><EditIcon fontSize="small" /></Button>
-                                                        <Button variant="ghost" size="sm" className="btn-icon" style={{ color: 'var(--error)' }} onClick={(e) => handleDeletePatient(e, patient.id)}><DeleteIcon fontSize="small" /></Button>
+                                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-md) 0', borderBottom: '1px solid var(--border-color)', flexDirection: 'column', gap: '12px' }}>
+                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                                        <div className="tabs-container" style={{ display: 'flex', gap: '16px' }}>
+                                                            <button
+                                                                onClick={() => setExpandedTab(prev => ({ ...prev, [patient.id]: 'consultations' }))}
+                                                                style={{ background: 'transparent', border: 'none', borderBottom: expandedTab[patient.id] === 'consultations' ? '2px solid var(--primary)' : '2px solid transparent', padding: '4px 0', fontSize: '0.8rem', fontWeight: expandedTab[patient.id] === 'consultations' ? 'bold' : 'normal', color: expandedTab[patient.id] === 'consultations' ? 'var(--primary)' : 'var(--text-secondary)' }}
+                                                            >
+                                                                Consultations
+                                                            </button>
+                                                            <button
+                                                                onClick={() => setExpandedTab(prev => ({ ...prev, [patient.id]: 'courbes' }))}
+                                                                style={{ background: 'transparent', border: 'none', borderBottom: expandedTab[patient.id] === 'courbes' ? '2px solid var(--primary)' : '2px solid transparent', padding: '4px 0', fontSize: '0.8rem', fontWeight: expandedTab[patient.id] === 'courbes' ? 'bold' : 'normal', color: expandedTab[patient.id] === 'courbes' ? 'var(--primary)' : 'var(--text-secondary)' }}
+                                                            >
+                                                                Courbes
+                                                            </button>
+                                                        </div>
+                                                        <div style={{ display: 'flex', gap: '4px' }}>
+                                                            <Button variant="ghost" size="sm" className="btn-icon" onClick={(e) => handleEditClick(e, patient)}><EditIcon fontSize="small" /></Button>
+                                                            <Button variant="ghost" size="sm" className="btn-icon" style={{ color: 'var(--error)' }} onClick={(e) => handleDeletePatient(e, patient.id)}><DeleteIcon fontSize="small" /></Button>
+                                                        </div>
                                                     </div>
                                                 </div>
 
-                                                {historyLoading[patient.id] ? (
+                                                {expandedTab[patient.id] === 'courbes' ? (
+                                                    <div style={{ padding: 'var(--space-md) 0' }}>
+                                                        {measurementsLoading[patient.id] ? (
+                                                            <div className="flex justify-center"><LoadingSpinner size="sm" /></div>
+                                                        ) : Object.keys(measurementsData[patient.id] || {}).length > 0 ? (
+                                                            <div>
+                                                                <div style={{ marginBottom: '16px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                                                                    {Object.keys(measurementsData[patient.id]).map(measureKey => (
+                                                                        <button
+                                                                            key={measureKey}
+                                                                            className={`badge ${selectedMeasure[patient.id] === measureKey ? 'badge-primary' : 'badge-gray'}`}
+                                                                            style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', fontSize: '0.75rem' }}
+                                                                            onClick={() => setSelectedMeasure(prev => ({ ...prev, [patient.id]: measureKey }))}
+                                                                        >
+                                                                            {measureKey.toUpperCase()}
+                                                                        </button>
+                                                                    ))}
+                                                                </div>
+                                                                {selectedMeasure[patient.id] && measurementsData[patient.id][selectedMeasure[patient.id]] && (
+                                                                    <PatientMeasurementsChart
+                                                                        data={measurementsData[patient.id][selectedMeasure[patient.id]]}
+                                                                        measureKey={selectedMeasure[patient.id]}
+                                                                    />
+                                                                )}
+                                                            </div>
+                                                        ) : (
+                                                            <p style={{ margin: 'var(--space-md) 0', fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>Aucune mesure.</p>
+                                                        )}
+                                                    </div>
+                                                ) : historyLoading[patient.id] ? (
                                                     <div className="flex justify-center" style={{ padding: 'var(--space-md)' }}><LoadingSpinner size="sm" /></div>
                                                 ) : historyData[patient.id] && historyData[patient.id].length > 0 ? (
                                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)' }}>
@@ -707,12 +842,12 @@ function DoctorPatients() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 var(--space-md)' }}>
                         <Input
-                            label={t.patient.age}
-                            name="age"
-                            type="number"
-                            value={formData.age}
+                            label="Date de naissance"
+                            name="dateOfBirth"
+                            type="date"
+                            value={formData.dateOfBirth}
                             onChange={handleFormChange}
-                            error={formErrors.age}
+                            error={formErrors.dateOfBirth}
                             required
                         />
                         <Input
@@ -723,6 +858,34 @@ function DoctorPatients() {
                             onChange={handleFormChange}
                             error={formErrors.phone}
                             required
+                        />
+                    </div>
+
+                    <Input
+                        label="Adresse"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleFormChange}
+                    />
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 var(--space-md)' }}>
+                        <Input
+                            label="Frères/sœurs vivants"
+                            name="siblingsAlive"
+                            type="number"
+                            min="0"
+                            value={formData.siblingsAlive}
+                            onChange={handleFormChange}
+                            error={formErrors.siblingsAlive}
+                        />
+                        <Input
+                            label="Frères/sœurs décédés"
+                            name="siblingsDeceased"
+                            type="number"
+                            min="0"
+                            value={formData.siblingsDeceased}
+                            onChange={handleFormChange}
+                            error={formErrors.siblingsDeceased}
                         />
                     </div>
                 </form>

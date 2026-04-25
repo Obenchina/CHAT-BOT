@@ -58,8 +58,11 @@ function PatientsList() {
         firstName: '',
         lastName: '',
         gender: 'male',
-        age: '',
-        phone: ''
+        dateOfBirth: '',
+        phone: '',
+        address: '',
+        siblingsAlive: 0,
+        siblingsDeceased: 0
     });
     const [formErrors, setFormErrors] = useState({});
 
@@ -126,9 +129,9 @@ function PatientsList() {
                     return nameA.localeCompare(nameB);
                 }
                 case 'age_desc':
-                    return (b.age || 0) - (a.age || 0);
+                    return (b.dateOfBirth || b.date_of_birth || 0) - (a.dateOfBirth || a.date_of_birth || 0);
                 case 'age_asc':
-                    return (a.age || 0) - (b.age || 0);
+                    return (a.dateOfBirth || a.date_of_birth || 0) - (b.dateOfBirth || b.date_of_birth || 0);
                 case 'newest':
                 default:
                     // Assuming id represents insertion order roughly if created_at isn't fetched initially
@@ -158,8 +161,14 @@ function PatientsList() {
         const errors = {};
         if (!formData.firstName.trim()) errors.firstName = t.errors.required;
         if (!formData.lastName.trim()) errors.lastName = t.errors.required;
-        if (!formData.age || formData.age < 0) errors.age = t.errors.required;
+        if (!formData.dateOfBirth) {
+            errors.dateOfBirth = 'La date de naissance est requise.';
+        } else if (new Date(formData.dateOfBirth) > new Date()) {
+            errors.dateOfBirth = 'La date de naissance ne peut pas être dans le futur.';
+        }
         if (!formData.phone.trim()) errors.phone = t.errors.required;
+        if (formData.siblingsAlive < 0) errors.siblingsAlive = 'Doit être positif.';
+        if (formData.siblingsDeceased < 0) errors.siblingsDeceased = 'Doit être positif.';
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
     }
@@ -197,7 +206,7 @@ function PatientsList() {
 
     // Open modal for New Patient
     function openNewPatientModal() {
-        setFormData({ firstName: '', lastName: '', gender: 'male', age: '', phone: '' });
+        setFormData({ firstName: '', lastName: '', gender: 'male', dateOfBirth: '', phone: '', address: '', siblingsAlive: 0, siblingsDeceased: 0 });
         setFormErrors({});
         setSelectedPatient(null);
         setShowModal(true);
@@ -207,12 +216,22 @@ function PatientsList() {
     function handleEditClick(e, patient) {
         e.stopPropagation();
         setSelectedPatient(patient);
+        // Format dateOfBirth to YYYY-MM-DD for the date input
+        let dob = patient.dateOfBirth || patient.date_of_birth || '';
+        if (dob && typeof dob === 'string' && dob.includes('T')) {
+            dob = dob.split('T')[0];
+        } else if (dob instanceof Date) {
+            dob = dob.toISOString().split('T')[0];
+        }
         setFormData({
             firstName: patient.firstName || patient.first_name || '',
             lastName: patient.lastName || patient.last_name || '',
             gender: patient.gender || 'male',
-            age: patient.age || '',
-            phone: patient.phone || ''
+            dateOfBirth: dob,
+            phone: patient.phone || '',
+            address: patient.address || '',
+            siblingsAlive: patient.siblingsAlive ?? patient.siblings_alive ?? 0,
+            siblingsDeceased: patient.siblingsDeceased ?? patient.siblings_deceased ?? 0
         });
         setFormErrors({});
         setShowModal(true);
@@ -221,7 +240,7 @@ function PatientsList() {
     // Close modal
     function closeModal() {
         setShowModal(false);
-        setFormData({ firstName: '', lastName: '', gender: 'male', age: '', phone: '' });
+        setFormData({ firstName: '', lastName: '', gender: 'male', dateOfBirth: '', phone: '', address: '', siblingsAlive: 0, siblingsDeceased: 0 });
         setFormErrors({});
         setSelectedPatient(null);
     }
@@ -414,7 +433,7 @@ function PatientsList() {
                                             <th className="col-hide-md" style={{ width: '12%' }}>Date</th>
                                             <th>Patient</th>
                                             <th style={{ width: '10%' }}>{t.patient.gender}</th>
-                                            <th style={{ width: '8%' }}>{t.patient.age}</th>
+                                            <th style={{ width: '8%' }}>Date de naissance</th>
                                             <th className="col-hide-md" style={{ width: '14%' }}>{t.patient.phone}</th>
                                             <th className="col-actions" style={{ width: '160px' }}>{t.common.actions}</th>
                                         </tr>
@@ -445,7 +464,7 @@ function PatientsList() {
                                                                 patient.gender === 'female' ? t.patient.female : t.patient.other}
                                                         </span>
                                                     </td>
-                                                    <td>{patient.age} ans</td>
+                                                    <td>{patient.dateOfBirth || patient.date_of_birth || '—'}</td>
                                                     <td className="col-hide-md" style={{ color: 'var(--text-secondary)' }}>{patient.phone || '-'}</td>
                                                     <td className="col-actions">
                                                         <div>
@@ -596,7 +615,7 @@ function PatientsList() {
                                                         {patient.firstName || patient.first_name} {patient.lastName || patient.last_name}
                                                     </p>
                                                     <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                        {patient.age} ans · {patient.gender === 'female' ? 'Femme' : 'Homme'} {patient.phone ? `· ${patient.phone}` : ''}
+                                                        {patient.dateOfBirth || patient.date_of_birth || '—'} · {patient.gender === 'female' ? 'Femme' : 'Homme'} {patient.phone ? `· ${patient.phone}` : ''}
                                                     </p>
                                                 </div>
                                             </div>
@@ -800,7 +819,7 @@ function PatientsList() {
                 )}
             </Modal>
 
-            {/* Patient Modal (Create/Edit) - Updated 2 column Layout */}
+            {/* Patient Modal (Create/Edit) */}
             <Modal
                 isOpen={showModal}
                 onClose={closeModal}
@@ -862,12 +881,12 @@ function PatientsList() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 var(--space-md)' }}>
                         <Input
-                            label={t.patient.age}
-                            name="age"
-                            type="number"
-                            value={formData.age}
+                            label="Date de naissance"
+                            name="dateOfBirth"
+                            type="date"
+                            value={formData.dateOfBirth}
                             onChange={handleFormChange}
-                            error={formErrors.age}
+                            error={formErrors.dateOfBirth}
                             required
                         />
                         <Input
@@ -878,6 +897,34 @@ function PatientsList() {
                             onChange={handleFormChange}
                             error={formErrors.phone}
                             required
+                        />
+                    </div>
+
+                    <Input
+                        label="Adresse"
+                        name="address"
+                        value={formData.address}
+                        onChange={handleFormChange}
+                    />
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 var(--space-md)' }}>
+                        <Input
+                            label="Frères/sœurs vivants"
+                            name="siblingsAlive"
+                            type="number"
+                            min="0"
+                            value={formData.siblingsAlive}
+                            onChange={handleFormChange}
+                            error={formErrors.siblingsAlive}
+                        />
+                        <Input
+                            label="Frères/sœurs décédés"
+                            name="siblingsDeceased"
+                            type="number"
+                            min="0"
+                            value={formData.siblingsDeceased}
+                            onChange={handleFormChange}
+                            error={formErrors.siblingsDeceased}
                         />
                     </div>
                 </form>

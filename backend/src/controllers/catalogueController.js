@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Catalogue Controller
  * Handles catalogue and question management
  */
@@ -6,6 +6,10 @@
 const Catalogue = require('../models/Catalogue');
 const Doctor = require('../models/Doctor');
 const Assistant = require('../models/Assistant');
+
+// Valid answer types and clinical measures
+const VALID_ANSWER_TYPES = ['yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number'];
+const VALID_CLINICAL_MEASURES = ['none', 'temperature', 'weight', 'height', 'head_circumference', 'blood_pressure'];
 
 async function getDoctorIdFromUser(user) {
     if (user.role === 'doctor') {
@@ -103,10 +107,13 @@ async function getCatalogueById(req, res) {
                     id: question.id,
                     question_text: question.question_text,
                     answer_type: question.answer_type,
+                    clinical_measure: question.clinical_measure || 'none',
                     choices: question.choices,
                     is_required: Boolean(question.is_required),
                     is_active: Boolean(question.is_active),
-                    order_index: question.order_index
+                    order_index: question.order_index,
+                    section_name: question.section_name || null,
+                    section_order: question.section_order || 0
                 }))
             }
         });
@@ -328,7 +335,7 @@ async function deleteCatalogue(req, res) {
 async function addQuestion(req, res) {
     try {
         const { id } = req.params;
-        const { questionText, answerType, choices, isRequired } = req.body;
+        const { questionText, answerType, choices, isRequired, sectionName, sectionOrder, clinicalMeasure } = req.body;
 
         if (!questionText || !answerType) {
             return res.status(400).json({
@@ -337,10 +344,26 @@ async function addQuestion(req, res) {
             });
         }
 
-        if (!['yes_no', 'voice', 'choices'].includes(answerType)) {
+        if (!VALID_ANSWER_TYPES.includes(answerType)) {
             return res.status(400).json({
                 success: false,
-                message: 'Invalid answer type'
+                message: `Invalid answer type. Must be one of: ${VALID_ANSWER_TYPES.join(', ')}`
+            });
+        }
+
+        // Validate clinical_measure
+        if (clinicalMeasure && !VALID_CLINICAL_MEASURES.includes(clinicalMeasure)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid clinical measure. Must be one of: ${VALID_CLINICAL_MEASURES.join(', ')}`
+            });
+        }
+
+        // Clinical measure only makes sense for number type
+        if (clinicalMeasure && clinicalMeasure !== 'none' && answerType !== 'number') {
+            return res.status(400).json({
+                success: false,
+                message: 'Clinical measure can only be set for number-type questions'
             });
         }
 
@@ -369,7 +392,10 @@ async function addQuestion(req, res) {
             answerType,
             choices: choices || [],
             isRequired: isRequired !== false,
-            orderIndex: maxOrder + 1
+            orderIndex: maxOrder + 1,
+            sectionName: sectionName || null,
+            sectionOrder: sectionOrder || 0,
+            clinicalMeasure: clinicalMeasure || 'none'
         });
 
         res.status(201).json({
@@ -393,13 +419,29 @@ async function addQuestion(req, res) {
 async function updateQuestion(req, res) {
     try {
         const { questionId } = req.params;
-        const { questionText, answerType, choices, isRequired, isActive } = req.body;
+        const { questionText, answerType, choices, isRequired, isActive, sectionName, sectionOrder, clinicalMeasure } = req.body;
         const doctor = await Doctor.findByUserId(req.user.id);
 
         if (!doctor) {
             return res.status(404).json({
                 success: false,
                 message: 'Doctor not found'
+            });
+        }
+
+        // Validate answer type if provided
+        if (answerType && !VALID_ANSWER_TYPES.includes(answerType)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid answer type. Must be one of: ${VALID_ANSWER_TYPES.join(', ')}`
+            });
+        }
+
+        // Validate clinical measure if provided
+        if (clinicalMeasure && !VALID_CLINICAL_MEASURES.includes(clinicalMeasure)) {
+            return res.status(400).json({
+                success: false,
+                message: `Invalid clinical measure. Must be one of: ${VALID_CLINICAL_MEASURES.join(', ')}`
             });
         }
 
@@ -416,7 +458,10 @@ async function updateQuestion(req, res) {
             answerType,
             choices,
             isRequired,
-            isActive
+            isActive,
+            sectionName,
+            sectionOrder,
+            clinicalMeasure
         });
 
         res.json({

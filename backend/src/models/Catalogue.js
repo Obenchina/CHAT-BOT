@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Catalogue Model
  * Database operations for catalogues and questions tables
  */
@@ -32,7 +32,10 @@ function normalizeQuestion(question) {
 
     return {
         ...question,
-        choices: parseChoices(question.choices)
+        choices: parseChoices(question.choices),
+        section_name: question.section_name || null,
+        section_order: question.section_order || 0,
+        clinical_measure: question.clinical_measure || 'none'
     };
 }
 
@@ -222,19 +225,32 @@ const Catalogue = {
      * @returns {Promise<Object>} Created question
      */
     async addQuestion(questionData) {
-        const { catalogueId, questionText, answerType, choices, isRequired, orderIndex } = questionData;
+        const { catalogueId, questionText, answerType, choices, isRequired, orderIndex, sectionName, sectionOrder, clinicalMeasure } = questionData;
 
         const [result] = await pool.execute(
-            `INSERT INTO questions (catalogue_id, question_text, answer_type, choices, is_required, is_active, order_index)
-             VALUES (?, ?, ?, ?, ?, true, ?)`,
-            [catalogueId, questionText, answerType, JSON.stringify(choices || []), isRequired, orderIndex]
+            `INSERT INTO questions (catalogue_id, section_name, section_order, question_text, answer_type, clinical_measure, choices, is_required, is_active, order_index)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, ?)`,
+            [
+                catalogueId,
+                sectionName || null,
+                sectionOrder || 0,
+                questionText,
+                answerType,
+                clinicalMeasure || 'none',
+                JSON.stringify(choices || []),
+                isRequired,
+                orderIndex
+            ]
         );
 
         return {
             id: result.insertId,
             catalogue_id: catalogueId,
+            section_name: sectionName || null,
+            section_order: sectionOrder || 0,
             question_text: questionText,
             answer_type: answerType,
+            clinical_measure: clinicalMeasure || 'none',
             choices: choices || [],
             is_required: isRequired,
             is_active: true,
@@ -249,24 +265,30 @@ const Catalogue = {
      * @returns {Promise<boolean>} Success status
      */
     async updateQuestion(id, updateData) {
-        const { questionText, answerType, choices, isRequired, isActive, orderIndex } = updateData;
+        const { questionText, answerType, choices, isRequired, isActive, orderIndex, sectionName, sectionOrder, clinicalMeasure } = updateData;
 
         const [result] = await pool.execute(
             `UPDATE questions SET
                  question_text = COALESCE(?, question_text),
                  answer_type = COALESCE(?, answer_type),
+                 clinical_measure = COALESCE(?, clinical_measure),
                  choices = COALESCE(?, choices),
                  is_required = COALESCE(?, is_required),
                  is_active = COALESCE(?, is_active),
-                 order_index = COALESCE(?, order_index)
+                 order_index = COALESCE(?, order_index),
+                 section_name = COALESCE(?, section_name),
+                 section_order = COALESCE(?, section_order)
              WHERE id = ?`,
             [
                 questionText !== undefined ? questionText : null,
                 answerType !== undefined ? answerType : null,
+                clinicalMeasure !== undefined ? clinicalMeasure : null,
                 choices !== undefined ? JSON.stringify(choices) : null,
                 isRequired !== undefined ? isRequired : null,
                 isActive !== undefined ? isActive : null,
                 orderIndex !== undefined ? orderIndex : null,
+                sectionName !== undefined ? sectionName : null,
+                sectionOrder !== undefined ? sectionOrder : null,
                 id
             ]
         );
@@ -327,7 +349,7 @@ const Catalogue = {
      */
     async getQuestions(catalogueId) {
         const [questions] = await pool.execute(
-            'SELECT * FROM questions WHERE catalogue_id = ? ORDER BY order_index, id',
+            'SELECT * FROM questions WHERE catalogue_id = ? ORDER BY section_order, order_index, id',
             [catalogueId]
         );
 

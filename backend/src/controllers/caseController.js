@@ -1192,6 +1192,38 @@ async function generateLetterPdf(req, res) {
     }
 }
 
+/**
+ * Suggest medications via AI (on-demand, doctor clicks button)
+ * POST /api/cases/:id/suggest-medications
+ */
+async function suggestMedications(req, res) {
+    try {
+        const { id } = req.params;
+        const caseData = await Case.getFullDetails(id);
+        if (!caseData) {
+            return res.status(404).json({ success: false, message: 'Cas introuvable' });
+        }
+
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const activeAiConfig = await AiConfig.findActiveByDoctorId(doctor.id);
+        const aiConfig = activeAiConfig ? {
+            provider: activeAiConfig.provider,
+            apiKey: activeAiConfig.api_key,
+            model: activeAiConfig.model
+        } : null;
+
+        const medications = await aiService.suggestMedications(caseData, aiConfig);
+        res.json({ success: true, data: medications });
+    } catch (error) {
+        console.error('Suggest medications error:', error);
+        let statusCode = 500;
+        let userMessage = 'Échec de la suggestion de médicaments';
+        if (error.code === 'QUOTA_EXCEEDED') { statusCode = 429; userMessage = 'Crédit IA épuisé'; }
+        if (error.code === 'MISSING_API_KEY') { statusCode = 400; userMessage = 'Clé API non configurée'; }
+        res.status(statusCode).json({ success: false, message: userMessage });
+    }
+}
+
 module.exports = {
     getAll,
     getById,
@@ -1208,5 +1240,6 @@ module.exports = {
     generateAnalysesPdf,
     generateLetterPdf,
     retranscribeCase,
-    reanalyzeCase
+    reanalyzeCase,
+    suggestMedications
 };

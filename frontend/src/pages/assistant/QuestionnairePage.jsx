@@ -11,7 +11,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import caseService from '../../services/caseService';
 import patientService from '../../services/patientService';
 import translations from '../../constants/translations';
-import { UPLOAD_URL, getAuthUploadUrl } from '../../constants/config';
+import { UPLOAD_URL, getAuthUploadUrl, CLINICAL_MEASURE_LABELS } from '../../constants/config';
 import { showError, showWarning } from '../../utils/toast';
 import '../../styles/questionnaire.css';
 import MicIcon from '@mui/icons-material/Mic';
@@ -231,6 +231,14 @@ function QuestionnairePage() {
         }));
     }
 
+    // Handle text/number answer
+    function handleTextChange(value, type) {
+        setAnswers(prev => ({
+            ...prev,
+            [currentQuestion.id]: { type, value }
+        }));
+    }
+
     // Helper to save a single answer to backend
     async function saveCurrentAnswer(question, answerData) {
         if (!answerData) return;
@@ -243,12 +251,12 @@ function QuestionnairePage() {
                     formData.append('questionId', question.id);
                     await caseService.addAnswer(caseId, formData);
                     console.log('Voice answer saved:', question.id);
-                } else if (answerData.type === 'yes_no' || answerData.type === 'choices') {
+                } else if (answerData.type === 'yes_no' || answerData.type === 'choices' || answerData.type === 'text_short' || answerData.type === 'text_long' || answerData.type === 'number') {
                     await caseService.addTextAnswer(caseId, {
                         questionId: question.id,
-                        answer: answerData.value
+                        answer: String(answerData.value)
                     });
-                    console.log('Text answer saved:', question.id);
+                    console.log('Text/Number answer saved:', question.id);
                 }
             } catch (error) {
                 console.error('Failed to save answer:', error);
@@ -465,12 +473,22 @@ function QuestionnairePage() {
                             <div className="card questionnaire-card">
                                 <div className="card-body">
                                     {/* Question text */}
+                                    {(currentQuestion.section_name || currentQuestion.sectionName) && (
+                                        <div style={{ marginBottom: '8px' }}>
+                                            <span className="badge badge-info">{currentQuestion.section_name || currentQuestion.sectionName}</span>
+                                        </div>
+                                    )}
                                     <h2 className="question-text">
                                         {currentQuestion.questionText || currentQuestion.question_text}
                                         {(currentQuestion.isRequired || currentQuestion.is_required) && (
                                             <span style={{ color: 'var(--error)' }}> *</span>
                                         )}
                                     </h2>
+                                    {currentQuestion.clinical_measure && currentQuestion.clinical_measure !== 'none' && (
+                                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                                            Mesure : {CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure]?.label || currentQuestion.clinical_measure}
+                                        </p>
+                                    )}
 
                                     {/* Answer input based on type */}
                                     <div className="answer-section">
@@ -511,6 +529,53 @@ function QuestionnairePage() {
                                                         </button>
                                                     );
                                                 })}
+                                            </div>
+                                        )}
+
+                                        {/* Text Short */}
+                                        {(currentQuestion.answerType || currentQuestion.answer_type) === 'text_short' && (
+                                            <div className="text-answer">
+                                                <input
+                                                    type="text"
+                                                    className="form-input"
+                                                    style={{ width: '100%', padding: '12px', fontSize: '1.1rem' }}
+                                                    value={currentAnswer?.value || ''}
+                                                    onChange={(e) => handleTextChange(e.target.value, 'text_short')}
+                                                    placeholder="Votre réponse..."
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Text Long */}
+                                        {(currentQuestion.answerType || currentQuestion.answer_type) === 'text_long' && (
+                                            <div className="text-answer">
+                                                <textarea
+                                                    className="form-input"
+                                                    style={{ width: '100%', padding: '12px', fontSize: '1.1rem', minHeight: '120px' }}
+                                                    value={currentAnswer?.value || ''}
+                                                    onChange={(e) => handleTextChange(e.target.value, 'text_long')}
+                                                    placeholder="Votre réponse détaillée..."
+                                                />
+                                            </div>
+                                        )}
+
+                                        {/* Number */}
+                                        {(currentQuestion.answerType || currentQuestion.answer_type) === 'number' && (
+                                            <div className="text-answer flex items-center gap-sm">
+                                                <input
+                                                    type="number"
+                                                    step="any"
+                                                    className="form-input"
+                                                    style={{ width: '150px', padding: '12px', fontSize: '1.1rem' }}
+                                                    value={currentAnswer?.value || ''}
+                                                    onChange={(e) => handleTextChange(e.target.value, 'number')}
+                                                    placeholder="0"
+                                                />
+                                                {currentQuestion.clinical_measure && currentQuestion.clinical_measure !== 'none' && CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure]?.unit && (
+                                                    <span style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
+                                                        {CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure].unit}
+                                                    </span>
+                                                )}
                                             </div>
                                         )}
 
