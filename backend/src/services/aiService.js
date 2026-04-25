@@ -204,8 +204,7 @@ function buildAnalysisPrompt(caseData) {
 
 ملاحظة مهنية هامة: المريض جزائري ويتحدث بـ "الدارجة الجزائرية" (بما فيها من مصطلحات فرنسية وعامية). يجب أن تفهم شكواه بدقة (مثلاً: "عندي السطر" تعني ألم، "التخمام" قد تعني دوار أو قلق، إلخ).
 
-مطلوباتك الصارمة:
-1. التلخيص السريري: لخص الحالة في 4 أسطر كحد أقصى بناءً على الإجابات. ${hasDocs ? 'يوجد مستندات مرفقة (تحاليل/أشعة)، يجب قراءتها وتضمين تفاصيلها التقنية في الملخص.' : 'اذكر في نهاية الملخص: (لا توجد ملفات مرفقة).'}
+مطلوباتك الصارمة: 1. التلخيص السريري: لخص الحالة في 4 أسطر كحد أقصى بصرامة (لا تتجاوز 4 أسطر أبداً). لا تذكر اسم أو لقب المريض أبداً. ${hasDocs ? 'يوجد مستندات مرفقة، اذكر أهم التفاصيل التقنية باختصار.' : 'اذكر في نهاية الملخص: (لا توجد مستندات).'}
 2. التشخيص التفريقي: قدم التشخيصات الأكثر احتمالية مع نسبة مئوية.
 3. ملاحظات مهمة:
    - في حالات "الطوارئ الجراحية" أو الحالات الخطيرة (مثل التواء الخصية Torsion، أو اشتباه احتشاء عضلة القلب، إلخ)، يجب أن يبدأ ردك في قسم الملاحظات بعبارة: [!!! URGENCE CHIRURGICALE / MÉDICALE !!!] مع توجيه الطبيب للإجراء الفوري.
@@ -222,7 +221,7 @@ function buildAnalysisPrompt(caseData) {
 
     // Add questionnaire answers
     answers.forEach((answer, index) => {
-        const answerText = answer.transcribed_text || 'لم يتم تقديم إجابة';
+        const answerText = answer.text_answer || answer.textAnswer || answer.transcribed_text || 'لم يتم تقديم إجابة';
         prompt += `\n\n${index + 1}. السؤال: ${answer.question_text}`;
         prompt += `\n   الإجابة: ${answerText}`;
     });
@@ -799,7 +798,7 @@ function buildChatSystemPrompt(caseData) {
 
     if (answers && answers.length > 0) {
         answers.forEach((answer, index) => {
-            const answerText = answer.transcribed_text || 'لم يتم تقديم إجابة';
+            const answerText = answer.text_answer || answer.textAnswer || answer.transcribed_text || 'لم يتم تقديم إجابة';
             context += `\n${index + 1}. ${answer.question_text}: ${answerText}`;
         });
     }

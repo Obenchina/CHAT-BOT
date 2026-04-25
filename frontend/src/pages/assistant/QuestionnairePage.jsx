@@ -109,7 +109,7 @@ function QuestionnairePage() {
                                 const qId = ans.questionId || ans.question_id;
                                 const audioPath = ans.audioPath || ans.audio_path;
                                 const answerType = ans.answerType || ans.answer_type;
-                                const transcribedText = ans.transcribedText || ans.transcribed_text;
+                                const transcribedText = ans.textAnswer || ans.text_answer || ans.transcribedText || ans.transcribed_text;
 
                                 if (qId) {
                                     // FIX: Add /uploads/ prefix to audio path

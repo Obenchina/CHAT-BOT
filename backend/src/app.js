@@ -39,7 +39,10 @@ app.use(cors({
 }));
 
 // Security headers (CSP, X-Frame-Options, HSTS, etc.)
-app.use(helmet());
+app.use(helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+    crossOriginOpenerPolicy: { policy: "unsafe-none" }
+}));
 
 // Parse cookies
 app.use(cookieParser());
@@ -237,8 +240,17 @@ async function runMigrations(pool) {
     await ensureColumn(pool, 'catalogues', 'name', "VARCHAR(150) NOT NULL DEFAULT 'Catalogue'");
     await ensureColumn(pool, 'catalogues', 'is_active', 'BOOLEAN NOT NULL DEFAULT TRUE');
     await ensureColumn(pool, 'case_answers', 'question_text_snapshot', 'TEXT NULL');
-    await ensureColumn(pool, 'case_answers', 'answer_type_snapshot', "ENUM('yes_no','voice','choices') NULL");
+    await ensureColumn(pool, 'case_answers', 'answer_type_snapshot', "ENUM('yes_no','voice','choices','text_short','text_long','number') NULL");
+    await ensureColumn(pool, 'case_answers', 'text_answer', 'TEXT NULL');
     await ensureColumn(pool, 'case_answers', 'order_index_snapshot', 'INT NULL');
+
+    // Update ENUMs to allow new types
+    try {
+        await pool.execute("ALTER TABLE questions MODIFY COLUMN answer_type ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NOT NULL");
+        await pool.execute("ALTER TABLE case_answers MODIFY COLUMN answer_type_snapshot ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NULL");
+    } catch(err) {
+        console.warn('Could not modify ENUMs:', err.message);
+    }
     await ensureColumn(pool, 'doctors', 'prescription_logo_path', 'VARCHAR(500) NULL');
     await ensureColumn(pool, 'doctors', 'prescription_primary_color', 'VARCHAR(20) NULL');
     await ensureColumn(pool, 'doctors', 'prescription_accent_color', 'VARCHAR(20) NULL');
@@ -261,15 +273,64 @@ async function runMigrations(pool) {
     await pool.execute(`
         UPDATE case_answers ca
         LEFT JOIN questions q ON q.id = ca.question_id
-        SET
+        SET 
             ca.question_text_snapshot = COALESCE(ca.question_text_snapshot, q.question_text),
             ca.answer_type_snapshot = COALESCE(ca.answer_type_snapshot, q.answer_type),
             ca.order_index_snapshot = COALESCE(ca.order_index_snapshot, q.order_index)
-        WHERE
-            ca.question_text_snapshot IS NULL
+        WHERE 
+            ca.question_text_snapshot IS NULL 
             OR ca.answer_type_snapshot IS NULL
             OR ca.order_index_snapshot IS NULL
     `);
+
+    // Migrate text responses to text_answer column
+    await pool.execute(`
+        UPDATE case_answers 
+        SET text_answer = transcribed_text 
+        WHERE answer_type_snapshot != 'voice' 
+        AND text_answer IS NULL 
+        AND transcribed_text IS NOT NULL
+    `);
+
+    // Growth curves: add template_config column and migrate old calibration data
+    await pool.execute(`
+        CREATE TABLE IF NOT EXISTS doctor_growth_curves (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            doctor_id INT NOT NULL,
+            measure_key VARCHAR(50) NOT NULL,
+            gender ENUM('male', 'female', 'both') NOT NULL DEFAULT 'both',
+            file_path VARCHAR(255) NOT NULL,
+            template_config JSON NULL,
+            is_calibrated BOOLEAN DEFAULT FALSE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB;
+    `);
+
+    // In case the table already existed with the old schema, ensure template_config exists
+    await ensureColumn(pool, 'doctor_growth_curves', 'template_config', 'JSON NULL');
+    try {
+        // Migrate old p1/p2 calibration data to template_config JSON
+        const [hasCols] = await pool.execute(
+            `SELECT COUNT(*) as cnt FROM information_schema.COLUMNS 
+             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'doctor_growth_curves' AND COLUMN_NAME = 'p1_x'`
+        );
+        if (hasCols[0].cnt > 0) {
+            await pool.execute(`
+                UPDATE doctor_growth_curves 
+                SET template_config = JSON_OBJECT(
+                    'min_age', p1_val_x, 'max_age', p2_val_x,
+                    'min_y', p1_val_y, 'max_y', p2_val_y,
+                    'plot_area', JSON_OBJECT('left', p1_x, 'top', p2_y, 'right', p2_x, 'bottom', p1_y)
+                )
+                WHERE template_config IS NULL AND is_calibrated = TRUE
+            `);
+            console.log('Growth curves: migrated p1/p2 calibration to template_config');
+        }
+    } catch (err) {
+        console.warn('Growth curves migration note:', err.message);
+    }
+
     console.log('Database migrations ready');
 }
 

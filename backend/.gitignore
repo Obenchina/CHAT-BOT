@@ -11,7 +11,7 @@ dist/
 
 # Uploads
 uploads/
-
+.claude/*
 # Logs
 logs
 *.log

@@ -8,6 +8,9 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import PatientIdentityBlock from '../../components/doctor/case/PatientIdentityBlock';
+import CaseAnswersBlock from '../../components/doctor/case/CaseAnswersBlock';
+import AiSummaryBlock from '../../components/doctor/case/AiSummaryBlock';
 import caseService from '../../services/caseService';
 import doctorService from '../../services/doctorService';
 import translations from '../../constants/translations';
@@ -373,88 +376,13 @@ function CaseDetails() {
                 <div className="page-content">
                     <div className="case-stack case-details-stack" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', maxWidth: '900px', margin: '0 auto' }}>
                         {/* 1. Patient Info */}
-                        <div className="card">
-                            <div className="card-header border-b">
-                                <h2 className="card-title" style={{ fontSize: '1.1rem' }}>👤 Informations du patient</h2>
-                            </div>
-                            <div className="card-body">
-                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-xs)' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>Nom:</span>
-                                        <strong style={{ textAlign: 'right' }}>{patient.first_name || patient.firstName} {patient.last_name || patient.lastName}</strong>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-xs)' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>Genre:</span>
-                                        <strong style={{ textAlign: 'right' }}>{patient.gender === 'male' ? 'Homme' : patient.gender === 'female' ? 'Femme' : '-'}</strong>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-xs)' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>Date de naissance:</span>
-                                        <strong style={{ textAlign: 'right' }}>{patient.date_of_birth || patient.dateOfBirth || patient.age || '-'}</strong>
-                                    </div>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                                        <span style={{ color: 'var(--text-secondary)' }}>Téléphone:</span>
-                                        <strong style={{ textAlign: 'right' }}>{patient.phone || '-'}</strong>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
+                        <PatientIdentityBlock patient={patient} />
 
-                        {/* 2. Questionnaire */}
-                        <div className="card">
-                            <div className="card-header border-b" style={{ paddingBottom: 'var(--space-sm)' }}>
-                                <h2 className="card-title">📋 Questionnaire</h2>
-                            </div>
-                            <div className="card-body" style={{ padding: '0' }}>
-                                {answers.length > 0 ? (
-                                    <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                        {answers.map((answer, index) => (
-                                            <div key={answer.id || index} style={{
-                                                padding: 'var(--space-lg)',
-                                                borderBottom: index < answers.length - 1 ? '1px solid var(--border-color)' : 'none',
-                                                background: index % 2 === 0 ? 'transparent' : 'var(--bg-elevated)'
-                                            }}>
-                                                <div style={{ fontWeight: '600', marginBottom: 'var(--space-sm)', color: 'var(--text-primary)', fontSize: '1.05rem' }}>
-                                                    <span style={{ color: 'var(--primary)', marginRight: '8px' }}>Q{index + 1}.</span>
-                                                    {answer.question_text || answer.questionText}
-                                                </div>
+                        {/* 2. Questionnaire (grouped by section) */}
+                        <CaseAnswersBlock answers={answers} />
 
-                                                <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginTop: 'var(--space-md)' }}>
-                                                    {/* Audio player if audio exists */}
-                                                    {(answer.audio_path || answer.audioPath) && (
-                                                        <div style={{ background: 'var(--bg-card)', padding: 'var(--space-xs)', borderRadius: 'var(--radius-full)', border: '1px solid var(--border-color)', display: 'inline-block', width: 'fit-content' }}>
-                                                            <audio controls style={{ height: '36px', width: '250px' }}>
-                                                                <source src={getAuthUploadUrl(answer.audio_path || answer.audioPath)} type="audio/webm" />
-                                                            </audio>
-                                                        </div>
-                                                    )}
-
-                                                    {/* Transcribed text (Right aligned for Arabic) */}
-                                                    <div style={{
-                                                        color: 'var(--text-secondary)',
-                                                        padding: 'var(--space-md)',
-                                                        background: 'var(--bg-card)',
-                                                        borderRadius: 'var(--radius-md)',
-                                                        border: '1px solid var(--border-color)',
-                                                        fontStyle: (answer.transcribed_text || answer.transcribedText) ? 'normal' : 'italic',
-                                                        direction: 'rtl',
-                                                        textAlign: 'right',
-                                                        fontSize: '0.95rem',
-                                                        lineHeight: '1.6'
-                                                    }}>
-                                                        {(answer.transcribed_text || answer.transcribedText) ||
-                                                            (answer.audio_path || answer.audioPath ? 'في انتظار نسخ النص...' : 'لا توجد إجابة')}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                ) : (
-                                    <div style={{ padding: 'var(--space-2xl) var(--space-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                        Aucune réponse enregistrée
-                                    </div>
-                                )}
-                            </div>
-                        </div>
+                        {/* 3. AI Analysis */}
+                        <AiSummaryBlock aiAnalysis={aiAnalysis} />
 
                         {/* 3. Documents */}
                         <div className="card">
@@ -497,48 +425,7 @@ function CaseDetails() {
                         </div>
 
                         {/* 4. AI Analysis */}
-                        {aiAnalysis && (
-                            <div className="card ai-analysis-card" style={{ background: 'var(--primary-50)', border: '1px solid var(--primary-100)' }}>
-                                <div className="card-header border-b" style={{ borderBottomColor: 'var(--primary-100)' }}>
-                                    <h2 className="card-title" style={{ color: 'var(--primary-700)', fontSize: '1.1rem' }}>🤖 Analyse IA</h2>
-                                </div>
-                                <div className="card-body">
-                                    {typeof aiAnalysis === 'string' ? (
-                                        <p>{aiAnalysis}</p>
-                                    ) : (
-                                        <div style={{ direction: 'rtl', textAlign: 'right' }}>
-                                            {/* Summary */}
-                                            {aiAnalysis.summary && (
-                                                <div>
-                                                    <p style={{ marginTop: '0', lineHeight: '1.6', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{aiAnalysis.summary}</p>
-                                                </div>
-                                            )}
-
-                                            {/* Diagnoses */}
-                                            {(aiAnalysis.diagnoses || aiAnalysis.hypotheses) && (aiAnalysis.diagnoses || aiAnalysis.hypotheses).length > 0 && (
-                                                <div style={{ marginTop: 'var(--space-md)' }}>
-                                                    <strong style={{ color: 'var(--primary-700)', fontSize: '0.9rem' }}>🔬 Diagnostics:</strong>
-                                                    <div style={{ marginTop: 'var(--space-xs)', display: 'flex', flexDirection: 'column', gap: 'var(--space-xs)' }}>
-                                                        {(aiAnalysis.diagnoses || aiAnalysis.hypotheses).map((d, i) => (
-                                                            <div key={i} style={{
-                                                                padding: 'var(--space-xs) var(--space-sm)',
-                                                                background: 'var(--bg-elevated)',
-                                                                borderRadius: 'var(--radius-sm)',
-                                                                borderRight: `3px solid ${d.probability === 'عالية' ? 'var(--success)' : d.probability === 'متوسطة' ? 'var(--warning)' : 'var(--gray-400)'}`,
-                                                                fontSize: '0.85rem',
-                                                                color: 'var(--text-primary)'
-                                                            }}>
-                                                                <div style={{ fontWeight: '600' }}>{d.name || d.diagnosis}</div>
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        )}
+                        <AiSummaryBlock aiAnalysis={aiAnalysis} />
 
                         {/* 5. Document Type Selector + Content */}
                         <div className="card">

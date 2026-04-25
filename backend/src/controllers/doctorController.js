@@ -3,6 +3,7 @@ const Catalogue = require('../models/Catalogue');
 const Patient = require('../models/Patient');
 const AiConfig = require('../models/AiConfig');
 const GrowthCurve = require('../models/GrowthCurve');
+const { pool } = require('../config/database');
 
 function normalizeOptionalText(value, maxLength) {
     if (value === undefined || value === null) {
@@ -22,13 +23,39 @@ async function getDashboard(req, res) {
             return res.status(404).json({ success: false, message: 'Doctor not found' });
         }
 
-        // Stats: total patients, cases today, etc.
-        // For now returning basic info
+        // Stats queries
+        const [[{ pendingCases }]] = await pool.execute(
+            'SELECT COUNT(c.id) as pendingCases FROM cases c JOIN patients p ON c.patient_id = p.id WHERE p.doctor_id = ? AND c.status = "submitted"', 
+            [doctor.id]
+        );
+        const [[{ reviewedCases }]] = await pool.execute(
+            'SELECT COUNT(c.id) as reviewedCases FROM cases c JOIN patients p ON c.patient_id = p.id WHERE p.doctor_id = ? AND c.status = "reviewed"', 
+            [doctor.id]
+        );
+        const [[{ totalAssistants }]] = await pool.execute(
+            'SELECT COUNT(*) as totalAssistants FROM assistants WHERE doctor_id = ?', 
+            [doctor.id]
+        );
+        const [[{ totalPatients }]] = await pool.execute(
+            'SELECT COUNT(*) as totalPatients FROM patients WHERE doctor_id = ?', 
+            [doctor.id]
+        );
+
         res.json({
             success: true,
             data: {
-                doctorName: doctor.first_name + ' ' + doctor.last_name,
-                specialty: doctor.specialty
+                doctor: {
+                    id: doctor.id,
+                    firstName: doctor.first_name,
+                    lastName: doctor.last_name,
+                    specialty: doctor.specialty
+                },
+                stats: {
+                    pendingCases,
+                    reviewedCases,
+                    totalAssistants,
+                    totalPatients
+                }
             }
         });
     } catch (error) {
@@ -232,21 +259,20 @@ async function uploadGrowthCurve(req, res) {
         const doctor = await Doctor.findByUserId(req.user.id);
         if (!req.file) return res.status(400).json({ success: false, message: 'File is required' });
 
-        const { measureKey, gender, p1_x, p1_y, p1_val_x, p1_val_y, p2_x, p2_y, p2_val_x, p2_val_y, is_calibrated } = req.body;
+        const { measureKey, gender, template_config, is_calibrated } = req.body;
+
+        // Parse template_config if it comes as a string (multipart form)
+        let parsedConfig = null;
+        if (template_config) {
+            parsedConfig = typeof template_config === 'string' ? JSON.parse(template_config) : template_config;
+        }
 
         const curve = await GrowthCurve.create({
             doctor_id: doctor.id,
             measure_key: measureKey,
             gender: gender || 'both',
             file_path: `uploads/curves/${req.file.filename}`,
-            p1_x: parseFloat(p1_x) || 0,
-            p1_y: parseFloat(p1_y) || 0,
-            p1_val_x: parseFloat(p1_val_x) || 0,
-            p1_val_y: parseFloat(p1_val_y) || 0,
-            p2_x: parseFloat(p2_x) || 0,
-            p2_y: parseFloat(p2_y) || 0,
-            p2_val_x: parseFloat(p2_val_x) || 60,
-            p2_val_y: parseFloat(p2_val_y) || 30,
+            template_config: parsedConfig,
             is_calibrated: is_calibrated === 'true' || is_calibrated === true
         });
 
@@ -258,12 +284,13 @@ async function uploadGrowthCurve(req, res) {
 }
 
 /**
- * Update calibration points
+ * Update calibration (template_config)
  */
 async function calibrateGrowthCurve(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
-        const success = await GrowthCurve.updateCalibration(req.params.id, doctor.id, req.body);
+        const { template_config } = req.body;
+        const success = await GrowthCurve.updateCalibration(req.params.id, doctor.id, { template_config });
         if (!success) return res.status(404).json({ success: false, message: 'Curve not found' });
         res.json({ success: true, message: 'Calibration updated' });
     } catch (error) {

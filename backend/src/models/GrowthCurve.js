@@ -2,27 +2,24 @@ const { pool: db } = require('../config/database');
 
 class GrowthCurve {
     static async create(data) {
+        const templateConfig = data.template_config
+            ? (typeof data.template_config === 'string' ? data.template_config : JSON.stringify(data.template_config))
+            : null;
+
         const [result] = await db.execute(
             `INSERT INTO doctor_growth_curves 
-            (doctor_id, measure_key, gender, file_path, p1_x, p1_y, p1_val_x, p1_val_y, p2_x, p2_y, p2_val_x, p2_val_y, is_calibrated) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            (doctor_id, measure_key, gender, file_path, template_config, is_calibrated) 
+            VALUES (?, ?, ?, ?, ?, ?)`,
             [
-                data.doctor_id, 
-                data.measure_key, 
-                data.gender, 
+                data.doctor_id,
+                data.measure_key,
+                data.gender,
                 data.file_path,
-                data.p1_x || 0,
-                data.p1_y || 0,
-                data.p1_val_x || 0,
-                data.p1_val_y || 0,
-                data.p2_x || 0,
-                data.p2_y || 0,
-                data.p2_val_x || 0,
-                data.p2_val_y || 0,
+                templateConfig,
                 data.is_calibrated || false
             ]
         );
-        return { id: result.insertId, ...data };
+        return { id: result.insertId, ...data, template_config: templateConfig ? JSON.parse(templateConfig) : null };
     }
 
     static async findByDoctorId(doctorId) {
@@ -30,7 +27,28 @@ class GrowthCurve {
             'SELECT * FROM doctor_growth_curves WHERE doctor_id = ? ORDER BY created_at DESC',
             [doctorId]
         );
-        return rows;
+        // Parse template_config JSON for each row
+        return rows.map(row => ({
+            ...row,
+            template_config: row.template_config
+                ? (typeof row.template_config === 'string' ? JSON.parse(row.template_config) : row.template_config)
+                : null
+        }));
+    }
+
+    static async findById(id) {
+        const [rows] = await db.execute(
+            'SELECT * FROM doctor_growth_curves WHERE id = ?',
+            [id]
+        );
+        if (!rows.length) return null;
+        const row = rows[0];
+        return {
+            ...row,
+            template_config: row.template_config
+                ? (typeof row.template_config === 'string' ? JSON.parse(row.template_config) : row.template_config)
+                : null
+        };
     }
 
     static async delete(id, doctorId) {
@@ -42,17 +60,18 @@ class GrowthCurve {
     }
 
     static async updateCalibration(id, doctorId, calibrationData) {
+        const templateConfig = calibrationData.template_config
+            ? (typeof calibrationData.template_config === 'string'
+                ? calibrationData.template_config
+                : JSON.stringify(calibrationData.template_config))
+            : null;
+
         const [result] = await db.execute(
             `UPDATE doctor_growth_curves SET 
-                p1_x = ?, p1_y = ?, p1_val_x = ?, p1_val_y = ?,
-                p2_x = ?, p2_y = ?, p2_val_x = ?, p2_val_y = ?,
+                template_config = ?,
                 is_calibrated = TRUE
             WHERE id = ? AND doctor_id = ?`,
-            [
-                calibrationData.p1_x, calibrationData.p1_y, calibrationData.p1_val_x, calibrationData.p1_val_y,
-                calibrationData.p2_x, calibrationData.p2_y, calibrationData.p2_val_x, calibrationData.p2_val_y,
-                id, doctorId
-            ]
+            [templateConfig, id, doctorId]
         );
         return result.affectedRows > 0;
     }

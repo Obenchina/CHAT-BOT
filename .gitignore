@@ -12,7 +12,7 @@ dist-ssr/
 
 # Uploads
 uploads/
-
+.claude/*
 # Logs
 logs
 *.log
@@ -39,3 +39,4 @@ __pycache__/
 # OS Files
 Thumbs.db
 Desktop.ini
+scratch/

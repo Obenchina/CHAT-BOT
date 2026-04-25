@@ -46,7 +46,9 @@ function CatalogueManagement() {
         isRequired: true,
         isActive: true,
         choices: '',
-        clinicalMeasure: 'none'
+        clinicalMeasure: 'none',
+        sectionName: '',
+        sectionOrder: 0
     });
     const [formErrors, setFormErrors] = useState({});
 
@@ -303,10 +305,19 @@ function CatalogueManagement() {
 
     function handleQuestionFormChange(e) {
         const { name, value, type, checked } = e.target;
-        setFormData((prev) => ({
-            ...prev,
-            [name]: type === 'checkbox' ? checked : value
-        }));
+        setFormData((prev) => {
+            const nextVal = type === 'checkbox' ? checked : value;
+            const newData = { ...prev, [name]: nextVal };
+            
+            // Logic for clinicalMeasure and answerType
+            if (name === 'clinicalMeasure' && nextVal !== 'none') {
+                newData.answerType = 'number';
+            }
+            if (name === 'answerType' && nextVal !== 'number') {
+                newData.clinicalMeasure = 'none';
+            }
+            return newData;
+        });
         setFormErrors((prev) => ({ ...prev, [name]: '' }));
     }
 
@@ -323,20 +334,36 @@ function CatalogueManagement() {
     function openAddQuestionModal(catalogueItem = catalogue) {
         if (!catalogueItem) return;
         setEditingQuestion(null);
-        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '', clinicalMeasure: 'none' });
+        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '', clinicalMeasure: 'none', sectionName: '', sectionOrder: 0 });
         setFormErrors({});
         setShowQuestionModal(true);
     }
 
     function openEditQuestionModal(question) {
         setEditingQuestion(question);
+        
+        let parsedChoices = '';
+        if (question.choices) {
+            if (typeof question.choices === 'string') {
+                try {
+                    parsedChoices = JSON.parse(question.choices).join('\n');
+                } catch (e) {
+                    parsedChoices = question.choices;
+                }
+            } else if (Array.isArray(question.choices)) {
+                parsedChoices = question.choices.join('\n');
+            }
+        }
+
         setFormData({
             questionText: question.question_text || question.questionText,
             answerType: question.answer_type || question.answerType,
             isRequired: question.is_required ?? question.isRequired ?? true,
             isActive: question.is_active ?? question.isActive ?? true,
-            choices: Array.isArray(question.choices) ? question.choices.join('\n') : '',
-            clinicalMeasure: question.clinical_measure || question.clinicalMeasure || 'none'
+            choices: parsedChoices,
+            clinicalMeasure: question.clinical_measure || question.clinicalMeasure || 'none',
+            sectionName: question.section_name || question.sectionName || '',
+            sectionOrder: question.section_order || question.sectionOrder || 0
         });
         setFormErrors({});
         setShowQuestionModal(true);
@@ -345,7 +372,7 @@ function CatalogueManagement() {
     function closeQuestionModal() {
         setShowQuestionModal(false);
         setEditingQuestion(null);
-        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '' });
+        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '', clinicalMeasure: 'none', sectionName: '', sectionOrder: 0 });
         setFormErrors({});
     }
 
@@ -361,8 +388,11 @@ function CatalogueManagement() {
                 isRequired: formData.isRequired,
                 isActive: formData.isActive,
                 choices: formData.answerType === 'choices'
-                    ? formData.choices.split('\n').map((choice) => choice.trim()).filter(Boolean)
-                    : null
+                    ? JSON.stringify(formData.choices.split('\n').map(c => c.trim()).filter(c => c))
+                    : null,
+                clinicalMeasure: formData.clinicalMeasure,
+                sectionName: formData.sectionName,
+                sectionOrder: formData.sectionOrder
             };
 
             if (editingQuestion) {
@@ -428,7 +458,10 @@ function CatalogueManagement() {
         const labels = {
             yes_no: t.catalogue.yesNo,
             voice: t.catalogue.voice,
-            choices: t.catalogue.choices
+            choices: t.catalogue.choices,
+            text_short: 'Texte court',
+            text_long: 'Texte long',
+            number: 'Nombre'
         };
         return labels[type] || type;
     }
@@ -516,19 +549,29 @@ function CatalogueManagement() {
                                         const isQuestionActive = question.is_active ?? question.isActive;
                                         const questionText = question.question_text || question.questionText;
                                         const isRequired = question.is_required ?? question.isRequired;
+                                        const sectionName = question.section_name || question.sectionName;
+                                        const prevSectionName = index > 0 ? (questions[index - 1].section_name || questions[index - 1].sectionName) : null;
+                                        const showSectionHeader = sectionName && sectionName !== prevSectionName;
 
                                         return (
-                                            <tr
-                                                key={question.id}
-                                                draggable
-                                                onDragStart={(e) => handleDragStart(e, index)}
-                                                onDragEnd={handleDragEnd}
-                                                onDragOver={(e) => handleDragOver(e, index)}
-                                                onDragEnter={(e) => handleDragEnter(e, index)}
-                                                onDragLeave={handleDragLeave}
-                                                onDrop={(e) => handleDrop(e, index)}
-                                                className={`drag-row ${draggedItem === index ? 'dragging' : ''} ${dragOverItem === index ? 'drag-over' : ''}`}
-                                            >
+                                            <Fragment key={question.id}>
+                                                {showSectionHeader && (
+                                                    <tr className="section-header-row" style={{ backgroundColor: 'var(--bg-elevated)' }}>
+                                                        <td colSpan="5" style={{ padding: 'var(--space-md) var(--space-md)', color: 'var(--primary)', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)' }}>
+                                                            📁 {sectionName}
+                                                        </td>
+                                                    </tr>
+                                                )}
+                                                <tr
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, index)}
+                                                    onDragEnd={handleDragEnd}
+                                                    onDragOver={(e) => handleDragOver(e, index)}
+                                                    onDragEnter={(e) => handleDragEnter(e, index)}
+                                                    onDragLeave={handleDragLeave}
+                                                    onDrop={(e) => handleDrop(e, index)}
+                                                    className={`drag-row ${draggedItem === index ? 'dragging' : ''} ${dragOverItem === index ? 'drag-over' : ''}`}
+                                                >
                                                 <td className="drag-handle-cell">
                                                     <div className="drag-handle" title="Glisser pour reordonner">
                                                         <span className="drag-icon">
@@ -548,7 +591,8 @@ function CatalogueManagement() {
                                                     </span>
                                                 </td>
                                                 <td className="col-actions">{renderQuestionActions(question)}</td>
-                                            </tr>
+                                                </tr>
+                                            </Fragment>
                                         );
                                     })}
                                 </tbody>
@@ -557,22 +601,30 @@ function CatalogueManagement() {
 
                         <div className="mobile-list-container catalogue-question-mobile-list">
                             {questions.map((question, index) => {
-                                const isQuestionActive = question.is_active ?? question.isActive;
-                                const questionText = question.question_text || question.questionText;
-                                const isRequired = question.is_required ?? question.isRequired;
+                                        const isQuestionActive = question.is_active ?? question.isActive;
+                                        const questionText = question.question_text || question.questionText;
+                                        const isRequired = question.is_required ?? question.isRequired;
+                                        const sectionName = question.section_name || question.sectionName;
+                                        const prevSectionName = index > 0 ? (questions[index - 1].section_name || questions[index - 1].sectionName) : null;
+                                        const showSectionHeader = sectionName && sectionName !== prevSectionName;
 
-                                return (
-                                    <div
-                                        key={`mobile-question-${question.id}`}
-                                        className={`mobile-list-item catalogue-question-mobile-item ${draggedItem === index ? 'dragging' : ''} ${dragOverItem === index ? 'drag-over' : ''}`}
-                                        draggable
-                                        onDragStart={(e) => handleDragStart(e, index)}
-                                        onDragEnd={handleDragEnd}
-                                        onDragOver={(e) => handleDragOver(e, index)}
-                                        onDragEnter={(e) => handleDragEnter(e, index)}
-                                        onDragLeave={handleDragLeave}
-                                        onDrop={(e) => handleDrop(e, index)}
-                                    >
+                                        return (
+                                            <Fragment key={`mobile-question-${question.id}`}>
+                                                {showSectionHeader && (
+                                                    <div className="mobile-section-header" style={{ padding: 'var(--space-md)', backgroundColor: 'var(--bg-elevated)', color: 'var(--primary)', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)', borderTop: index > 0 ? '1px solid var(--border-color)' : 'none' }}>
+                                                        📁 {sectionName}
+                                                    </div>
+                                                )}
+                                                <div
+                                                    className={`mobile-list-item catalogue-question-mobile-item ${draggedItem === index ? 'dragging' : ''} ${dragOverItem === index ? 'drag-over' : ''}`}
+                                                    draggable
+                                                    onDragStart={(e) => handleDragStart(e, index)}
+                                                    onDragEnd={handleDragEnd}
+                                                    onDragOver={(e) => handleDragOver(e, index)}
+                                                    onDragEnter={(e) => handleDragEnter(e, index)}
+                                                    onDragLeave={handleDragLeave}
+                                                    onDrop={(e) => handleDrop(e, index)}
+                                                >
                                         <div className="catalogue-question-mobile-main">
                                             <div className="drag-handle" title="Glisser pour reordonner">
                                                 <span className="drag-icon">
@@ -596,8 +648,9 @@ function CatalogueManagement() {
                                         <div className="catalogue-question-mobile-actions">
                                             {renderQuestionActions(question)}
                                         </div>
-                                    </div>
-                                );
+                                                </div>
+                                            </Fragment>
+                                        );
                             })}
                         </div>
                     </>
@@ -859,13 +912,43 @@ function CatalogueManagement() {
                         {formErrors.questionText && <span className="form-error">{formErrors.questionText}</span>}
                     </div>
 
+                    <div className="form-group" style={{ display: 'flex', gap: 'var(--space-md)' }}>
+                        <div style={{ flex: 1 }}>
+                            <label className="form-label">Nom de la section (optionnel)</label>
+                            <input
+                                type="text"
+                                name="sectionName"
+                                value={formData.sectionName}
+                                onChange={handleQuestionFormChange}
+                                className="form-input"
+                                placeholder="ex: Antécédents"
+                            />
+                        </div>
+                        <div style={{ width: '120px' }}>
+                            <label className="form-label">Ordre (Section)</label>
+                            <input
+                                type="number"
+                                name="sectionOrder"
+                                value={formData.sectionOrder}
+                                onChange={handleQuestionFormChange}
+                                className="form-input"
+                            />
+                        </div>
+                    </div>
+
                     <div className="form-group">
                         <label className="form-label">{t.catalogue.answerType}</label>
-                        <select name="answerType" value={formData.answerType} onChange={handleQuestionFormChange} className="form-input form-select">
+                        <select name="answerType" value={formData.answerType} onChange={handleQuestionFormChange} className="form-input form-select" disabled={formData.clinicalMeasure !== 'none'}>
                             <option value="voice">{t.catalogue.voice}</option>
                             <option value="yes_no">{t.catalogue.yesNo}</option>
                             <option value="choices">{t.catalogue.choices}</option>
+                            <option value="text_short">Texte court</option>
+                            <option value="text_long">Texte long</option>
+                            <option value="number">Nombre</option>
                         </select>
+                        {formData.clinicalMeasure !== 'none' && (
+                            <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Le type de réponse est forcé à "Nombre" pour une mesure clinique.</span>
+                        )}
                     </div>
 
                     <div className="form-group">

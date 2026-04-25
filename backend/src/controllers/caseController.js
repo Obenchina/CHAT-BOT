@@ -672,18 +672,20 @@ async function addTextAnswer(req, res) {
         if (existingAnswer) {
             await Case.updateAnswer(existingAnswer.id, {
                 audioPath: null,
-                transcribedText: answer,
+                textAnswer: answer,
+                transcribedText: null,
                 questionTextSnapshot: existingAnswer.question_text_snapshot || questionContext.snapshot.questionTextSnapshot,
                 answerTypeSnapshot: existingAnswer.answer_type_snapshot || questionContext.snapshot.answerTypeSnapshot,
                 orderIndexSnapshot: existingAnswer.order_index_snapshot ?? questionContext.snapshot.orderIndexSnapshot
             });
-            savedAnswer = { ...existingAnswer, transcribed_text: answer };
+            savedAnswer = { ...existingAnswer, text_answer: answer };
         } else {
             savedAnswer = await Case.addAnswer({
                 caseId: id,
                 questionId,
                 audioPath: null,
-                transcribedText: answer,
+                textAnswer: answer,
+                transcribedText: null,
                 ...questionContext.snapshot
             });
         }
@@ -1205,12 +1207,20 @@ async function suggestMedications(req, res) {
         }
 
         const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) {
+            return res.status(404).json({ success: false, message: 'Médecin introuvable' });
+        }
+
         const activeAiConfig = await AiConfig.findActiveByDoctorId(doctor.id);
         const aiConfig = activeAiConfig ? {
             provider: activeAiConfig.provider,
             apiKey: activeAiConfig.api_key,
             model: activeAiConfig.model
         } : null;
+
+        if (!aiConfig || !aiConfig.apiKey) {
+            return res.status(400).json({ success: false, message: 'Clé API IA non configurée pour ce médecin' });
+        }
 
         const medications = await aiService.suggestMedications(caseData, aiConfig);
         res.json({ success: true, data: medications });

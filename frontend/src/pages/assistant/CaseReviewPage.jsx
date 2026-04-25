@@ -257,8 +257,8 @@ function CaseReviewPage() {
                                                             fontSize: '0.95rem',
                                                             lineHeight: '1.6'
                                                         }}>
-                                                            {answer.transcribed_text ? (
-                                                                <>{answer.transcribed_text}</>
+                                                            {(answer.text_answer || answer.textAnswer || answer.transcribed_text) ? (
+                                                                <>{answer.text_answer || answer.textAnswer || answer.transcribed_text}</>
                                                             ) : (
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end', fontStyle: 'italic' }}>
                                                                     <span>Réponse enregistrée vocalement</span>

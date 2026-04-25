@@ -32,7 +32,9 @@ import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SaveIcon from '@mui/icons-material/Save';
 import MedicationIcon from '@mui/icons-material/Medication';
+import TimelineIcon from '@mui/icons-material/Timeline';
 import MedicationCsvTab from '../../components/doctor/settings/MedicationCsvTab';
+import GrowthCurveManager from '../../components/doctor/settings/GrowthCurveManager';
 
 const t = translations;
 const DEFAULT_PRESCRIPTION_CONFIG = {
@@ -92,6 +94,7 @@ const TABS = [
     { id: 'ai', label: 'Configuration IA', icon: <SmartToyIcon fontSize="small" /> },
     { id: 'prescription', label: 'Édition Ordonnance', icon: <DescriptionIcon fontSize="small" /> },
     { id: 'medications', label: 'Médicaments', icon: <MedicationIcon fontSize="small" /> },
+    { id: 'growth_curves', label: 'Courbes Pédiatriques', icon: <TimelineIcon fontSize="small" /> },
 ];
 
 function DoctorSettings() {
@@ -173,6 +176,7 @@ function DoctorSettings() {
                     {activeTab === 'ai' && <AiConfigTab />}
                     {activeTab === 'prescription' && <PrescriptionPdfTab />}
                     {activeTab === 'medications' && <MedicationCsvTab />}
+                    {activeTab === 'growth_curves' && <GrowthCurveManager />}
                 </div>
             </main>
         </div>

@@ -56,6 +56,10 @@ async function sendMessage(req, res) {
             model: activeAiConfig.model
         } : null;
 
+        if (!aiConfig || !aiConfig.apiKey) {
+            return res.status(400).json({ success: false, message: 'Clé API IA non configurée' });
+        }
+
         // Save doctor's message
         const doctorMsg = await AiChat.addMessage(caseId, doctor.id, 'doctor', message.trim());
 
@@ -143,6 +147,10 @@ async function sendWithFullHistory(req, res) {
             apiKey: activeAiConfig.api_key,
             model: activeAiConfig.model
         } : null;
+
+        if (!aiConfig || !aiConfig.apiKey) {
+            return res.status(400).json({ success: false, message: 'Clé API IA non configurée' });
+        }
 
         const doctorMsg = await AiChat.addMessage(caseId, doctor.id, 'doctor', `[مع الدوسييه الكامل] ${message}`);
 

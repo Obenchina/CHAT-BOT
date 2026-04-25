@@ -159,6 +159,7 @@ CREATE TABLE IF NOT EXISTS case_answers (
     question_id INT NOT NULL,
     audio_path VARCHAR(500),
     transcribed_text TEXT,
+    text_answer TEXT,
     question_text_snapshot TEXT,
     answer_type_snapshot ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NULL,
     order_index_snapshot INT NULL,
@@ -246,17 +247,8 @@ CREATE TABLE IF NOT EXISTS doctor_growth_curves (
     measure_key VARCHAR(50) NOT NULL, -- 'weight', 'height', 'head', 'bmi'
     gender ENUM('male', 'female', 'both') NOT NULL DEFAULT 'both',
     file_path VARCHAR(255) NOT NULL,
-    -- Calibration Points: Mapping pixel coordinates to physical values
-    -- P1: Typically the Origin (0,0) or bottom-left of grid
-    p1_x FLOAT DEFAULT 0, -- Pixel X for P1
-    p1_y FLOAT DEFAULT 0, -- Pixel Y for P1
-    p1_val_x FLOAT DEFAULT 0, -- Age/Months for P1
-    p1_val_y FLOAT DEFAULT 0, -- Weight/Height for P1
-    -- P2: A reference point (e.g., top-right of grid)
-    p2_x FLOAT DEFAULT 0, -- Pixel X for P2
-    p2_y FLOAT DEFAULT 0, -- Pixel Y for P2
-    p2_val_x FLOAT DEFAULT 60, -- Age/Months for P2
-    p2_val_y FLOAT DEFAULT 30, -- Weight/Height for P2
+    -- Template Configuration: Stores min_age, max_age, min_y, max_y, and plot_area
+    template_config JSON NULL,
     is_calibrated BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
