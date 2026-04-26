@@ -23,6 +23,42 @@ import CheckIcon from '@mui/icons-material/Check';
 
 const t = translations;
 
+function validateClinicalInput(question, rawValue) {
+    const clinicalMeasure = question?.clinical_measure;
+    if (!clinicalMeasure || clinicalMeasure === 'none') return { valid: true };
+
+    const value = String(rawValue ?? '').trim();
+    if (!value) return { valid: false, message: 'Valeur clinique requise.' };
+
+    if (clinicalMeasure === 'blood_pressure') {
+        const match = value.match(/^(\d{2,3})\s*\/\s*(\d{2,3})$/);
+        if (!match) return { valid: false, message: 'La tension doit être au format 120/80.' };
+        const x = Number(match[1]);
+        const y = Number(match[2]);
+        if (x < 30 || x > 260 || y < 20 || y > 200) {
+            return { valid: false, message: 'Valeur de tension hors plage médicale (30-260 / 20-200).' };
+        }
+        return { valid: true };
+    }
+
+    const n = Number(value);
+    if (!Number.isFinite(n)) return { valid: false, message: 'Valeur numérique invalide.' };
+
+    const ranges = {
+        weight: [0, 300, 'poids'],
+        height: [0, 250, 'taille'],
+        head_circumference: [0, 80, 'périmètre crânien'],
+        temperature: [25, 45, 'température']
+    };
+    const range = ranges[clinicalMeasure];
+    if (!range) return { valid: true };
+    const [min, max, label] = range;
+    if (n < min || n > max) {
+        return { valid: false, message: `Valeur ${label} hors plage médicale (${min} à ${max}).` };
+    }
+    return { valid: true };
+}
+
 function QuestionnairePage() {
     const { patientId } = useParams();
     const navigate = useNavigate();
@@ -295,6 +331,16 @@ function QuestionnairePage() {
             showWarning('Veuillez répondre à cette question obligatoire pour continuer.');
             return false;
         }
+
+        const currentType = currentQuestion.answerType || currentQuestion.answer_type;
+        const answerValue = hasSavedAnswer?.value ?? '';
+        if (currentType === 'number') {
+            const clinicalValidation = validateClinicalInput(currentQuestion, answerValue);
+            if (!clinicalValidation.valid) {
+                showWarning(clinicalValidation.message);
+                return false;
+            }
+        }
         return true;
     }
 
@@ -473,11 +519,11 @@ function QuestionnairePage() {
                             <div className="card questionnaire-card">
                                 <div className="card-body">
                                     {/* Question text */}
-                                    {(currentQuestion.section_name || currentQuestion.sectionName) && (
-                                        <div style={{ marginBottom: '8px' }}>
-                                            <span className="badge badge-info">{currentQuestion.section_name || currentQuestion.sectionName}</span>
-                                        </div>
-                                    )}
+                                    <div style={{ marginBottom: '8px' }}>
+                                        <span className="badge badge-info">
+                                            {currentQuestion.section_name || currentQuestion.sectionName || 'بدون قسم'}
+                                        </span>
+                                    </div>
                                     <h2 className="question-text">
                                         {currentQuestion.questionText || currentQuestion.question_text}
                                         {(currentQuestion.isRequired || currentQuestion.is_required) && (
@@ -562,15 +608,26 @@ function QuestionnairePage() {
                                         {/* Number */}
                                         {(currentQuestion.answerType || currentQuestion.answer_type) === 'number' && (
                                             <div className="text-answer flex items-center gap-sm">
-                                                <input
-                                                    type="number"
-                                                    step="any"
-                                                    className="form-input"
-                                                    style={{ width: '150px', padding: '12px', fontSize: '1.1rem' }}
-                                                    value={currentAnswer?.value || ''}
-                                                    onChange={(e) => handleTextChange(e.target.value, 'number')}
-                                                    placeholder="0"
-                                                />
+                                                {currentQuestion.clinical_measure === 'blood_pressure' ? (
+                                                    <input
+                                                        type="text"
+                                                        className="form-input"
+                                                        style={{ width: '180px', padding: '12px', fontSize: '1.1rem' }}
+                                                        value={currentAnswer?.value || ''}
+                                                        onChange={(e) => handleTextChange(e.target.value, 'number')}
+                                                        placeholder="120/80"
+                                                    />
+                                                ) : (
+                                                    <input
+                                                        type="number"
+                                                        step="any"
+                                                        className="form-input"
+                                                        style={{ width: '150px', padding: '12px', fontSize: '1.1rem' }}
+                                                        value={currentAnswer?.value || ''}
+                                                        onChange={(e) => handleTextChange(e.target.value, 'number')}
+                                                        placeholder="0"
+                                                    />
+                                                )}
                                                 {currentQuestion.clinical_measure && currentQuestion.clinical_measure !== 'none' && CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure]?.unit && (
                                                     <span style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
                                                         {CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure].unit}

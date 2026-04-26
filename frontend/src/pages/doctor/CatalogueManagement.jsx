@@ -13,6 +13,7 @@ import translations from '../../constants/translations';
 import { CLINICAL_MEASURE_LABELS } from '../../constants/config';
 import { showConfirm, showError, showSuccess } from '../../utils/toast';
 import '../../styles/dragdrop.css';
+import SectionsManagerModal from '../../components/doctor/settings/SectionsManagerModal';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
@@ -28,6 +29,7 @@ function CatalogueManagement() {
     const [selectedCatalogueId, setSelectedCatalogueId] = useState(null);
     const [catalogue, setCatalogue] = useState(null);
     const [questions, setQuestions] = useState([]);
+    const [sections, setSections] = useState([]);
     const [loading, setLoading] = useState(true);
     const [detailLoading, setDetailLoading] = useState(false);
 
@@ -47,14 +49,15 @@ function CatalogueManagement() {
         isActive: true,
         choices: '',
         clinicalMeasure: 'none',
-        sectionName: '',
-        sectionOrder: 0
+        sectionId: ''
     });
     const [formErrors, setFormErrors] = useState({});
 
     const [draggedItem, setDraggedItem] = useState(null);
     const [dragOverItem, setDragOverItem] = useState(null);
     const [, setIsDragging] = useState(false);
+    const [showSectionsModal, setShowSectionsModal] = useState(false);
+    const [movingQuestionId, setMovingQuestionId] = useState(null);
 
     useEffect(() => {
         loadCatalogues();
@@ -98,6 +101,7 @@ function CatalogueManagement() {
             if (response.success) {
                 setCatalogue(response.data.catalogue);
                 setQuestions(response.data.questions || []);
+                setSections(response.data.sections || []);
             }
         } catch (error) {
             console.error('Load selected catalogue error:', error);
@@ -285,6 +289,19 @@ function CatalogueManagement() {
             return;
         }
 
+        const draggedQuestion = questions[draggedItem];
+        const targetQuestion = questions[dropIndex];
+        const draggedSection = draggedQuestion?.section_name || draggedQuestion?.sectionName || null;
+        const targetSection = targetQuestion?.section_name || targetQuestion?.sectionName || null;
+        if ((draggedSection || null) !== (targetSection || null)) {
+            showError('Le réordonnancement par glisser-déposer est limité داخل نفس القسم. استخدم قائمة القسم لنقل السؤال.');
+            setDragOverItem(null);
+            setDraggedItem(null);
+            setIsDragging(false);
+            await loadSelectedCatalogue(currentCatalogueId);
+            return;
+        }
+
         const newQuestions = [...questions];
         const [removed] = newQuestions.splice(draggedItem, 1);
         newQuestions.splice(dropIndex, 0, removed);
@@ -334,7 +351,7 @@ function CatalogueManagement() {
     function openAddQuestionModal(catalogueItem = catalogue) {
         if (!catalogueItem) return;
         setEditingQuestion(null);
-        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '', clinicalMeasure: 'none', sectionName: '', sectionOrder: 0 });
+        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '', clinicalMeasure: 'none', sectionId: '' });
         setFormErrors({});
         setShowQuestionModal(true);
     }
@@ -347,13 +364,17 @@ function CatalogueManagement() {
             if (typeof question.choices === 'string') {
                 try {
                     parsedChoices = JSON.parse(question.choices).join('\n');
-                } catch (e) {
+                } catch {
                     parsedChoices = question.choices;
                 }
             } else if (Array.isArray(question.choices)) {
                 parsedChoices = question.choices.join('\n');
             }
         }
+        const sectionName = question.section_name || question.sectionName || '';
+        const matchedSection = sectionName
+            ? (sections || []).find(s => s.name === sectionName)
+            : null;
 
         setFormData({
             questionText: question.question_text || question.questionText,
@@ -362,8 +383,7 @@ function CatalogueManagement() {
             isActive: question.is_active ?? question.isActive ?? true,
             choices: parsedChoices,
             clinicalMeasure: question.clinical_measure || question.clinicalMeasure || 'none',
-            sectionName: question.section_name || question.sectionName || '',
-            sectionOrder: question.section_order || question.sectionOrder || 0
+            sectionId: matchedSection ? String(matchedSection.id) : ''
         });
         setFormErrors({});
         setShowQuestionModal(true);
@@ -372,7 +392,7 @@ function CatalogueManagement() {
     function closeQuestionModal() {
         setShowQuestionModal(false);
         setEditingQuestion(null);
-        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '', clinicalMeasure: 'none', sectionName: '', sectionOrder: 0 });
+        setFormData({ questionText: '', answerType: 'voice', isRequired: true, isActive: true, choices: '', clinicalMeasure: 'none', sectionId: '' });
         setFormErrors({});
     }
 
@@ -391,8 +411,7 @@ function CatalogueManagement() {
                     ? JSON.stringify(formData.choices.split('\n').map(c => c.trim()).filter(c => c))
                     : null,
                 clinicalMeasure: formData.clinicalMeasure,
-                sectionName: formData.sectionName,
-                sectionOrder: formData.sectionOrder
+                sectionId: formData.sectionId ? Number(formData.sectionId) : null
             };
 
             if (editingQuestion) {
@@ -518,6 +537,9 @@ function CatalogueManagement() {
                     <Button variant="primary" onClick={() => openAddQuestionModal(catalogue)}>
                         <AddIcon fontSize="small" /> {t.catalogue.addQuestion}
                     </Button>
+                    <Button variant="secondary" onClick={() => setShowSectionsModal(true)}>
+                        📁 Gérer les sections
+                    </Button>
                 </div>
 
                 {questions.length > 1 && (
@@ -537,6 +559,7 @@ function CatalogueManagement() {
                                     <tr>
                                         <th style={{ width: '64px' }}>#</th>
                                         <th>Question</th>
+                                        <th style={{ width: '18%' }}>Section</th>
                                         <th style={{ width: '18%' }}>{t.catalogue.answerType}</th>
                                         <th style={{ width: '14%' }}>{t.common.status}</th>
                                         <th className="col-actions" style={{ width: '144px' }}>
@@ -552,12 +575,15 @@ function CatalogueManagement() {
                                         const sectionName = question.section_name || question.sectionName;
                                         const prevSectionName = index > 0 ? (questions[index - 1].section_name || questions[index - 1].sectionName) : null;
                                         const showSectionHeader = sectionName && sectionName !== prevSectionName;
+                                        const currentSectionId = sectionName
+                                            ? (sections || []).find(s => s.name === sectionName)?.id
+                                            : null;
 
                                         return (
                                             <Fragment key={question.id}>
                                                 {showSectionHeader && (
                                                     <tr className="section-header-row" style={{ backgroundColor: 'var(--bg-elevated)' }}>
-                                                        <td colSpan="5" style={{ padding: 'var(--space-md) var(--space-md)', color: 'var(--primary)', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)' }}>
+                                                        <td colSpan="6" style={{ padding: 'var(--space-md) var(--space-md)', color: 'var(--primary)', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)' }}>
                                                             📁 {sectionName}
                                                         </td>
                                                     </tr>
@@ -583,6 +609,40 @@ function CatalogueManagement() {
                                                 <td className="col-truncate" title={questionText}>
                                                     {questionText}
                                                     {isRequired && <span style={{ color: 'var(--error)', marginLeft: '4px' }}>*</span>}
+                                                </td>
+                                                <td>
+                                                    <select
+                                                        className="form-input form-select"
+                                                        style={{ width: '100%' }}
+                                                        value={currentSectionId ? String(currentSectionId) : ''}
+                                                        disabled={movingQuestionId === question.id}
+                                                        onChange={async (e) => {
+                                                            if (!catalogue) return;
+                                                            setMovingQuestionId(question.id);
+                                                            try {
+                                                                const nextSectionId = Number.isFinite(Number(e?.target?.value))
+                                                                    ? Number(e.target.value)
+                                                                    : null;
+                                                                const res = await catalogueService.updateQuestion(question.id, { sectionId: nextSectionId });
+                                                                if (res.success) {
+                                                                    showSuccess('Section mise à jour');
+                                                                    await refreshSelectedCatalogue(catalogue.id);
+                                                                } else {
+                                                                    showError(res.message || 'Erreur');
+                                                                }
+                                                            } catch (err) {
+                                                                console.error('move question section error:', err);
+                                                                showError(err?.response?.data?.message || err?.message || t.errors.serverError);
+                                                            } finally {
+                                                                setMovingQuestionId(null);
+                                                            }
+                                                        }}
+                                                    >
+                                                        <option value="">بدون قسم</option>
+                                                        {(sections || []).map(s => (
+                                                            <option key={s.id} value={s.id}>{s.name}</option>
+                                                        ))}
+                                                    </select>
                                                 </td>
                                                 <td>{getAnswerTypeLabel(question.answer_type || question.answerType)}</td>
                                                 <td>
@@ -912,27 +972,21 @@ function CatalogueManagement() {
                         {formErrors.questionText && <span className="form-error">{formErrors.questionText}</span>}
                     </div>
 
-                    <div className="form-group" style={{ display: 'flex', gap: 'var(--space-md)' }}>
-                        <div style={{ flex: 1 }}>
-                            <label className="form-label">Nom de la section (optionnel)</label>
-                            <input
-                                type="text"
-                                name="sectionName"
-                                value={formData.sectionName}
-                                onChange={handleQuestionFormChange}
-                                className="form-input"
-                                placeholder="ex: Antécédents"
-                            />
-                        </div>
-                        <div style={{ width: '120px' }}>
-                            <label className="form-label">Ordre (Section)</label>
-                            <input
-                                type="number"
-                                name="sectionOrder"
-                                value={formData.sectionOrder}
-                                onChange={handleQuestionFormChange}
-                                className="form-input"
-                            />
+                    <div className="form-group">
+                        <label className="form-label">Section</label>
+                        <select
+                            name="sectionId"
+                            value={formData.sectionId}
+                            onChange={handleQuestionFormChange}
+                            className="form-input form-select"
+                        >
+                            <option value="">بدون قسم</option>
+                            {(sections || []).map(s => (
+                                <option key={s.id} value={s.id}>{s.name}</option>
+                            ))}
+                        </select>
+                        <div style={{ marginTop: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                            لإدارة الأقسام (إنشاء/إعادة تسمية/ترتيب/حذف)، استخدم زر "Gérer les sections".
                         </div>
                     </div>
 
@@ -989,6 +1043,20 @@ function CatalogueManagement() {
                     </div>
                 </form>
             </Modal>
+
+            <SectionsManagerModal
+                isOpen={showSectionsModal}
+                onClose={() => setShowSectionsModal(false)}
+                catalogueId={catalogue?.id || selectedCatalogueId}
+                sections={sections}
+                loading={detailLoading}
+                catalogueService={catalogueService}
+                onChanged={async () => {
+                    if (catalogue?.id) {
+                        await refreshSelectedCatalogue(catalogue.id);
+                    }
+                }}
+            />
         </div>
     );
 }

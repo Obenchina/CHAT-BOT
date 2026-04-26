@@ -91,6 +91,7 @@ async function getCatalogueById(req, res) {
         }
 
         const catalogueWithQuestions = await Catalogue.getWithQuestions(id);
+        const sections = await Catalogue.getSections(id);
         const caseCount = await Catalogue.countCasesUsing(id);
 
         res.json({
@@ -103,6 +104,7 @@ async function getCatalogueById(req, res) {
                     is_active: Boolean(catalogueWithQuestions.is_active),
                     case_count: caseCount
                 },
+                sections,
                 questions: (catalogueWithQuestions.questions || []).map(question => ({
                     id: question.id,
                     question_text: question.question_text,
@@ -335,7 +337,7 @@ async function deleteCatalogue(req, res) {
 async function addQuestion(req, res) {
     try {
         const { id } = req.params;
-        const { questionText, answerType, choices, isRequired, sectionName, sectionOrder, clinicalMeasure } = req.body;
+        const { questionText, answerType, choices, isRequired, sectionName, sectionOrder, sectionId, clinicalMeasure } = req.body;
 
         if (!questionText || !answerType) {
             return res.status(400).json({
@@ -386,6 +388,24 @@ async function addQuestion(req, res) {
         const questions = await Catalogue.getQuestions(id);
         const maxOrder = questions.length > 0 ? Math.max(...questions.map(question => question.order_index)) : 0;
 
+        let resolvedSectionName = sectionName || null;
+        let resolvedSectionOrder = sectionOrder || 0;
+        if (sectionId) {
+            const sec = await Catalogue.getSectionById(id, Number(sectionId));
+            if (!sec) {
+                return res.status(400).json({ success: false, message: 'Section introuvable' });
+            }
+            resolvedSectionName = sec.name;
+            resolvedSectionOrder = sec.section_order;
+        } else if (resolvedSectionName && String(resolvedSectionName).trim()) {
+            const ensured = await Catalogue.ensureSectionByName(id, resolvedSectionName, resolvedSectionOrder);
+            resolvedSectionName = ensured.name;
+            resolvedSectionOrder = ensured.section_order;
+        } else {
+            resolvedSectionName = null;
+            resolvedSectionOrder = 9999;
+        }
+
         const question = await Catalogue.addQuestion({
             catalogueId: id,
             questionText,
@@ -393,8 +413,8 @@ async function addQuestion(req, res) {
             choices: choices || [],
             isRequired: isRequired !== false,
             orderIndex: maxOrder + 1,
-            sectionName: sectionName || null,
-            sectionOrder: sectionOrder || 0,
+            sectionName: resolvedSectionName,
+            sectionOrder: resolvedSectionOrder,
             clinicalMeasure: clinicalMeasure || 'none'
         });
 
@@ -419,7 +439,7 @@ async function addQuestion(req, res) {
 async function updateQuestion(req, res) {
     try {
         const { questionId } = req.params;
-        const { questionText, answerType, choices, isRequired, isActive, sectionName, sectionOrder, clinicalMeasure } = req.body;
+        const { questionText, answerType, choices, isRequired, isActive, sectionName, sectionOrder, sectionId, clinicalMeasure } = req.body;
         const doctor = await Doctor.findByUserId(req.user.id);
 
         if (!doctor) {
@@ -453,14 +473,39 @@ async function updateQuestion(req, res) {
             });
         }
 
+        let resolvedSectionName = sectionName;
+        let resolvedSectionOrder = sectionOrder;
+        if (sectionId !== undefined) {
+            if (sectionId === null || sectionId === '' || Number(sectionId) === 0) {
+                resolvedSectionName = null;
+                resolvedSectionOrder = 9999;
+            } else {
+                const sec = await Catalogue.getSectionById(question.catalogue_id, Number(sectionId));
+                if (!sec) {
+                    return res.status(400).json({ success: false, message: 'Section introuvable' });
+                }
+                resolvedSectionName = sec.name;
+                resolvedSectionOrder = sec.section_order;
+            }
+        } else if (resolvedSectionName !== undefined) {
+            if (String(resolvedSectionName || '').trim()) {
+                const ensured = await Catalogue.ensureSectionByName(question.catalogue_id, resolvedSectionName, resolvedSectionOrder);
+                resolvedSectionName = ensured.name;
+                resolvedSectionOrder = ensured.section_order;
+            } else {
+                resolvedSectionName = null;
+                resolvedSectionOrder = 9999;
+            }
+        }
+
         await Catalogue.updateQuestion(questionId, {
             questionText,
             answerType,
             choices,
             isRequired,
             isActive,
-            sectionName,
-            sectionOrder,
+            sectionName: resolvedSectionName,
+            sectionOrder: resolvedSectionOrder,
             clinicalMeasure
         });
 
@@ -563,6 +608,102 @@ async function reorderQuestions(req, res) {
     }
 }
 
+/**
+ * Sections management
+ */
+async function getSections(req, res) {
+    try {
+        const { id } = req.params;
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+        const catalogue = await Catalogue.findById(id);
+        if (!catalogue || catalogue.doctor_id !== doctor.id) {
+            return res.status(404).json({ success: false, message: 'Catalogue not found' });
+        }
+        const sections = await Catalogue.getSections(id);
+        res.json({ success: true, data: sections });
+    } catch (error) {
+        console.error('Get sections error:', error);
+        res.status(500).json({ success: false, message: 'Failed to get sections' });
+    }
+}
+
+async function createSection(req, res) {
+    try {
+        const { id } = req.params;
+        const { name } = req.body;
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+        const catalogue = await Catalogue.findById(id);
+        if (!catalogue || catalogue.doctor_id !== doctor.id) {
+            return res.status(404).json({ success: false, message: 'Catalogue not found' });
+        }
+        const section = await Catalogue.createSection(id, name);
+        res.status(201).json({ success: true, data: section });
+    } catch (error) {
+        console.error('Create section error:', error);
+        res.status(error.status || 500).json({ success: false, message: error.message || 'Failed to create section' });
+    }
+}
+
+async function renameSection(req, res) {
+    try {
+        const { id, sectionId } = req.params;
+        const { name } = req.body;
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+        const catalogue = await Catalogue.findById(id);
+        if (!catalogue || catalogue.doctor_id !== doctor.id) {
+            return res.status(404).json({ success: false, message: 'Catalogue not found' });
+        }
+        const ok = await Catalogue.renameSection(id, Number(sectionId), name);
+        if (!ok) return res.status(404).json({ success: false, message: 'Section not found' });
+        res.json({ success: true, message: 'Section updated' });
+    } catch (error) {
+        console.error('Rename section error:', error);
+        res.status(error.status || 500).json({ success: false, message: error.message || 'Failed to rename section' });
+    }
+}
+
+async function reorderSections(req, res) {
+    try {
+        const { id } = req.params;
+        const { order } = req.body;
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+        const catalogue = await Catalogue.findById(id);
+        if (!catalogue || catalogue.doctor_id !== doctor.id) {
+            return res.status(404).json({ success: false, message: 'Catalogue not found' });
+        }
+        if (!Array.isArray(order)) {
+            return res.status(400).json({ success: false, message: 'Order must be an array' });
+        }
+        await Catalogue.reorderSections(id, order);
+        res.json({ success: true, message: 'Sections reordered' });
+    } catch (error) {
+        console.error('Reorder sections error:', error);
+        res.status(500).json({ success: false, message: 'Failed to reorder sections' });
+    }
+}
+
+async function deleteSection(req, res) {
+    try {
+        const { id, sectionId } = req.params;
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) return res.status(404).json({ success: false, message: 'Doctor not found' });
+        const catalogue = await Catalogue.findById(id);
+        if (!catalogue || catalogue.doctor_id !== doctor.id) {
+            return res.status(404).json({ success: false, message: 'Catalogue not found' });
+        }
+        const ok = await Catalogue.deleteSection(id, Number(sectionId));
+        if (!ok) return res.status(404).json({ success: false, message: 'Section not found' });
+        res.json({ success: true, message: 'Section deleted' });
+    } catch (error) {
+        console.error('Delete section error:', error);
+        res.status(500).json({ success: false, message: 'Failed to delete section' });
+    }
+}
+
 module.exports = {
     getCatalogues,
     getCatalogueById,
@@ -574,5 +715,10 @@ module.exports = {
     addQuestion,
     updateQuestion,
     deleteQuestion,
-    reorderQuestions
+    reorderQuestions,
+    getSections,
+    createSection,
+    renameSection,
+    reorderSections,
+    deleteSection
 };

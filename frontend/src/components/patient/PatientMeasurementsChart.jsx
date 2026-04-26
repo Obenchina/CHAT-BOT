@@ -16,32 +16,29 @@ import doctorService from '../../services/doctorService';
  * Uses doctor's calibrated curves (template_config) for pixel-perfect overlay.
  */
 function PatientMeasurementsChart({ data, measureKey, patient }) {
-    const [matchingCurve, setMatchingCurve] = useState(null);
+    const [availableCurves, setAvailableCurves] = useState([]);
     const measureInfo = CLINICAL_MEASURE_LABELS[measureKey] || { label: measureKey, unit: '' };
+    const normalizedMeasureKey = useMemo(() => {
+        if (measureKey === 'head_circumference') return 'head';
+        if (measureKey === 'blood_pressure') return 'blood_pressure';
+        return measureKey;
+    }, [measureKey]);
 
     useEffect(() => {
         async function fetchCurves() {
             try {
                 const res = await doctorService.getGrowthCurves();
-                if (res.success && res.data) {
-                    const curve = res.data.find(c =>
-                        c.measure_key === measureKey &&
-                        (c.gender === patient?.gender || c.gender === 'both') &&
-                        c.is_calibrated &&
-                        c.template_config // Must have template_config
-                    );
-                    setMatchingCurve(curve);
-                }
+                if (res.success && res.data) setAvailableCurves(res.data || []);
             } catch (error) {
                 console.error('Error fetching growth curves:', error);
             }
         }
         fetchCurves();
-    }, [measureKey, patient?.gender]);
+    }, []);
 
     const chartData = useMemo(() => {
         if (!data || !Array.isArray(data)) return [];
-        const birthDate = new Date(patient?.birthDate || patient?.birth_date || patient?.date_of_birth);
+        const birthDate = new Date(patient?.birthDate || patient?.birth_date || patient?.date_of_birth || patient?.dateOfBirth);
         if (isNaN(birthDate.getTime())) return [];
 
         return data.map(item => {
@@ -57,37 +54,44 @@ function PatientMeasurementsChart({ data, measureKey, patient }) {
         }).sort((a, b) => a.ageInMonths - b.ageInMonths);
     }, [data, patient]);
 
-    // Calculate axis domains from template_config for precise overlay
+    const patientGender = patient?.gender || 'both';
+    const patientAgeMonths = useMemo(() => {
+        if (!chartData.length) return null;
+        return chartData[chartData.length - 1]?.ageInMonths ?? null;
+    }, [chartData]);
+
+    const matchingCurve = useMemo(() => {
+        const pool = Array.isArray(availableCurves) ? availableCurves : [];
+        return pool.find(c => {
+            if (!c || c.source_type !== 'official') return false;
+            if (!c.is_plot_enabled || !c.template_config) return false;
+            if (c.measure_key !== normalizedMeasureKey) return false;
+            if (!(c.gender === patientGender || c.gender === 'both')) return false;
+            const minAge = Number(c.age_range?.min_age ?? c.template_config?.x_min ?? 0);
+            const maxAge = Number(c.age_range?.max_age ?? c.template_config?.x_max ?? 0);
+            if (patientAgeMonths === null || Number.isNaN(patientAgeMonths)) return true;
+            return patientAgeMonths >= minAge && patientAgeMonths <= maxAge;
+        }) || null;
+    }, [availableCurves, normalizedMeasureKey, patientGender, patientAgeMonths]);
+
+    // Calculate axis domains from template_config
     const config = useMemo(() => {
         if (!matchingCurve?.template_config) return null;
         const tc = matchingCurve.template_config;
         return {
-            xDomain: [tc.min_age, tc.max_age],
-            yDomain: [tc.min_y, tc.max_y],
+            xDomain: [tc.x_min ?? tc.min_age, tc.x_max ?? tc.max_age],
+            yDomain: [tc.y_min ?? tc.min_y, tc.y_max ?? tc.max_y],
             plotArea: tc.plot_area || { left: 0, top: 0, right: 100, bottom: 100 }
         };
     }, [matchingCurve]);
 
-    if (!chartData || chartData.length === 0) {
-        return <div className="empty-chart">Aucune donnée pour {measureInfo.label}.</div>;
-    }
-
-    // Calculate chart margins to align Recharts plot area with the background image plot area
-    const chartMargins = useMemo(() => {
-        if (!config) return { top: 20, right: 30, left: 40, bottom: 20 };
-        // plot_area is in percentage of the image
-        const { plotArea } = config;
-        return {
-            top: 0,
-            right: 0,
-            left: 0,
-            bottom: 0
-        };
-    }, [config]);
+    const chartMargins = useMemo(() => (
+        config ? { top: 0, right: 0, left: 0, bottom: 0 } : { top: 20, right: 30, left: 40, bottom: 20 }
+    ), [config]);
 
     // The background image positioning must align the plot_area with the chart area
     const backgroundStyle = useMemo(() => {
-        if (!config || !matchingCurve) return {};
+        if (!config || !matchingCurve?.file_path) return {};
         
         return {
             position: 'absolute',
@@ -105,6 +109,18 @@ function PatientMeasurementsChart({ data, measureKey, patient }) {
         };
     }, [config, matchingCurve]);
 
+    if (!chartData || chartData.length === 0) {
+        return <div className="empty-chart">Aucune donnée pour {measureInfo.label}.</div>;
+    }
+
+    if (!matchingCurve) {
+        return (
+            <div className="empty-chart">
+                لا تتوفر معايرة رسمية لهذا المنحنى، لا يمكن رسم تطور المريض.
+            </div>
+        );
+    }
+
     return (
         <div className="measurement-chart-container" style={{
             width: '100%',
@@ -114,7 +130,7 @@ function PatientMeasurementsChart({ data, measureKey, patient }) {
             borderRadius: '12px',
             padding: '0'
         }}>
-            {matchingCurve && <div style={backgroundStyle} />}
+            {matchingCurve?.file_path && <div style={backgroundStyle} />}
             
             <div style={{
                 position: config ? 'absolute' : 'relative',
@@ -165,7 +181,7 @@ function PatientMeasurementsChart({ data, measureKey, patient }) {
             
             {matchingCurve && (
                 <div style={{ position: 'absolute', bottom: 8, right: 8, fontSize: '0.7rem', color: 'var(--success)', backgroundColor: 'rgba(255,255,255,0.85)', padding: '2px 8px', borderRadius: '4px', zIndex: 2 }}>
-                    ✓ Courbe calibrée : {measureInfo.label} ({matchingCurve.gender === 'male' ? 'G' : matchingCurve.gender === 'female' ? 'F' : 'M'})
+                    ✓ Template officiel : {measureInfo.label} ({matchingCurve.gender === 'male' ? 'G' : matchingCurve.gender === 'female' ? 'F' : 'M'})
                 </div>
             )}
         </div>

@@ -424,9 +424,6 @@ function CaseDetails() {
                             </div>
                         </div>
 
-                        {/* 4. AI Analysis */}
-                        <AiSummaryBlock aiAnalysis={aiAnalysis} />
-
                         {/* 5. Document Type Selector + Content */}
                         <div className="card">
                             <div className="card-header border-b">

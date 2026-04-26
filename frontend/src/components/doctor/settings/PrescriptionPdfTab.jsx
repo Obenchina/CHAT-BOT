@@ -1,21 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from '../../common/LoadingSpinner';
-import Button from '../../common/Button';
-import Input from '../../common/Input';
-import Modal from '../../common/Modal';
-import { useAuth } from '../../../context/AuthContext';
 import doctorService from '../../../services/doctorService';
-import authService from '../../../services/authService';
 import translations from '../../../constants/translations';
-import { showSuccess, showError, showConfirm } from '../../../utils/toast';
-import { SPECIALTY_OPTIONS, GENDER_OPTIONS, UPLOAD_URL, getAuthUploadUrl } from '../../../constants/config';
+import { getAuthUploadUrl } from '../../../constants/config';
 import '../../../styles/profile.css';
 import GrowthCurveManager from './GrowthCurveManager';
 
 const t = translations;
 
-import SmartToyIcon from '@mui/icons-material/SmartToy';
-import DescriptionIcon from '@mui/icons-material/Description';
+const DEFAULT_PRESCRIPTION_CONFIG = {
+    logoPath: '',
+    primaryColor: '#163A5F',
+    accentColor: '#67C7D8',
+    specialtyText: '',
+    servicesText: ''
+};
+
+const getUploadAssetUrl = getAuthUploadUrl;
 
 function PrescriptionPdfTab() {
     const [loading, setLoading] = useState(true);
@@ -38,6 +39,8 @@ function PrescriptionPdfTab() {
 
     useEffect(() => {
         loadAllConfigs();
+        // loadAllConfigs is intentionally stable in this component lifecycle
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     async function loadAllConfigs() {

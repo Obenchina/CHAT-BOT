@@ -146,6 +146,13 @@ const AiConfig = {
     },
 
     /**
+     * Backwards-compatible alias (older controllers expect this name)
+     */
+    async findActiveByDoctorId(doctorId) {
+        return this.findActiveConfig(doctorId);
+    },
+
+    /**
      * Get specific config by provider
      */
     async findByProvider(doctorId, provider) {

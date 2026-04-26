@@ -9,6 +9,19 @@ const Doctor = require('../models/Doctor');
 const AiConfig = require('../models/AiConfig');
 const aiService = require('../services/aiService');
 
+function anonymizeCaseDataForAI(caseData) {
+    if (!caseData || typeof caseData !== 'object') return caseData;
+    const cloned = { ...caseData };
+    if (cloned.patient && typeof cloned.patient === 'object') {
+        cloned.patient = { ...cloned.patient };
+        delete cloned.patient.first_name;
+        delete cloned.patient.last_name;
+        delete cloned.patient.firstName;
+        delete cloned.patient.lastName;
+    }
+    return cloned;
+}
+
 /**
  * Get chat messages for a case
  * GET /api/ai-chat/:caseId
@@ -69,7 +82,7 @@ async function sendMessage(req, res) {
         const chatHistory = history.filter(m => m.id !== doctorMsg.id);
 
         // Build context and call AI
-        const systemContext = aiService.buildChatSystemPrompt(caseData);
+        const systemContext = aiService.buildChatSystemPrompt(anonymizeCaseDataForAI(caseData));
         const aiResponse = await aiService.chatWithAI(systemContext, chatHistory, message.trim(), aiConfig);
 
         // Save AI response
@@ -130,7 +143,7 @@ async function sendWithFullHistory(req, res) {
                 fullHistoryContext += `\n--- زيارة ${new Date(historicCase.created_at).toLocaleDateString()} ---\n`;
                 if (fullCase.answers) {
                     fullCase.answers.forEach(a => {
-                        fullHistoryContext += `${a.question_text}: ${a.transcribed_text || 'N/A'}\n`;
+                        fullHistoryContext += `${a.question_text}: ${a.text_answer || a.transcribed_text || 'N/A'}\n`;
                     });
                 }
                 const analysis = fullCase.ai_analysis;
@@ -157,7 +170,7 @@ async function sendWithFullHistory(req, res) {
         const chatHistory = await AiChat.getMessages(caseId);
         const filteredHistory = chatHistory.filter(m => m.id !== doctorMsg.id);
 
-        const systemContext = aiService.buildChatSystemPrompt(caseData) + '\n\n' + fullHistoryContext;
+        const systemContext = aiService.buildChatSystemPrompt(anonymizeCaseDataForAI(caseData)) + '\n\n' + fullHistoryContext;
         const aiResponse = await aiService.chatWithAI(systemContext, filteredHistory, message, aiConfig);
 
         const aiMsg = await AiChat.addMessage(caseId, doctor.id, 'ai', aiResponse);

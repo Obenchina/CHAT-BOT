@@ -107,6 +107,31 @@ const catalogueService = {
     async reorderQuestions(catalogueId, order) {
         return api.put(`${ENDPOINTS.CATALOGUE}/${catalogueId}/reorder`, { order });
     }
+    ,
+
+    // ======================
+    // SECTIONS
+    // ======================
+
+    async getSections(catalogueId) {
+        return api.get(`${ENDPOINTS.CATALOGUE}/${catalogueId}/sections`);
+    },
+
+    async createSection(catalogueId, name) {
+        return api.post(`${ENDPOINTS.CATALOGUE}/${catalogueId}/sections`, { name });
+    },
+
+    async renameSection(catalogueId, sectionId, name) {
+        return api.patch(`${ENDPOINTS.CATALOGUE}/${catalogueId}/sections/${sectionId}`, { name });
+    },
+
+    async reorderSections(catalogueId, order) {
+        return api.put(`${ENDPOINTS.CATALOGUE}/${catalogueId}/sections/reorder`, { order });
+    },
+
+    async deleteSection(catalogueId, sectionId) {
+        return api.delete(`${ENDPOINTS.CATALOGUE}/${catalogueId}/sections/${sectionId}`);
+    }
 };
 
 export default catalogueService;

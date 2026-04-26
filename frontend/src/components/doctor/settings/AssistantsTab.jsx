@@ -3,12 +3,9 @@ import LoadingSpinner from '../../common/LoadingSpinner';
 import Button from '../../common/Button';
 import Input from '../../common/Input';
 import Modal from '../../common/Modal';
-import { useAuth } from '../../../context/AuthContext';
 import doctorService from '../../../services/doctorService';
-import authService from '../../../services/authService';
 import translations from '../../../constants/translations';
 import { showSuccess, showError, showConfirm } from '../../../utils/toast';
-import { SPECIALTY_OPTIONS, GENDER_OPTIONS, UPLOAD_URL, getAuthUploadUrl } from '../../../constants/config';
 import '../../../styles/profile.css';
 
 const t = translations;
@@ -16,6 +13,8 @@ const t = translations;
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
+import GroupIcon from '@mui/icons-material/Group';
+import InboxIcon from '@mui/icons-material/Inbox';
 
 function AssistantsTab() {
     const [assistants, setAssistants] = useState([]);

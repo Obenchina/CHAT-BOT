@@ -5,6 +5,15 @@
 
 const config = require('../config/config');
 
+function clampSummaryToMaxLines(summary, maxLines = 4) {
+    if (!summary || typeof summary !== 'string') return summary;
+    const normalized = summary.replace(/\r\n/g, '\n').trim();
+    if (!normalized) return normalized;
+    const lines = normalized.split('\n');
+    if (lines.length <= maxLines) return normalized;
+    return lines.slice(0, maxLines).join('\n').trim();
+}
+
 /**
  * Analyze medical case using Gemini AI
  * @param {Object} caseData - Full case data including patient, answers, documents
@@ -381,13 +390,16 @@ function parseAnalysisResponse(response) {
             const parsed = JSON.parse(jsonMatch[0]);
             // Validate that we got at least a summary
             if (parsed.summary || parsed.diagnoses || parsed.medications) {
+                if (parsed.summary) {
+                    parsed.summary = clampSummaryToMaxLines(parsed.summary, 4);
+                }
                 return parsed;
             }
         }
 
         // Fallback: return raw response as summary
         return {
-            summary: response,
+            summary: clampSummaryToMaxLines(response, 4),
             diagnoses: [],
             medications: [],
             additionalNotes: ''
@@ -978,5 +990,6 @@ module.exports = {
     transcribeAudio,
     chatWithAI,
     buildChatSystemPrompt,
-    suggestMedications
+    suggestMedications,
+    clampSummaryToMaxLines
 };

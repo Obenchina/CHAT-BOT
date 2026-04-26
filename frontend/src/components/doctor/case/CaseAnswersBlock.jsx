@@ -10,7 +10,7 @@ function CaseAnswersBlock({ answers }) {
         
         const groups = {};
         answers.forEach(ans => {
-            const secName = ans.section_name || ans.sectionName || 'Général';
+            const secName = ans.section_name || ans.sectionName || 'بدون قسم';
             if (!groups[secName]) groups[secName] = [];
             groups[secName].push(ans);
         });

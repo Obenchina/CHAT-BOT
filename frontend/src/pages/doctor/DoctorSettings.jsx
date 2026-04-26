@@ -581,6 +581,8 @@ function PrescriptionPdfTab() {
 
     useEffect(() => {
         loadAllConfigs();
+        // loadAllConfigs is local and stable for this tab lifecycle
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     async function loadAllConfigs() {

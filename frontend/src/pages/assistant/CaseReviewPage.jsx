@@ -12,6 +12,7 @@ import caseService from '../../services/caseService';
 import translations from '../../constants/translations';
 import { DOCUMENT_TYPES, CASE_STATUS, UPLOAD_URL, getAuthUploadUrl } from '../../constants/config';
 import { showSuccess, showError, showConfirm } from '../../utils/toast';
+import { computeAgeDisplay } from '../../utils/patientAge';
 import CheckIcon from '@mui/icons-material/Check';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -211,8 +212,12 @@ function CaseReviewPage() {
                                             <strong style={{ textAlign: 'right' }}>{caseData.patient?.firstName || caseData.patient?.first_name} {caseData.patient?.lastName || caseData.patient?.last_name}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-xs)' }}>
-                                            <span style={{ color: 'var(--text-secondary)' }}>{t.patient.age}:</span>
-                                            <strong style={{ textAlign: 'right' }}>{caseData.patient?.age} ans</strong>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Date de naissance:</span>
+                                            <strong style={{ textAlign: 'right' }}>{caseData.patient?.dateOfBirth || caseData.patient?.date_of_birth || '—'}</strong>
+                                        </div>
+                                        <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-xs)' }}>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Âge:</span>
+                                            <strong style={{ textAlign: 'right' }}>{computeAgeDisplay(caseData.patient?.dateOfBirth || caseData.patient?.date_of_birth).label}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                                             <span style={{ color: 'var(--text-secondary)' }}>{t.patient.phone}:</span>

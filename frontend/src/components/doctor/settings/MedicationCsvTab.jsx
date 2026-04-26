@@ -1,19 +1,32 @@
-import React, { useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import doctorService from '../../../services/doctorService';
 import { showSuccess, showError } from '../../../utils/toast';
+import Modal from '../../common/Modal';
+import Button from '../../common/Button';
 
 function MedicationCsvTab() {
     const [medications, setMedications] = useState([]);
     const [count, setCount] = useState(0);
-    const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
+    const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+    const [deleting, setDeleting] = useState(false);
+    const [lastImportReport, setLastImportReport] = useState(null);
 
     useEffect(() => {
         loadMedications();
     }, []);
 
+    const sampleCsv = useMemo(() => {
+        // French headers (accepted), with quoted values & semicolon delimiter example
+        return [
+            'nom;forme;dosage;frequence;notes',
+            '"Paracétamol";"Sirop";"15 mg/kg";"Toutes les 6h";"Douleur / fièvre"',
+            '"Amoxicilline";"Gélule";"500 mg";"3 fois/jour";""',
+            '"Ibuprofène";"Suspension";"10 mg/kg";"Toutes les 8h";"Éviter si déshydratation"'
+        ].join('\n');
+    }, []);
+
     async function loadMedications() {
-        setLoading(true);
         try {
             const res = await doctorService.getMedications();
             if (res.success) {
@@ -21,7 +34,6 @@ function MedicationCsvTab() {
                 setCount(res.count || 0);
             }
         } catch (e) { console.error(e); }
-        setLoading(false);
     }
 
     async function handleUpload(e) {
@@ -29,34 +41,51 @@ function MedicationCsvTab() {
         if (!file) return;
 
         setUploading(true);
+        setLastImportReport(null);
         const fd = new FormData();
         fd.append('csv', file);
 
         try {
             const res = await doctorService.uploadMedicationCSV(fd);
             if (res.success) {
-                showSuccess(res.message || 'CSV importé');
+                const inserted = Number(res.inserted ?? res.count ?? 0);
+                const skipped = Number(res.skipped ?? 0);
+                const errors = Array.isArray(res.errors) ? res.errors : [];
+                setLastImportReport({ inserted, skipped, errors });
+                showSuccess(`Import terminé: ${inserted} ajouté(s), ${skipped} ignoré(s)`);
                 loadMedications();
             } else {
                 showError(res.message || 'Erreur d\'import');
             }
         } catch (err) {
-            showError(err.message || 'Erreur d\'import');
+            showError(err?.response?.data?.message || err?.message || 'Erreur d\'import');
         }
         setUploading(false);
         e.target.value = '';
     }
 
     async function handleDelete() {
-        if (!window.confirm('Supprimer tous les médicaments importés ?')) return;
+        setDeleteModalOpen(true);
+    }
+
+    async function confirmDeleteAll() {
+        setDeleting(true);
         try {
             const res = await doctorService.deleteMedications();
             if (res.success) {
                 showSuccess('Médicaments supprimés');
                 setMedications([]);
                 setCount(0);
+                setDeleteModalOpen(false);
+            } else {
+                showError(res.message || 'Erreur');
             }
-        } catch (e) { showError('Erreur'); }
+        } catch (e) {
+            console.error('deleteMedications error:', e);
+            showError(e?.response?.data?.message || e?.message || 'Erreur de connexion');
+        } finally {
+            setDeleting(false);
+        }
     }
 
     return (
@@ -85,6 +114,32 @@ function MedicationCsvTab() {
                         <input type="file" accept=".csv,.txt" onChange={handleUpload} style={{ display: 'none' }} disabled={uploading} />
                     </label>
 
+                    <button
+                        type="button"
+                        onClick={() => {
+                            const blob = new Blob([sampleCsv], { type: 'text/csv;charset=utf-8' });
+                            const url = URL.createObjectURL(blob);
+                            const a = document.createElement('a');
+                            a.href = url;
+                            a.download = 'medicaments_exemple.csv';
+                            document.body.appendChild(a);
+                            a.click();
+                            a.remove();
+                            URL.revokeObjectURL(url);
+                        }}
+                        style={{
+                            padding: 'var(--space-sm) var(--space-md)',
+                            border: '1px solid var(--border-color)',
+                            color: 'var(--text-primary)',
+                            backgroundColor: 'transparent',
+                            borderRadius: 'var(--radius-md)',
+                            cursor: 'pointer',
+                            fontSize: '0.85rem'
+                        }}
+                    >
+                        ⬇️ Télécharger un exemple CSV
+                    </button>
+
                     {count > 0 && (
                         <button onClick={handleDelete} style={{
                             padding: 'var(--space-sm) var(--space-md)',
@@ -103,6 +158,34 @@ function MedicationCsvTab() {
                         {count > 0 ? `${count} médicaments dans votre base` : 'Aucun médicament importé'}
                     </span>
                 </div>
+
+                {lastImportReport && (
+                    <div style={{ marginTop: 'var(--space-md)', padding: 'var(--space-md)', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--bg-elevated)' }}>
+                        <div style={{ fontWeight: 600, marginBottom: '6px' }}>Résultat import</div>
+                        <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                            Ajoutés: <b>{lastImportReport.inserted}</b> · Ignorés: <b>{lastImportReport.skipped}</b>
+                        </div>
+                        {lastImportReport.errors?.length > 0 && (
+                            <div style={{ marginTop: '8px', fontSize: '0.85rem' }}>
+                                <div style={{ fontWeight: 600, marginBottom: '4px', color: 'var(--error)' }}>
+                                    Erreurs ({lastImportReport.errors.length})
+                                </div>
+                                <div style={{ maxHeight: '160px', overflow: 'auto', border: '1px solid var(--border-color)', borderRadius: 'var(--radius-md)', background: 'var(--bg-card)' }}>
+                                    {lastImportReport.errors.slice(0, 50).map((er, idx) => (
+                                        <div key={idx} style={{ padding: '6px 10px', borderBottom: idx < Math.min(50, lastImportReport.errors.length) - 1 ? '1px solid var(--border-color)' : 'none' }}>
+                                            <b>Ligne {er.line}:</b> {er.reason}
+                                        </div>
+                                    ))}
+                                </div>
+                                {lastImportReport.errors.length > 50 && (
+                                    <div style={{ marginTop: '6px', color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
+                                        (Affichage limité à 50 erreurs)
+                                    </div>
+                                )}
+                            </div>
+                        )}
+                    </div>
+                )}
             </div>
 
             {/* Preview of medications */}
@@ -135,6 +218,26 @@ function MedicationCsvTab() {
                     </div>
                 </div>
             )}
+
+            <Modal
+                isOpen={deleteModalOpen}
+                onClose={() => (deleting ? null : setDeleteModalOpen(false))}
+                title="Supprimer tous les médicaments ?"
+                footer={(
+                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)' }}>
+                        <Button variant="secondary" onClick={() => setDeleteModalOpen(false)} disabled={deleting}>
+                            Annuler
+                        </Button>
+                        <Button variant="danger" onClick={confirmDeleteAll} loading={deleting}>
+                            Supprimer
+                        </Button>
+                    </div>
+                )}
+            >
+                <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
+                    Cette action supprimera définitivement tous les médicaments importés de votre base.
+                </p>
+            </Modal>
         </div>
     );
 }

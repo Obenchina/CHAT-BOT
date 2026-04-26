@@ -1,21 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import LoadingSpinner from '../../common/LoadingSpinner';
-import Button from '../../common/Button';
-import Input from '../../common/Input';
-import Modal from '../../common/Modal';
-import { useAuth } from '../../../context/AuthContext';
 import doctorService from '../../../services/doctorService';
-import authService from '../../../services/authService';
 import translations from '../../../constants/translations';
-import { showSuccess, showError, showConfirm } from '../../../utils/toast';
-import { SPECIALTY_OPTIONS, GENDER_OPTIONS, UPLOAD_URL, getAuthUploadUrl } from '../../../constants/config';
 import '../../../styles/profile.css';
 
 const t = translations;
 
 import SaveIcon from '@mui/icons-material/Save';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import VisibilityOffIcon from '@mui/icons-material/VisibilityOff';
 
 function AiConfigTab() {
     const [loading, setLoading] = useState(true);
@@ -30,6 +24,40 @@ function AiConfigTab() {
     });
 
     const [configs, setConfigs] = useState({ gemini: {}, openai: {} });
+
+    const AI_PROVIDERS = [
+        {
+            id: 'gemini',
+            name: 'Google Gemini',
+            icon: '✨',
+            description: 'Google AI',
+            models: [
+                { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite' },
+                { value: 'gemini-3-flash-preview', label: 'Gemini 3.0 Flash' },
+                { value: 'gemini-2.5-flash', label: 'Gemini 2.5 Flash' },
+                { value: 'gemini-2.5-flash-lite', label: 'Gemini 2.5 Flash Lite' }
+            ]
+        },
+        {
+            id: 'openai',
+            name: 'OpenAI ChatGPT',
+            icon: '🤖',
+            description: 'OpenAI',
+            models: [
+                { value: 'gpt-5.4', label: 'GPT-5.4' },
+                { value: 'gpt-5.4-pro', label: 'GPT-5.4 Pro' },
+                { value: 'gpt-5.4-mini', label: 'GPT-5.4 Mini' },
+                { value: 'gpt-5.2', label: 'GPT-5.2' },
+                { value: 'gpt-5.2-pro', label: 'GPT-5.2 Pro' },
+                { value: 'gpt-5.1', label: 'GPT-5.1' },
+                { value: 'gpt-5', label: 'GPT-5' },
+                { value: 'gpt-4.5-turbo', label: 'GPT-4.5 Turbo' },
+                { value: 'gpt-4o', label: 'GPT-4o' },
+                { value: 'gpt-4o-mini', label: 'GPT-4o Mini' },
+                { value: 'gpt-4-turbo', label: 'GPT-4 Turbo' }
+            ]
+        }
+    ];
 
     useEffect(() => { loadConfig(); }, []);
 

@@ -13,6 +13,72 @@ const AiConfig = require('../models/AiConfig');
 const aiService = require('../services/aiService');
 const pdfService = require('../services/pdfService');
 
+function anonymizeCaseDataForAI(caseData) {
+    if (!caseData || typeof caseData !== 'object') return caseData;
+    const cloned = { ...caseData };
+    if (cloned.patient && typeof cloned.patient === 'object') {
+        cloned.patient = { ...cloned.patient };
+        // Remove any name fields before sending to AI
+        delete cloned.patient.first_name;
+        delete cloned.patient.last_name;
+        delete cloned.patient.firstName;
+        delete cloned.patient.lastName;
+    }
+    return cloned;
+}
+
+function validateClinicalTextAnswer(question, rawAnswer) {
+    const clinicalMeasure = question?.clinical_measure || 'none';
+    const answerType = question?.answer_type;
+    const answerStr = String(rawAnswer ?? '').trim();
+
+    if (!answerStr) {
+        return { valid: false, message: 'Réponse vide' };
+    }
+
+    if (clinicalMeasure === 'none') {
+        return { valid: true };
+    }
+
+    if (answerType !== 'number') {
+        return { valid: false, message: 'Incohérence type/mesure clinique' };
+    }
+
+    if (clinicalMeasure === 'blood_pressure') {
+        const match = answerStr.match(/^(\d{2,3})\s*\/\s*(\d{2,3})$/);
+        if (!match) {
+            return { valid: false, message: 'La tension doit être au format 120/80' };
+        }
+        const systolic = Number(match[1]);
+        const diastolic = Number(match[2]);
+        if (systolic < 30 || systolic > 260 || diastolic < 20 || diastolic > 200) {
+            return { valid: false, message: 'Valeur de tension hors plage médicale' };
+        }
+        return { valid: true, normalized: `${systolic}/${diastolic}` };
+    }
+
+    const numeric = Number(answerStr);
+    if (!Number.isFinite(numeric)) {
+        return { valid: false, message: 'Valeur numérique invalide' };
+    }
+
+    const ranges = {
+        weight: [0, 300],
+        height: [0, 250],
+        head_circumference: [0, 80],
+        temperature: [25, 45]
+    };
+    const range = ranges[clinicalMeasure];
+    if (range) {
+        const [min, max] = range;
+        if (numeric < min || numeric > max) {
+            return { valid: false, message: `Valeur hors plage médicale (${min}-${max})` };
+        }
+    }
+
+    return { valid: true, normalized: String(numeric) };
+}
+
 /**
  * Get doctor ID from user (works for both doctor and assistant)
  */
@@ -155,8 +221,14 @@ async function getById(req, res) {
                     first_name: patient.first_name || '',
                     last_name: patient.last_name || '',
                     gender: patient.gender || '',
-                    age: patient.age || 0,
-                    phone: patient.phone || ''
+                    dateOfBirth: patient.date_of_birth || null,
+                    date_of_birth: patient.date_of_birth || null,
+                    phone: patient.phone || '',
+                    address: patient.address || '',
+                    siblingsAlive: patient.siblings_alive ?? 0,
+                    siblings_alive: patient.siblings_alive ?? 0,
+                    siblingsDeceased: patient.siblings_deceased ?? 0,
+                    siblings_deceased: patient.siblings_deceased ?? 0
                 },
                 answers: (caseData.answers || []).map(a => ({
                     id: a.id,
@@ -169,7 +241,9 @@ async function getById(req, res) {
                     audioPath: a.audio_path,
                     audio_path: a.audio_path,
                     transcribedText: a.transcribed_text,
-                    transcribed_text: a.transcribed_text
+                    transcribed_text: a.transcribed_text,
+                    textAnswer: a.text_answer,
+                    text_answer: a.text_answer
                 })),
                 documents: (caseData.documents || []).map(d => ({
                     id: d.id,
@@ -599,8 +673,11 @@ async function submit(req, res) {
             if (doctorId) {
                 aiCfg = await AiConfig.getEffectiveConfig(doctorId);
             }
-            const analysis = await aiService.analyzeCase(caseData, aiCfg);
+            const analysis = await aiService.analyzeCase(anonymizeCaseDataForAI(caseData), aiCfg);
             if (analysis) {
+                if (analysis.summary) {
+                    analysis.summary = aiService.clampSummaryToMaxLines(analysis.summary, 4);
+                }
                 await Case.saveAiAnalysis(id, analysis);
                 console.log('AI analysis saved successfully');
             }
@@ -649,7 +726,7 @@ async function addTextAnswer(req, res) {
         let { questionId, answer } = req.body;
         questionId = parseInt(questionId, 10);
 
-        if (!questionId || !answer) {
+        if (!questionId || answer === undefined || answer === null || String(answer).trim() === '') {
             return res.status(400).json({
                 success: false,
                 message: 'Question ID and answer are required'
@@ -664,6 +741,15 @@ async function addTextAnswer(req, res) {
             });
         }
 
+        const validation = validateClinicalTextAnswer(questionContext.question, answer);
+        if (!validation.valid) {
+            return res.status(400).json({
+                success: false,
+                message: validation.message || 'Réponse invalide'
+            });
+        }
+        const normalizedAnswer = validation.normalized ?? String(answer).trim();
+
         // Check if answer already exists
         const currentAnswers = await Case.getAnswers(parseInt(id));
         const existingAnswer = currentAnswers.find(a => a.question_id === questionId);
@@ -672,19 +758,19 @@ async function addTextAnswer(req, res) {
         if (existingAnswer) {
             await Case.updateAnswer(existingAnswer.id, {
                 audioPath: null,
-                textAnswer: answer,
+                textAnswer: normalizedAnswer,
                 transcribedText: null,
                 questionTextSnapshot: existingAnswer.question_text_snapshot || questionContext.snapshot.questionTextSnapshot,
                 answerTypeSnapshot: existingAnswer.answer_type_snapshot || questionContext.snapshot.answerTypeSnapshot,
                 orderIndexSnapshot: existingAnswer.order_index_snapshot ?? questionContext.snapshot.orderIndexSnapshot
             });
-            savedAnswer = { ...existingAnswer, text_answer: answer };
+            savedAnswer = { ...existingAnswer, text_answer: normalizedAnswer };
         } else {
             savedAnswer = await Case.addAnswer({
                 caseId: id,
                 questionId,
                 audioPath: null,
-                textAnswer: answer,
+                textAnswer: normalizedAnswer,
                 transcribedText: null,
                 ...questionContext.snapshot
             });
@@ -696,7 +782,7 @@ async function addTextAnswer(req, res) {
             data: {
                 id: savedAnswer.id,
                 questionId,
-                answer
+                answer: normalizedAnswer
             }
         });
     } catch (error) {
@@ -1019,9 +1105,12 @@ async function reanalyzeCase(req, res) {
         }
 
         // Analyze the case
-        const analysis = await aiService.analyzeCase(caseData, aiCfg);
+        const analysis = await aiService.analyzeCase(anonymizeCaseDataForAI(caseData), aiCfg);
 
         if (analysis) {
+            if (analysis.summary) {
+                analysis.summary = aiService.clampSummaryToMaxLines(analysis.summary, 4);
+            }
             // Save the analysis
             await Case.saveAiAnalysis(id, analysis);
             console.log('AI analysis saved successfully');
@@ -1222,7 +1311,7 @@ async function suggestMedications(req, res) {
             return res.status(400).json({ success: false, message: 'Clé API IA non configurée pour ce médecin' });
         }
 
-        const medications = await aiService.suggestMedications(caseData, aiConfig);
+        const medications = await aiService.suggestMedications(anonymizeCaseDataForAI(caseData), aiConfig);
         res.json({ success: true, data: medications });
     } catch (error) {
         console.error('Suggest medications error:', error);

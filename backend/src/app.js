@@ -307,6 +307,40 @@ async function runMigrations(pool) {
         ) ENGINE=InnoDB;
     `);
 
+    // Catalogue sections (independent section management)
+    await pool.execute(`
+        CREATE TABLE IF NOT EXISTS catalogue_sections (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            catalogue_id INT NOT NULL,
+            name VARCHAR(150) NOT NULL,
+            section_order INT NOT NULL DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_catalogue_section_name (catalogue_id, name),
+            FOREIGN KEY (catalogue_id) REFERENCES catalogues(id) ON DELETE CASCADE,
+            INDEX idx_catalogue_order (catalogue_id, section_order)
+        ) ENGINE=InnoDB;
+    `);
+
+    // Backfill catalogue_sections from existing questions.section_name
+    try {
+        await pool.execute(`
+            INSERT IGNORE INTO catalogue_sections (catalogue_id, name, section_order)
+            SELECT q.catalogue_id, q.section_name, COALESCE(MIN(q.section_order), 0) AS section_order
+            FROM questions q
+            WHERE q.section_name IS NOT NULL AND TRIM(q.section_name) != ''
+            GROUP BY q.catalogue_id, q.section_name
+        `);
+        // Align questions.section_order with section order table
+        await pool.execute(`
+            UPDATE questions q
+            JOIN catalogue_sections s ON s.catalogue_id = q.catalogue_id AND s.name = q.section_name
+            SET q.section_order = s.section_order
+            WHERE q.section_name IS NOT NULL
+        `);
+    } catch (err) {
+        console.warn('Sections migration note:', err.message);
+    }
+
     // In case the table already existed with the old schema, ensure template_config exists
     await ensureColumn(pool, 'doctor_growth_curves', 'template_config', 'JSON NULL');
     try {

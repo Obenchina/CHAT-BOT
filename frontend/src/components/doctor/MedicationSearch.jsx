@@ -90,10 +90,10 @@ function MedicationSearch({ onSelect }) {
                     top: '100%',
                     left: 0,
                     right: 0,
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
                     borderRadius: 'var(--radius-md)',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
+                    boxShadow: 'var(--shadow-lg)',
                     maxHeight: '200px',
                     overflowY: 'auto',
                     zIndex: 1000
@@ -106,12 +106,13 @@ function MedicationSearch({ onSelect }) {
                                 padding: 'var(--space-sm) var(--space-md)',
                                 cursor: 'pointer',
                                 borderBottom: '1px solid var(--border-light, #eee)',
-                                transition: 'background 0.15s'
+                                transition: 'background 0.15s',
+                                color: 'var(--text-primary)'
                             }}
-                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--bg-hover, #f0f4ff)'}
-                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'white'}
+                            onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--gray-100)'}
+                            onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                            <div style={{ fontWeight: '600', fontSize: '0.9rem' }}>{med.name}</div>
+                            <div style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{med.name}</div>
                             {(med.dosage_form || med.default_dosage) && (
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
                                     {med.dosage_form}{med.default_dosage ? ` — ${med.default_dosage}` : ''}
@@ -128,7 +129,7 @@ function MedicationSearch({ onSelect }) {
                     top: '100%',
                     left: 0,
                     right: 0,
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--bg-card)',
                     border: '1px solid var(--border-color)',
                     borderRadius: 'var(--radius-md)',
                     padding: 'var(--space-sm) var(--space-md)',

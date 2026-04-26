@@ -7,8 +7,8 @@ import { useAuth } from '../../../context/AuthContext';
 import doctorService from '../../../services/doctorService';
 import authService from '../../../services/authService';
 import translations from '../../../constants/translations';
-import { showSuccess, showError, showConfirm } from '../../../utils/toast';
-import { SPECIALTY_OPTIONS, GENDER_OPTIONS, UPLOAD_URL, getAuthUploadUrl } from '../../../constants/config';
+import { showSuccess } from '../../../utils/toast';
+import { SPECIALTY_OPTIONS, GENDER_OPTIONS, UPLOAD_URL } from '../../../constants/config';
 import '../../../styles/profile.css';
 
 const t = translations;

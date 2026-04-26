@@ -659,6 +659,14 @@ textarea.form-input {
     margin: 0;
 }
 
+/* ======================
+   AI CHAT
+   ====================== */
+.ai-chat-input::placeholder {
+    color: var(--text-muted);
+    opacity: 1;
+}
+
 .page-content {
     padding: var(--space-2xl) var(--space-xl);
     flex: 1;

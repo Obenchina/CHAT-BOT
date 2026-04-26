@@ -4,6 +4,7 @@ const Patient = require('../models/Patient');
 const AiConfig = require('../models/AiConfig');
 const GrowthCurve = require('../models/GrowthCurve');
 const { pool } = require('../config/database');
+const { getValidatedOfficialTemplates } = require('../config/growthCurveTemplates');
 
 function normalizeOptionalText(value, maxLength) {
     if (value === undefined || value === null) {
@@ -244,8 +245,38 @@ async function updateLetterConfig(req, res) {
 async function getGrowthCurves(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
-        const curves = await GrowthCurve.findByDoctorId(doctor.id);
-        res.json({ success: true, data: curves });
+        const customCurves = await GrowthCurve.findByDoctorId(doctor.id);
+
+        const officialCurves = getValidatedOfficialTemplates().map((tpl) => ({
+            id: tpl.id,
+            source_type: 'official',
+            is_official: true,
+            is_custom_upload: false,
+            doctor_id: null,
+            measure_key: tpl.measure_key,
+            template_key: tpl.template_key,
+            display_name: tpl.label,
+            gender: tpl.gender,
+            age_range: tpl.age_range,
+            template_config: tpl.template_config,
+            is_calibrated: true,
+            is_plot_enabled: true,
+            file_path: null,
+            created_at: null
+        }));
+
+        const mappedCustom = (customCurves || []).map((c) => ({
+            ...c,
+            source_type: 'custom_upload',
+            is_official: false,
+            is_custom_upload: true,
+            display_name: `${c.measure_key} (${c.gender})`,
+            // Custom uploads are visual references only (no plotting).
+            is_plot_enabled: false,
+            is_calibrated: false
+        }));
+
+        res.json({ success: true, data: [...officialCurves, ...mappedCustom] });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Failed to get growth curves' });
     }
@@ -259,24 +290,30 @@ async function uploadGrowthCurve(req, res) {
         const doctor = await Doctor.findByUserId(req.user.id);
         if (!req.file) return res.status(400).json({ success: false, message: 'File is required' });
 
-        const { measureKey, gender, template_config, is_calibrated } = req.body;
-
-        // Parse template_config if it comes as a string (multipart form)
-        let parsedConfig = null;
-        if (template_config) {
-            parsedConfig = typeof template_config === 'string' ? JSON.parse(template_config) : template_config;
-        }
+        const { measureKey, gender } = req.body;
 
         const curve = await GrowthCurve.create({
             doctor_id: doctor.id,
             measure_key: measureKey,
             gender: gender || 'both',
             file_path: `uploads/curves/${req.file.filename}`,
-            template_config: parsedConfig,
-            is_calibrated: is_calibrated === 'true' || is_calibrated === true
+            // Manual calibration is forbidden in this phase.
+            template_config: null,
+            is_calibrated: false
         });
 
-        res.status(201).json({ success: true, data: curve });
+        res.status(201).json({
+            success: true,
+            data: {
+                ...curve,
+                source_type: 'custom_upload',
+                is_official: false,
+                is_custom_upload: true,
+                display_name: `${curve.measure_key} (${curve.gender})`,
+                is_plot_enabled: false,
+                is_calibrated: false
+            }
+        });
     } catch (error) {
         console.error('Upload curve error:', error);
         res.status(500).json({ success: false, message: 'Failed to upload' });
@@ -288,11 +325,10 @@ async function uploadGrowthCurve(req, res) {
  */
 async function calibrateGrowthCurve(req, res) {
     try {
-        const doctor = await Doctor.findByUserId(req.user.id);
-        const { template_config } = req.body;
-        const success = await GrowthCurve.updateCalibration(req.params.id, doctor.id, { template_config });
-        if (!success) return res.status(404).json({ success: false, message: 'Curve not found' });
-        res.json({ success: true, message: 'Calibration updated' });
+        return res.status(400).json({
+            success: false,
+            message: 'La calibration manuelle est désactivée. Utilisez les templates officiels pré-calibrés.'
+        });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Failed to calibrate' });
     }
@@ -322,61 +358,138 @@ async function uploadMedicationCSV(req, res) {
         if (!req.file) return res.status(400).json({ success: false, message: 'Fichier CSV requis' });
 
         const fs = require('fs');
-        const csvContent = fs.readFileSync(req.file.path, 'utf-8');
-        const lines = csvContent.split('\n').map(l => l.trim()).filter(Boolean);
+        const { parse } = require('csv-parse/sync');
+        const { pool } = require('../config/database');
 
-        if (lines.length < 2) {
+        const fileBuffer = fs.readFileSync(req.file.path);
+        // Decode: prefer utf8, fallback to latin1 if it looks badly decoded
+        let csvContent = fileBuffer.toString('utf8');
+        // Remove UTF-8 BOM if present
+        csvContent = csvContent.replace(/^\uFEFF/, '');
+        if (!csvContent.includes('\n') && fileBuffer.length > 0) {
+            // Try latin1 if file has no line breaks after utf8 decode (rare encoding issues)
+            csvContent = fileBuffer.toString('latin1').replace(/^\uFEFF/, '');
+        }
+
+        if (!csvContent.trim()) {
+            fs.unlinkSync(req.file.path);
+            return res.status(400).json({ success: false, message: 'Fichier CSV vide' });
+        }
+
+        // Autodetect delimiter from header line: ; , \t
+        const firstLine = csvContent.split(/\r?\n/).find(l => l.trim().length > 0) || '';
+        const countChar = (s, ch) => (s.match(new RegExp(`\\${ch}`, 'g')) || []).length;
+        const comma = countChar(firstLine, ',');
+        const semi = countChar(firstLine, ';');
+        const tab = (firstLine.match(/\t/g) || []).length;
+        const delimiter = tab >= semi && tab >= comma ? '\t' : (semi >= comma ? ';' : ',');
+
+        const records = parse(csvContent, {
+            columns: true,
+            skip_empty_lines: true,
+            relax_column_count: true,
+            relax_quotes: true,
+            bom: true,
+            delimiter,
+            trim: true
+        });
+
+        if (!Array.isArray(records) || records.length === 0) {
             fs.unlinkSync(req.file.path);
             return res.status(400).json({ success: false, message: 'Fichier CSV vide ou invalide' });
         }
 
-        // Parse header
-        const header = lines[0].toLowerCase().split(/[;,\t]/);
-        const nameIdx = header.findIndex(h => h.includes('nom') || h.includes('name') || h.includes('médicament') || h.includes('medicament'));
-        const dosageFormIdx = header.findIndex(h => h.includes('forme') || h.includes('form'));
-        const dosageIdx = header.findIndex(h => h.includes('dosage') || h.includes('dose'));
-        const freqIdx = header.findIndex(h => h.includes('fréq') || h.includes('freq') || h.includes('frequency'));
-        const notesIdx = header.findIndex(h => h.includes('note') || h.includes('remarque'));
+        const normalizeHeader = (h) =>
+            String(h || '')
+                .trim()
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/\p{Diacritic}/gu, '')
+                .replace(/\s+/g, ' ');
 
-        if (nameIdx === -1) {
+        // Determine header mapping from actual keys
+        const sample = records[0] || {};
+        const keys = Object.keys(sample);
+        const keyBy = (preds) => {
+            const found = keys.find(k => preds.some(p => p(normalizeHeader(k))));
+            return found || null;
+        };
+
+        const nameKey = keyBy([
+            (h) => h === 'name' || h.includes('name'),
+            (h) => h === 'nom' || h.includes('nom'),
+            (h) => h.includes('medicament') || h.includes('medicament') || h.includes('medic')
+        ]);
+        const dosageFormKey = keyBy([
+            (h) => h.includes('dosage form') || h.includes('forme') || h.includes('form')
+        ]);
+        const defaultDosageKey = keyBy([
+            (h) => h.includes('default dosage') || h === 'dosage' || h.includes('dosage') || h.includes('dose')
+        ]);
+        const defaultFrequencyKey = keyBy([
+            (h) => h.includes('default frequency') || h.includes('frequence') || h.includes('freq') || h.includes('frequency')
+        ]);
+        const notesKey = keyBy([
+            (h) => h === 'notes' || h.includes('note') || h.includes('remarque') || h.includes('comment')
+        ]);
+
+        if (!nameKey) {
             fs.unlinkSync(req.file.path);
-            return res.status(400).json({ 
-                success: false, 
-                message: 'Colonne "nom" ou "name" introuvable dans le CSV. Colonnes détectées: ' + header.join(', ') 
+            return res.status(400).json({
+                success: false,
+                message: `Colonne obligatoire introuvable. Attendu: name/nom/médicament. Colonnes détectées: ${keys.join(', ')}`
             });
         }
 
-        // Delete existing medications for this doctor
-        const { pool } = require('../config/database');
-        await pool.execute('DELETE FROM doctor_medications WHERE doctor_id = ?', [doctor.id]);
-
-        // Parse and insert
         let inserted = 0;
-        const separator = lines[0].includes(';') ? ';' : lines[0].includes('\t') ? '\t' : ',';
-        
-        for (let i = 1; i < lines.length; i++) {
-            const cols = lines[i].split(separator);
-            const name = (cols[nameIdx] || '').trim().replace(/^["']|["']$/g, '');
-            if (!name) continue;
+        let skipped = 0;
+        const errors = [];
 
-            await pool.execute(
-                'INSERT INTO doctor_medications (doctor_id, name, dosage_form, default_dosage, default_frequency, notes) VALUES (?, ?, ?, ?, ?, ?)',
-                [
-                    doctor.id,
-                    name,
-                    dosageFormIdx >= 0 ? (cols[dosageFormIdx] || '').trim() : null,
-                    dosageIdx >= 0 ? (cols[dosageIdx] || '').trim() : null,
-                    freqIdx >= 0 ? (cols[freqIdx] || '').trim() : null,
-                    notesIdx >= 0 ? (cols[notesIdx] || '').trim() : null
-                ]
-            );
-            inserted++;
+        // Append mode: DO NOT delete existing medications.
+        for (let i = 0; i < records.length; i++) {
+            const row = records[i] || {};
+            const line = i + 2; // +1 header, +1 1-indexed
+
+            const rawName = normalizeOptionalText(row[nameKey], 255);
+            const name = rawName.trim();
+            if (!name) {
+                skipped++;
+                errors.push({ line, reason: 'name vide' });
+                continue;
+            }
+
+            const dosage_form = dosageFormKey ? normalizeOptionalText(row[dosageFormKey], 100) : '';
+            const default_dosage = defaultDosageKey ? normalizeOptionalText(row[defaultDosageKey], 100) : '';
+            const default_frequency = defaultFrequencyKey ? normalizeOptionalText(row[defaultFrequencyKey], 100) : '';
+            const notes = notesKey ? normalizeOptionalText(row[notesKey], 2000) : '';
+
+            try {
+                await pool.execute(
+                    'INSERT INTO doctor_medications (doctor_id, name, dosage_form, default_dosage, default_frequency, notes) VALUES (?, ?, ?, ?, ?, ?)',
+                    [
+                        doctor.id,
+                        name,
+                        dosage_form || null,
+                        default_dosage || null,
+                        default_frequency || null,
+                        notes || null
+                    ]
+                );
+                inserted++;
+            } catch (dbErr) {
+                skipped++;
+                errors.push({ line, reason: `DB: ${dbErr?.message || 'insert failed'}` });
+            }
         }
 
-        // Cleanup temp file
         fs.unlinkSync(req.file.path);
 
-        res.json({ success: true, message: `${inserted} médicaments importés`, count: inserted });
+        res.json({
+            success: true,
+            inserted,
+            skipped,
+            errors
+        });
     } catch (error) {
         console.error('Upload CSV error:', error);
         res.status(500).json({ success: false, message: 'Échec de l\'importation CSV' });
