@@ -42,7 +42,8 @@ function GrowthCurveManager() {
             if (res.success) {
                 setSelectedFile(null);
                 await loadCurves();
-                showSuccess("Référence personnalisée ajoutée (mode visuel uniquement).");
+                const count = Array.isArray(res.data) ? res.data.length : 1;
+                showSuccess(count > 1 ? `${count} courbes extraites du PDF.` : (res.message || "Référence personnalisée ajoutée."));
             }
         } catch (e) { showError(e.message); }
         setUploading(false);
@@ -119,7 +120,7 @@ function GrowthCurveManager() {
                     <div className="section-title">📎 Référence personnalisée (PDF/Image)</div>
                 </div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                    Upload optionnel d'une courbe personnelle. Cette référence est affichée visuellement uniquement, sans tracé patient superposé.
+                    Uploadez un PDF ou une image. Pour les PDF AFPA propres, MediConsult extrait les courbes et autorise le tracé patient automatiquement. Sinon le fichier reste une référence visuelle.
                 </p>
 
                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-md)' }}>
@@ -165,12 +166,12 @@ function GrowthCurveManager() {
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 'var(--space-md)' }}>
                     {customCurves.map(c => (
-                        <div key={c.id} className="profile-section-card" style={{ padding: 'var(--space-md)', border: '1px solid var(--warning)' }}>
+                        <div key={c.id} className="profile-section-card" style={{ padding: 'var(--space-md)', border: `1px solid ${c.is_plot_enabled ? 'var(--success)' : 'var(--warning)'}` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>
                                     <div style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>{MEASURE_LABELS[c.measure_key] || c.measure_key} — {c.gender === 'male' ? 'Garçon' : c.gender === 'female' ? 'Fille' : 'Mixte'}</div>
-                                    <div style={{ fontSize: '0.75rem', color: 'var(--warning)' }}>
-                                        ⚠ Référence visuelle seulement (pas de tracé patient)
+                                    <div style={{ fontSize: '0.75rem', color: c.is_plot_enabled ? 'var(--success)' : 'var(--warning)' }}>
+                                        {c.is_plot_enabled ? 'Tracé patient autorisé' : 'Référence visuelle seulement'}
                                     </div>
                                 </div>
                                 <button

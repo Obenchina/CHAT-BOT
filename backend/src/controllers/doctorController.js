@@ -5,6 +5,7 @@ const AiConfig = require('../models/AiConfig');
 const GrowthCurve = require('../models/GrowthCurve');
 const { pool } = require('../config/database');
 const { getValidatedOfficialTemplates } = require('../config/growthCurveTemplates');
+const { buildExtractedCharts, saveExtractedChartImage } = require('../services/growthCurvePdfService');
 
 function normalizeOptionalText(value, maxLength) {
     if (value === undefined || value === null) {
@@ -285,16 +286,18 @@ async function getGrowthCurves(req, res) {
             created_at: null
         }));
 
-        const mappedCustom = (customCurves || []).map((c) => ({
-            ...c,
-            source_type: 'custom_upload',
-            is_official: false,
-            is_custom_upload: true,
-            display_name: `${c.measure_key} (${c.gender})`,
-            // Custom uploads are visual references only (no plotting).
-            is_plot_enabled: false,
-            is_calibrated: false
-        }));
+        const mappedCustom = (customCurves || []).map((c) => {
+            const canPlot = Boolean(c.is_calibrated && c.template_config && c.file_path);
+            return {
+                ...c,
+                source_type: canPlot ? 'custom_calibrated' : 'custom_upload',
+                is_official: false,
+                is_custom_upload: true,
+                display_name: c.template_config?.label || `${c.measure_key} (${c.gender})`,
+                is_plot_enabled: canPlot,
+                is_calibrated: Boolean(c.is_calibrated)
+            };
+        });
 
         res.json({ success: true, data: [...officialCurves, ...mappedCustom] });
     } catch (error) {
@@ -311,6 +314,45 @@ async function uploadGrowthCurve(req, res) {
         if (!req.file) return res.status(400).json({ success: false, message: 'File is required' });
 
         const { measureKey, gender } = req.body;
+        const isPdf = req.file.mimetype === 'application/pdf' || /\.pdf$/i.test(req.file.originalname);
+
+        if (isPdf) {
+            const extractedCharts = buildExtractedCharts(req.file, { measureKey, gender });
+
+            if (extractedCharts.length > 0) {
+                const createdCurves = [];
+
+                for (const chart of extractedCharts) {
+                    const filePath = saveExtractedChartImage(chart.image);
+                    const curve = await GrowthCurve.create({
+                        doctor_id: doctor.id,
+                        measure_key: chart.measureKey,
+                        gender: chart.gender || gender || 'both',
+                        file_path: filePath,
+                        template_config: chart.templateConfig,
+                        is_calibrated: true
+                    });
+
+                    createdCurves.push({
+                        ...curve,
+                        source_type: 'custom_calibrated',
+                        is_official: false,
+                        is_custom_upload: true,
+                        display_name: chart.templateConfig.label,
+                        is_plot_enabled: true,
+                        is_calibrated: true
+                    });
+                }
+
+                require('fs').unlink(req.file.path, () => {});
+
+                return res.status(201).json({
+                    success: true,
+                    message: `${createdCurves.length} courbe(s) extraite(s) et calibrée(s).`,
+                    data: createdCurves
+                });
+            }
+        }
 
         const curve = await GrowthCurve.create({
             doctor_id: doctor.id,

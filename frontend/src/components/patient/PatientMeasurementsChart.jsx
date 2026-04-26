@@ -62,8 +62,8 @@ function PatientMeasurementsChart({ data, measureKey, patient }) {
 
     const matchingCurve = useMemo(() => {
         const pool = Array.isArray(availableCurves) ? availableCurves : [];
-        return pool.find((curve) => {
-            if (!curve || curve.source_type !== 'official') return false;
+        const eligible = pool.filter((curve) => {
+            if (!curve) return false;
             if (!curve.is_plot_enabled || !curve.template_config) return false;
             if (curve.measure_key !== normalizedMeasureKey) return false;
             if (!(curve.gender === patientGender || curve.gender === 'both')) return false;
@@ -72,7 +72,9 @@ function PatientMeasurementsChart({ data, measureKey, patient }) {
             const maxAge = Number(curve.age_range?.max_age ?? curve.template_config?.x_max ?? 0);
             if (patientAgeMonths === null || Number.isNaN(patientAgeMonths)) return true;
             return patientAgeMonths >= minAge && patientAgeMonths <= maxAge;
-        }) || null;
+        });
+
+        return eligible.find((curve) => curve.source_type !== 'official') || eligible[0] || null;
     }, [availableCurves, normalizedMeasureKey, patientGender, patientAgeMonths]);
 
     const config = useMemo(() => {
