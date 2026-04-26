@@ -8,12 +8,20 @@ const router = express.Router();
 const aiChatController = require('../controllers/aiChatController');
 const { authenticate } = require('../middleware/authMiddleware');
 const { doctorOnly } = require('../middleware/roleMiddleware');
+const { uploadAudio, handleUploadError } = require('../middleware/uploadMiddleware');
 
 router.use(authenticate);
 router.use(doctorOnly);
 
 // Get chat messages for a case
 router.get('/:caseId', aiChatController.getMessages);
+
+// Transcribe voice note to text (doctor)
+router.post('/transcribe',
+    uploadAudio.single('audio'),
+    handleUploadError,
+    aiChatController.transcribe
+);
 
 // Send message and get AI response
 router.post('/:caseId', aiChatController.sendMessage);

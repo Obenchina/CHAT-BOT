@@ -16,6 +16,14 @@ const aiChatService = {
 
     async sendWithFullHistory(caseId, message) {
         return api.post(`/ai-chat/${caseId}/with-history`, { message });
+    },
+
+    async transcribe(audioBlob) {
+        const form = new FormData();
+        form.append('audio', audioBlob, 'recording.webm');
+        return api.post(`/ai-chat/transcribe`, form, {
+            headers: { 'Content-Type': 'multipart/form-data' }
+        });
     }
 };
 

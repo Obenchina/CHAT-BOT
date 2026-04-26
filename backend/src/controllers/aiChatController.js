@@ -8,6 +8,8 @@ const Case = require('../models/Case');
 const Doctor = require('../models/Doctor');
 const AiConfig = require('../models/AiConfig');
 const aiService = require('../services/aiService');
+const fs = require('fs');
+const path = require('path');
 
 function anonymizeCaseDataForAI(caseData) {
     if (!caseData || typeof caseData !== 'object') return caseData;
@@ -185,8 +187,55 @@ async function sendWithFullHistory(req, res) {
     }
 }
 
+/**
+ * Transcribe audio to text for doctor input
+ * POST /api/ai-chat/transcribe
+ */
+async function transcribe(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        if (!doctor) {
+            return res.status(404).json({ success: false, message: 'Médecin introuvable' });
+        }
+
+        const audioPath = req.file ? `audio/${req.file.filename}` : null;
+        if (!audioPath) {
+            return res.status(400).json({ success: false, message: 'Fichier audio manquant' });
+        }
+
+        const activeAiConfig = await AiConfig.findActiveByDoctorId(doctor.id);
+        const aiConfig = activeAiConfig ? {
+            provider: activeAiConfig.provider,
+            apiKey: activeAiConfig.api_key,
+            model: activeAiConfig.model
+        } : null;
+
+        if (!aiConfig || !aiConfig.apiKey) {
+            return res.status(400).json({ success: false, message: 'Clé API IA non configurée' });
+        }
+
+        const text = await aiService.transcribeAudio(audioPath, aiConfig);
+
+        // Best-effort cleanup of uploaded audio file
+        try {
+            const abs = path.join(__dirname, '../../uploads', audioPath);
+            fs.unlink(abs, () => {});
+        } catch {}
+
+        res.json({ success: true, data: { text: text || '' } });
+    } catch (error) {
+        console.error('Transcribe audio error:', error);
+        let statusCode = 500;
+        let userMessage = 'Échec de la transcription audio';
+        if (error.code === 'MISSING_API_KEY') { statusCode = 400; userMessage = 'Clé API non configurée'; }
+        if (error.code === 'QUOTA_EXCEEDED') { statusCode = 429; userMessage = 'Crédit IA épuisé'; }
+        res.status(statusCode).json({ success: false, message: userMessage });
+    }
+}
+
 module.exports = {
     getMessages,
     sendMessage,
-    sendWithFullHistory
+    sendWithFullHistory,
+    transcribe
 };

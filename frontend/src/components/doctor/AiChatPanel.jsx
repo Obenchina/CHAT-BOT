@@ -1,16 +1,26 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import aiChatService from '../../services/aiChatService';
+import { showError } from '../../utils/toast';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import SendIcon from '@mui/icons-material/Send';
 import HistoryIcon from '@mui/icons-material/History';
+import MicIcon from '@mui/icons-material/Mic';
+import StopIcon from '@mui/icons-material/Stop';
 
 function AiChatPanel({ caseId }) {
     const [messages, setMessages] = useState([]);
     const [input, setInput] = useState('');
     const [sending, setSending] = useState(false);
     const [loading, setLoading] = useState(true);
+    const [useFullHistory, setUseFullHistory] = useState(false);
     const [error, setError] = useState('');
     const messagesEndRef = useRef(null);
+
+    // Voice recording
+    const [isRecording, setIsRecording] = useState(false);
+    const [transcribing, setTranscribing] = useState(false);
+    const mediaRecorderRef = useRef(null);
+    const audioChunksRef = useRef([]);
 
     const loadMessages = useCallback(async () => {
         setLoading(true);
@@ -35,7 +45,7 @@ function AiChatPanel({ caseId }) {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
     }, [messages]);
 
-    async function handleSend(withHistory = false) {
+    async function handleSend() {
         if (!input.trim() || sending) return;
         
         const msg = input.trim();
@@ -48,7 +58,7 @@ function AiChatPanel({ caseId }) {
         setMessages(prev => [...prev, { id: optimisticId, role: 'doctor', content: msg, created_at: new Date().toISOString() }]);
 
         try {
-            const res = withHistory
+            const res = useFullHistory
                 ? await aiChatService.sendWithFullHistory(caseId, msg)
                 : await aiChatService.sendMessage(caseId, msg);
             
@@ -67,6 +77,57 @@ function AiChatPanel({ caseId }) {
         setSending(false);
     }
 
+    async function startRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            mediaRecorderRef.current = recorder;
+            audioChunksRef.current = [];
+
+            recorder.ondataavailable = (e) => {
+                if (e.data) audioChunksRef.current.push(e.data);
+            };
+
+            recorder.onstop = async () => {
+                try {
+                    setTranscribing(true);
+                    const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
+                    const res = await aiChatService.transcribe(blob);
+                    if (res?.success) {
+                        const text = res.data?.text ?? res.data?.data?.text ?? '';
+                        const normalized = String(text || '').trim();
+                        if (normalized) {
+                            setInput(prev => (prev ? `${prev}\n${normalized}` : normalized));
+                        }
+                    } else {
+                        showError(res?.message || 'Échec de la transcription audio');
+                    }
+                } catch (e) {
+                    console.error('Chat transcription error:', e);
+                    showError(e?.message || 'Échec de la transcription audio');
+                } finally {
+                    setTranscribing(false);
+                    stream.getTracks().forEach(t => t.stop());
+                }
+            };
+
+            recorder.start();
+            setIsRecording(true);
+        } catch (e) {
+            console.error('Mic permission error:', e);
+            showError('Microphone غير متاح. تحقق من الصلاحيات.');
+        }
+    }
+
+    function stopRecording() {
+        try {
+            mediaRecorderRef.current?.stop();
+        } catch {
+            // ignore
+        }
+        setIsRecording(false);
+    }
+
     return (
         <div className="card" style={{ marginTop: 'var(--space-lg)', display: 'flex', flexDirection: 'column', height: '600px' }}>
             <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-md) var(--space-lg)' }}>
@@ -77,15 +138,7 @@ function AiChatPanel({ caseId }) {
                     <span>Chat Médecin ↔ IA</span>
                 </div>
                 <div style={{ display: 'flex', gap: 'var(--space-sm)' }}>
-                    {messages.length > 0 && (
-                        <button 
-                            onClick={() => { if(window.confirm('Voulez-vous effacer l\'historique ?')) aiChatService.deleteByCase(caseId).then(loadMessages); }}
-                            className="btn btn-ghost btn-sm"
-                            title="Effacer"
-                        >
-                            Effacer
-                        </button>
-                    )}
+                    {/* Reserved for future: clear history */}
                 </div>
             </div>
 
@@ -155,7 +208,7 @@ function AiChatPanel({ caseId }) {
                         <div style={{
                             padding: 'var(--space-sm) var(--space-md)',
                             borderRadius: '18px 18px 18px 4px',
-                            backgroundColor: 'white',
+                            backgroundColor: 'var(--bg-card)',
                             border: '1px solid var(--border-color)',
                             boxShadow: 'var(--shadow-sm)',
                             fontSize: '0.9rem',
@@ -206,7 +259,7 @@ function AiChatPanel({ caseId }) {
                             outline: 'none',
                             maxHeight: '150px'
                         }}
-                        disabled={sending}
+                        disabled={sending || transcribing}
                     />
                     
                     <div style={{ 
@@ -219,26 +272,49 @@ function AiChatPanel({ caseId }) {
                     }}>
                         <div style={{ display: 'flex', gap: 'var(--space-xs)' }}>
                             <button 
-                                onClick={() => handleSend(true)} 
-                                disabled={sending || !input.trim()}
+                                type="button"
+                                onClick={() => setUseFullHistory(v => !v)} 
+                                disabled={sending}
                                 className="btn btn-ghost btn-sm"
                                 style={{ 
                                     fontSize: '0.7rem', 
                                     padding: '4px 10px', 
                                     height: '28px',
                                     borderRadius: '20px',
-                                    background: input.trim() ? 'var(--primary-50)' : 'transparent',
-                                    color: input.trim() ? 'var(--primary)' : 'inherit'
+                                    background: useFullHistory ? 'var(--primary-50)' : 'transparent',
+                                    color: useFullHistory ? 'var(--primary)' : 'var(--text-secondary)'
                                 }}
-                                title="Inclure tout l'historique du patient"
+                                title="Activer: envoyer مع الدوسييه الكامل"
                             >
                                 <HistoryIcon style={{ fontSize: '0.9rem', marginRight: '4px' }} />
                                 Dossier complet
                             </button>
+
+                            <button
+                                type="button"
+                                onClick={() => (isRecording ? stopRecording() : startRecording())}
+                                disabled={sending || transcribing}
+                                className="btn btn-ghost btn-sm"
+                                style={{
+                                    fontSize: '0.7rem',
+                                    padding: '4px 10px',
+                                    height: '28px',
+                                    borderRadius: '20px',
+                                    background: isRecording ? 'var(--error-light)' : 'transparent',
+                                    color: isRecording ? 'var(--error)' : 'var(--text-secondary)',
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    gap: '6px'
+                                }}
+                                title={isRecording ? 'Arrêter' : 'Dicter صوتياً'}
+                            >
+                                {isRecording ? <StopIcon style={{ fontSize: '0.9rem' }} /> : <MicIcon style={{ fontSize: '0.9rem' }} />}
+                                {transcribing ? '...' : 'Voice'}
+                            </button>
                         </div>
 
                         <button 
-                            onClick={() => handleSend(false)} 
+                            onClick={() => handleSend()} 
                             disabled={sending || !input.trim()}
                             className="btn btn-primary"
                             style={{

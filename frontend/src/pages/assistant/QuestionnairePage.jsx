@@ -14,6 +14,8 @@ import translations from '../../constants/translations';
 import { UPLOAD_URL, getAuthUploadUrl, CLINICAL_MEASURE_LABELS } from '../../constants/config';
 import { showError, showWarning } from '../../utils/toast';
 import '../../styles/questionnaire.css';
+import Modal from '../../components/common/Modal';
+import PatientMeasurementsChart from '../../components/patient/PatientMeasurementsChart';
 import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -74,6 +76,11 @@ function QuestionnairePage() {
     const [answers, setAnswers] = useState({}); // Stores all answers including audio blobs
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
+
+    // Curve modal
+    const [showCurveModal, setShowCurveModal] = useState(false);
+    const [measurements, setMeasurements] = useState(null);
+    const [loadingMeasurements, setLoadingMeasurements] = useState(false);
 
     // Audio recording state
     const [isRecording, setIsRecording] = useState(false);
@@ -194,6 +201,26 @@ function QuestionnairePage() {
     // Get current answer for this question
     const currentAnswer = currentQuestion ? answers[currentQuestion.id] : null;
     const currentAudioBlob = currentAnswer?.audioBlob || null;
+
+    const curveEligibleMeasure = currentQuestion?.clinical_measure;
+    const canShowCurve = Boolean(curveEligibleMeasure && ['weight', 'height', 'head_circumference'].includes(curveEligibleMeasure));
+
+    async function openCurveModal() {
+        setShowCurveModal(true);
+        if (measurements) return;
+        try {
+            setLoadingMeasurements(true);
+            const res = await patientService.getMeasurements(patientId);
+            if (res.success) {
+                setMeasurements(res.data || {});
+            }
+        } catch (e) {
+            console.error('Load measurements error:', e);
+            showError(e.message || 'Erreur lors du chargement des mesures');
+        } finally {
+            setLoadingMeasurements(false);
+        }
+    }
 
     // Start recording
     async function startRecording() {
@@ -535,6 +562,13 @@ function QuestionnairePage() {
                                             Mesure : {CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure]?.label || currentQuestion.clinical_measure}
                                         </p>
                                     )}
+                                    {canShowCurve && (
+                                        <div style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                                            <Button variant="secondary" size="sm" onClick={openCurveModal}>
+                                                📈 Voir la courbe
+                                            </Button>
+                                        </div>
+                                    )}
 
                                     {/* Answer input based on type */}
                                     <div className="answer-section">
@@ -718,6 +752,31 @@ function QuestionnairePage() {
                     )}
                 </div>
             </main>
+
+            <Modal
+                isOpen={showCurveModal}
+                title="Courbe"
+                onClose={() => setShowCurveModal(false)}
+                footer={
+                    <Button variant="secondary" onClick={() => setShowCurveModal(false)}>
+                        Fermer
+                    </Button>
+                }
+            >
+                {loadingMeasurements ? (
+                    <div style={{ padding: 'var(--space-md)', color: 'var(--text-secondary)' }}>
+                        Chargement...
+                    </div>
+                ) : (
+                    <div style={{ width: '100%', minHeight: '420px' }}>
+                        <PatientMeasurementsChart
+                            data={(measurements && curveEligibleMeasure) ? (measurements[curveEligibleMeasure] || []) : []}
+                            measureKey={curveEligibleMeasure}
+                            patient={patient}
+                        />
+                    </div>
+                )}
+            </Modal>
         </div>
     );
 }

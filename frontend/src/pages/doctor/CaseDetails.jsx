@@ -17,6 +17,10 @@ import translations from '../../constants/translations';
 import { API_URL, UPLOAD_URL, getAuthUploadUrl } from '../../constants/config';
 import AiChatPanel from '../../components/doctor/AiChatPanel';
 import MedicationSearch from '../../components/doctor/MedicationSearch';
+import aiChatService from '../../services/aiChatService';
+import MicIcon from '@mui/icons-material/Mic';
+import StopIcon from '@mui/icons-material/Stop';
+import { showError } from '../../utils/toast';
 
 const t = translations;
 
@@ -41,6 +45,12 @@ function CaseDetails() {
     const [selectedAnalyses, setSelectedAnalyses] = useState([]);
     const [letterContent, setLetterContent] = useState('');
     const [suggestingMeds, setSuggestingMeds] = useState(false);
+
+    // Diagnostic voice dictation
+    const [diagRecording, setDiagRecording] = useState(false);
+    const [diagTranscribing, setDiagTranscribing] = useState(false);
+    const diagRecorderRef = useRef(null);
+    const diagChunksRef = useRef([]);
 
     // Refs for auto-save
     const autoSaveTimerRef = useRef(null);
@@ -235,6 +245,57 @@ function CaseDetails() {
         } finally {
             setDownloadingPdf(false);
         }
+    }
+
+    async function startDiagRecording() {
+        try {
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            const recorder = new MediaRecorder(stream);
+            diagRecorderRef.current = recorder;
+            diagChunksRef.current = [];
+
+            recorder.ondataavailable = (e) => {
+                if (e.data) diagChunksRef.current.push(e.data);
+            };
+
+            recorder.onstop = async () => {
+                try {
+                    setDiagTranscribing(true);
+                    const blob = new Blob(diagChunksRef.current, { type: 'audio/webm' });
+                    const res = await aiChatService.transcribe(blob);
+                    if (res?.success) {
+                        const text = res.data?.text ?? res.data?.data?.text ?? '';
+                        const normalized = String(text || '').trim();
+                        if (normalized) {
+                            setDiagnosis(prev => (prev ? `${prev}\n${normalized}` : normalized));
+                        }
+                    } else {
+                        showError(res?.message || 'Échec de la transcription audio');
+                    }
+                } catch (e) {
+                    console.error('Diagnostic transcription error:', e);
+                    showError(e?.message || 'Échec de la transcription audio');
+                } finally {
+                    setDiagTranscribing(false);
+                    stream.getTracks().forEach(t => t.stop());
+                }
+            };
+
+            recorder.start();
+            setDiagRecording(true);
+        } catch (e) {
+            console.error('Mic permission error:', e);
+            showError('Microphone غير متاح. تحقق من الصلاحيات.');
+        }
+    }
+
+    function stopDiagRecording() {
+        try {
+            diagRecorderRef.current?.stop();
+        } catch {
+            // ignore
+        }
+        setDiagRecording(false);
     }
 
     // Download analyses PDF
@@ -636,13 +697,36 @@ function CaseDetails() {
                                 {success && <div className="alert alert-success" style={{ marginBottom: 'var(--space-md)' }}>{success}</div>}
 
                                 <div className="form-group">
-                                    <label className="form-label" style={{ fontWeight: 600 }}>Observation / Diagnostic *</label>
+                                    <label className="form-label" style={{ fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)' }}>
+                                        <span>Observation / Diagnostic *</span>
+                                        <button
+                                            type="button"
+                                            onClick={() => (diagRecording ? stopDiagRecording() : startDiagRecording())}
+                                            disabled={saving || diagTranscribing || caseData.status === 'closed'}
+                                            className="btn btn-ghost btn-sm"
+                                            style={{
+                                                height: '28px',
+                                                padding: '4px 10px',
+                                                borderRadius: '20px',
+                                                background: diagRecording ? 'var(--error-light)' : 'transparent',
+                                                color: diagRecording ? 'var(--error)' : 'var(--text-secondary)',
+                                                display: 'inline-flex',
+                                                alignItems: 'center',
+                                                gap: '6px'
+                                            }}
+                                            title={diagRecording ? 'Arrêter' : 'Dicter صوتياً'}
+                                        >
+                                            {diagRecording ? <StopIcon style={{ fontSize: '0.95rem' }} /> : <MicIcon style={{ fontSize: '0.95rem' }} />}
+                                            {diagTranscribing ? '...' : 'Voice'}
+                                        </button>
+                                    </label>
                                     <textarea
                                         value={diagnosis}
                                         onChange={(e) => setDiagnosis(e.target.value)}
                                         className="form-input"
                                         rows="4"
                                         placeholder="Entrez votre diagnostic..."
+                                        disabled={diagTranscribing}
                                     />
                                 </div>
 
