@@ -171,6 +171,17 @@ function getPatientLastName(patient) {
     return normalizeText(patient.lastName || patient.last_name);
 }
 
+function getPatientAgeDisplay(patient) {
+    const rawAge = patient?.ageDisplay || patient?.age_display || patient?.age;
+    const age = normalizeText(rawAge);
+
+    if (!age || age === '-') {
+        return '-';
+    }
+
+    return /[a-zA-Z]/.test(age) ? age : `${age} ans`;
+}
+
 function ensureOutputDirectory(filepath) {
     fs.mkdirSync(path.dirname(filepath), { recursive: true });
 }
@@ -296,7 +307,7 @@ function drawPatientCard(doc, patient, y, theme) {
     const fields = [
         { label: 'Nom', value: getPatientLastName(patient).toUpperCase() || '-' },
         { label: 'Prenom', value: getPatientFirstName(patient).toUpperCase() || '-' },
-        { label: 'Age', value: patient.age ? `${patient.age} ans` : '-' }
+        { label: 'Age', value: getPatientAgeDisplay(patient) }
     ];
 
     fields.forEach((field, index) => {
@@ -525,7 +536,7 @@ async function generateReport(data) {
 
             yPos = drawSection(doc, 'Informations du patient', [
                 `Nom: ${getPatientFirstName(patient)} ${getPatientLastName(patient)}`.trim(),
-                `Age: ${patient.age || '-'} ans`,
+                `Age: ${getPatientAgeDisplay(patient)}`,
                 `Genre: ${formatGenderLabel(patient.gender)}`
             ].join('\n'), yPos, theme);
 

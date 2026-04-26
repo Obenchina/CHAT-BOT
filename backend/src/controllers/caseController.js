@@ -13,6 +13,53 @@ const AiConfig = require('../models/AiConfig');
 const aiService = require('../services/aiService');
 const pdfService = require('../services/pdfService');
 
+function calculateAge(dateOfBirth) {
+    if (!dateOfBirth) return '-';
+    
+    const birthDate = new Date(dateOfBirth);
+    if (Number.isNaN(birthDate.getTime())) return '-';
+
+    const today = new Date();
+    
+    let years = today.getFullYear() - birthDate.getFullYear();
+    let months = today.getMonth() - birthDate.getMonth();
+    
+    if (months < 0 || (months === 0 && today.getDate() < birthDate.getDate())) {
+        years--;
+        months += 12;
+    }
+    
+    if (years === 0) {
+        return `${months} mois`;
+    }
+    
+    return `${years} ans`;
+}
+
+function formatStoredAge(age) {
+    if (age === undefined || age === null || age === '') return '-';
+
+    const text = String(age).trim();
+    if (!text || text === '-') return '-';
+    if (/[a-zA-Z]/.test(text)) return text;
+
+    const numericAge = Number(text);
+    return Number.isFinite(numericAge) ? `${numericAge} ans` : text;
+}
+
+function buildPdfPatient(patient = {}) {
+    const dateOfBirth = patient.date_of_birth || patient.dateOfBirth;
+    const calculatedAge = calculateAge(dateOfBirth);
+
+    return {
+        firstName: patient.first_name || patient.firstName || '',
+        lastName: patient.last_name || patient.lastName || '',
+        age: calculatedAge !== '-' ? calculatedAge : formatStoredAge(patient.age),
+        gender: patient.gender || 'unknown',
+        dateOfBirth
+    };
+}
+
 function anonymizeCaseDataForAI(caseData) {
     if (!caseData || typeof caseData !== 'object') return caseData;
     const cloned = { ...caseData };
@@ -23,6 +70,9 @@ function anonymizeCaseDataForAI(caseData) {
         delete cloned.patient.last_name;
         delete cloned.patient.firstName;
         delete cloned.patient.lastName;
+        
+        // Add age for AI context
+        cloned.patient.age_display = calculateAge(cloned.patient.date_of_birth || cloned.patient.dateOfBirth);
     }
     return cloned;
 }
@@ -954,11 +1004,12 @@ async function generatePrescriptionPdf(req, res) {
             });
         }
 
-        // Verify case is reviewed
-        if (caseData.status !== 'reviewed' && caseData.status !== 'closed') {
+        // Allow generating PDF even if not explicitly reviewed, as requested by user
+        // (The doctor might be in the middle of a review)
+        if (!caseData.status) {
             return res.status(400).json({
                 success: false,
-                message: 'Case must be reviewed before generating prescription'
+                message: 'Invalid case state'
             });
         }
 
@@ -974,12 +1025,7 @@ async function generatePrescriptionPdf(req, res) {
         // Generate PDF
         // Map data to expected format (Database uses snake_case, PDF service expects camelCase)
         const pdfData = {
-            patient: {
-                firstName: caseData.patient.first_name || '',
-                lastName: caseData.patient.last_name || '',
-                age: caseData.patient.age || 0,
-                gender: caseData.patient.gender || 'unknown'
-            },
+            patient: buildPdfPatient(caseData.patient),
             doctor: {
                 firstName: doctor.first_name || '',
                 lastName: doctor.last_name || '',
@@ -1173,12 +1219,7 @@ async function generateAnalysesPdf(req, res) {
         }
 
         const pdfData = {
-            patient: {
-                firstName: caseData.patient.first_name || '',
-                lastName: caseData.patient.last_name || '',
-                age: caseData.patient.age || 0,
-                gender: caseData.patient.gender || 'unknown'
-            },
+            patient: buildPdfPatient(caseData.patient),
             doctor: {
                 firstName: doctor.first_name || '',
                 lastName: doctor.last_name || '',
@@ -1245,12 +1286,7 @@ async function generateLetterPdf(req, res) {
         }
 
         const pdfData = {
-            patient: {
-                firstName: caseData.patient.first_name || '',
-                lastName: caseData.patient.last_name || '',
-                age: caseData.patient.age || 0,
-                gender: caseData.patient.gender || 'unknown'
-            },
+            patient: buildPdfPatient(caseData.patient),
             doctor: {
                 firstName: doctor.first_name || '',
                 lastName: doctor.last_name || '',

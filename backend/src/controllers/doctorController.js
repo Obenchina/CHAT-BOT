@@ -120,21 +120,21 @@ async function getPrescriptionConfig(req, res) {
  */
 async function updatePrescriptionConfig(req, res) {
     try {
-        const doctor = await Doctor.findByUserId(req.user.id);
-        if (!doctor) {
-            return res.status(404).json({ success: false, message: 'Doctor not found' });
-        }
-
         const config = { ...req.body };
         if (req.file) {
-            config.logo_url = `uploads/logos/${req.file.filename}`;
+            // Match the property name expected by Doctor.updatePrescriptionConfig
+            config.logoPath = `uploads/logos/${req.file.filename}`;
         }
 
-        const updated = await Doctor.updatePrescriptionConfig(doctor.id, config);
+        const updated = await Doctor.updatePrescriptionConfig(req.user.id, config);
         res.json({ success: true, message: 'Configuration updated successfully', data: updated });
     } catch (error) {
         console.error('Update config error:', error);
-        res.status(500).json({ success: false, message: 'Failed to update config' });
+        res.status(500).json({ 
+            success: false, 
+            message: 'Failed to update config', 
+            error: error.message 
+        });
     }
 }
 
@@ -199,19 +199,29 @@ async function getAiStatus(req, res) {
 async function getAnalysesConfig(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
-        res.json({ success: true, data: doctor.analyses_config || '' });
+        if (!doctor) {
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
+        }
+        // Return as an object with analysesList for frontend compatibility
+        res.json({ 
+            success: true, 
+            data: { 
+                analysesList: doctor.analyses_list || '' 
+            } 
+        });
     } catch (error) {
+        console.error('Get analyses config error:', error);
         res.status(500).json({ success: false, message: 'Failed to get analyses config' });
     }
 }
 
 async function updateAnalysesConfig(req, res) {
     try {
-        const doctor = await Doctor.findByUserId(req.user.id);
-        const { analyses } = req.body;
-        await Doctor.updateAnalysesConfig(doctor.id, analyses);
+        const { analysesList } = req.body;
+        await Doctor.updateAnalysesConfig(req.user.id, analysesList);
         res.json({ success: true, message: 'Analyses updated' });
     } catch (error) {
+        console.error('Update analyses config error:', error);
         res.status(500).json({ success: false, message: 'Failed to update analyses' });
     }
 }
@@ -222,19 +232,29 @@ async function updateAnalysesConfig(req, res) {
 async function getLetterConfig(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
-        res.json({ success: true, data: doctor.letter_config || '' });
+        if (!doctor) {
+            return res.status(404).json({ success: false, message: 'Doctor not found' });
+        }
+        // Return as an object with letterTemplate for frontend compatibility
+        res.json({ 
+            success: true, 
+            data: { 
+                letterTemplate: doctor.letter_template || '' 
+            } 
+        });
     } catch (error) {
+        console.error('Get letter config error:', error);
         res.status(500).json({ success: false, message: 'Failed to get letter config' });
     }
 }
 
 async function updateLetterConfig(req, res) {
     try {
-        const doctor = await Doctor.findByUserId(req.user.id);
-        const { letter } = req.body;
-        await Doctor.updateLetterConfig(doctor.id, letter);
+        const { letterTemplate } = req.body;
+        await Doctor.updateLetterConfig(req.user.id, letterTemplate);
         res.json({ success: true, message: 'Letter template updated' });
     } catch (error) {
+        console.error('Update letter config error:', error);
         res.status(500).json({ success: false, message: 'Failed to update letter config' });
     }
 }

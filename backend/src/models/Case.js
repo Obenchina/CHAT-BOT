@@ -173,11 +173,14 @@ const Case = {
                     `SELECT ca.*,
                             COALESCE(ca.question_text_snapshot, q.question_text) AS question_text,
                             COALESCE(ca.answer_type_snapshot, q.answer_type) AS answer_type,
-                            COALESCE(ca.order_index_snapshot, q.order_index, ca.id) AS display_order
+                            COALESCE(ca.order_index_snapshot, q.order_index, ca.id) AS display_order,
+                            q.clinical_measure,
+                            q.section_name,
+                            q.section_order
                      FROM case_answers ca
                      LEFT JOIN questions q ON ca.question_id = q.id
                      WHERE ca.case_id = ?
-                     ORDER BY display_order, ca.id`,
+                     ORDER BY q.section_order, display_order, ca.id`,
                     [id]
                 );
                 answers = answerRows || [];
@@ -356,6 +359,7 @@ const Case = {
                     COALESCE(ca.question_text_snapshot, q.question_text) AS question_text,
                     COALESCE(ca.answer_type_snapshot, q.answer_type) AS answer_type,
                     COALESCE(ca.order_index_snapshot, q.order_index, ca.id) AS display_order,
+                    q.clinical_measure,
                     q.section_name,
                     q.section_order
              FROM case_answers ca

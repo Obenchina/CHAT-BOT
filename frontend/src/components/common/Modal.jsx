@@ -13,8 +13,12 @@ import { useEffect } from 'react';
  * @param {string} props.title - Modal title
  * @param {React.ReactNode} props.children - Modal content
  * @param {React.ReactNode} props.footer - Modal footer
+ * @param {string} props.maxWidth - Optional modal max width
+ * @param {Object} props.overlayStyle - Optional overlay inline style
+ * @param {Object} props.modalStyle - Optional modal inline style
+ * @param {Object} props.bodyStyle - Optional body inline style
  */
-function Modal({ isOpen, onClose, title, children, footer }) {
+function Modal({ isOpen, onClose, title, children, footer, maxWidth, overlayStyle, modalStyle, bodyStyle }) {
     // Close on escape key
     useEffect(() => {
         function handleEscape(e) {
@@ -40,11 +44,20 @@ function Modal({ isOpen, onClose, title, children, footer }) {
     return (
         <div
             className="modal-overlay"
+            style={overlayStyle}
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
             }}
         >
-            <div className="modal" role="dialog" aria-modal="true">
+            <div
+                className="modal"
+                role="dialog"
+                aria-modal="true"
+                style={{
+                    ...(maxWidth ? { maxWidth } : {}),
+                    ...modalStyle
+                }}
+            >
                 {/* Header */}
                 <div className="modal-header">
                     <h3 className="modal-title">{title}</h3>
@@ -58,7 +71,7 @@ function Modal({ isOpen, onClose, title, children, footer }) {
                 </div>
 
                 {/* Body */}
-                <div className="modal-body">
+                <div className="modal-body" style={bodyStyle}>
                     {children}
                 </div>
 

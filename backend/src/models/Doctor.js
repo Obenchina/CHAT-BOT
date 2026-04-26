@@ -144,11 +144,11 @@ const Doctor = {
                 prescription_services_text = ?
              WHERE user_id = ?`,
             [
-                logoPath,
-                primaryColor,
-                accentColor,
-                specialtyText,
-                servicesText,
+                logoPath || null,
+                primaryColor || null,
+                accentColor || null,
+                specialtyText || null,
+                servicesText || null,
                 userId
             ]
         );

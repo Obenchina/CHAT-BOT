@@ -11,10 +11,11 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import PatientIdentityBlock from '../../components/doctor/case/PatientIdentityBlock';
 import CaseAnswersBlock from '../../components/doctor/case/CaseAnswersBlock';
 import AiSummaryBlock from '../../components/doctor/case/AiSummaryBlock';
+import api from '../../services/api';
 import caseService from '../../services/caseService';
 import doctorService from '../../services/doctorService';
 import translations from '../../constants/translations';
-import { API_URL, UPLOAD_URL, getAuthUploadUrl } from '../../constants/config';
+import { getAuthUploadUrl } from '../../constants/config';
 import AiChatPanel from '../../components/doctor/AiChatPanel';
 import MedicationSearch from '../../components/doctor/MedicationSearch';
 import aiChatService from '../../services/aiChatService';
@@ -221,16 +222,14 @@ function CaseDetails() {
     // Download prescription PDF
     async function handleDownloadPdf() {
         setDownloadingPdf(true);
+        setError('');
         try {
-            const response = await fetch(`${API_URL}/cases/${id}/prescription/pdf`, {
-                headers: {
-                    'Authorization': `Bearer ${localStorage.getItem('token')}`
-                }
+            // Use the standard 'api' instance which already has the token interceptor
+            const response = await api.get(`/cases/${id}/prescription/pdf`, {
+                responseType: 'blob'
             });
 
-            if (!response.ok) throw new Error('PDF generation failed');
-
-            const blob = await response.blob();
+            const blob = new Blob([response], { type: 'application/pdf' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -308,11 +307,11 @@ function CaseDetails() {
         setError('');
         try {
             const selected = selectedAnalyses.join(',');
-            const response = await fetch(`${API_URL}/cases/${id}/analyses/pdf?selected=${encodeURIComponent(selected)}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            const response = await api.get(`/cases/${id}/analyses/pdf`, {
+                params: { selected },
+                responseType: 'blob'
             });
-            if (!response.ok) throw new Error('PDF generation failed');
-            const blob = await response.blob();
+            const blob = new Blob([response], { type: 'application/pdf' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -338,11 +337,11 @@ function CaseDetails() {
         setDownloadingPdf(true);
         setError('');
         try {
-            const response = await fetch(`${API_URL}/cases/${id}/letter/pdf?content=${encodeURIComponent(letterContent)}`, {
-                headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+            const response = await api.get(`/cases/${id}/letter/pdf`, {
+                params: { content: letterContent },
+                responseType: 'blob'
             });
-            if (!response.ok) throw new Error('PDF generation failed');
-            const blob = await response.blob();
+            const blob = new Blob([response], { type: 'application/pdf' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
             a.href = url;
@@ -440,7 +439,7 @@ function CaseDetails() {
                         <PatientIdentityBlock patient={patient} />
 
                         {/* 2. Questionnaire (grouped by section) */}
-                        <CaseAnswersBlock answers={answers} />
+                        <CaseAnswersBlock answers={answers} patient={patient} />
 
                         {/* 3. AI Analysis */}
                         <AiSummaryBlock aiAnalysis={aiAnalysis} />
@@ -740,11 +739,12 @@ function CaseDetails() {
                                         {caseData.status === 'reviewed' ? 'Mettre à jour' : 'Enregistrer le diagnostic'}
                                     </Button>
 
-                                    {caseData.status === 'reviewed' && documentType === 'ordonnance' && (
+                                    {documentType === 'ordonnance' && (
                                         <Button
                                             variant="secondary"
                                             onClick={handleDownloadPdf}
                                             loading={downloadingPdf}
+                                            style={{ minWidth: '180px' }}
                                         >
                                             📄 Télécharger l'ordonnance
                                         </Button>
