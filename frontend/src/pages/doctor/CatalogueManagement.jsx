@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Catalogue Management Page
  * Doctor manages multiple named catalogues and their questions
  */
@@ -23,6 +23,7 @@ import ToggleOffIcon from '@mui/icons-material/ToggleOff';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 
 const t = translations;
+const SECTIONS_ENABLED = false;
 
 function CatalogueManagement() {
     const [catalogues, setCatalogues] = useState([]);
@@ -293,8 +294,8 @@ function CatalogueManagement() {
         const targetQuestion = questions[dropIndex];
         const draggedSection = draggedQuestion?.section_name || draggedQuestion?.sectionName || null;
         const targetSection = targetQuestion?.section_name || targetQuestion?.sectionName || null;
-        if ((draggedSection || null) !== (targetSection || null)) {
-            showError('Le réordonnancement par glisser-déposer est limité داخل نفس القسم. استخدم قائمة القسم لنقل السؤال.');
+        if (SECTIONS_ENABLED && (draggedSection || null) !== (targetSection || null)) {
+            showError('Le réordonnancement par glisser-déposer est limité ???? ??? ?????. ?????? ????? ????? ???? ??????.');
             setDragOverItem(null);
             setDraggedItem(null);
             setIsDragging(false);
@@ -411,7 +412,7 @@ function CatalogueManagement() {
                     ? JSON.stringify(formData.choices.split('\n').map(c => c.trim()).filter(c => c))
                     : null,
                 clinicalMeasure: formData.clinicalMeasure,
-                sectionId: formData.sectionId ? Number(formData.sectionId) : null
+                sectionId: SECTIONS_ENABLED ? (formData.sectionId ? Number(formData.sectionId) : null) : null
             };
 
             if (editingQuestion) {
@@ -537,9 +538,11 @@ function CatalogueManagement() {
                     <Button variant="primary" onClick={() => openAddQuestionModal(catalogue)}>
                         <AddIcon fontSize="small" /> {t.catalogue.addQuestion}
                     </Button>
-                    <Button variant="secondary" onClick={() => setShowSectionsModal(true)}>
-                        📁 Gérer les sections
-                    </Button>
+                    {SECTIONS_ENABLED && (
+                        <Button variant="secondary" onClick={() => setShowSectionsModal(true)}>
+                            ?? Gérer les sections
+                        </Button>
+                    )}
                 </div>
 
                 {questions.length > 1 && (
@@ -559,7 +562,7 @@ function CatalogueManagement() {
                                     <tr>
                                         <th style={{ width: '64px' }}>#</th>
                                         <th>Question</th>
-                                        <th style={{ width: '18%' }}>Section</th>
+                                        {SECTIONS_ENABLED && <th style={{ width: '18%' }}>Section</th>}
                                         <th style={{ width: '18%' }}>{t.catalogue.answerType}</th>
                                         <th style={{ width: '14%' }}>{t.common.status}</th>
                                         <th className="col-actions" style={{ width: '144px' }}>
@@ -581,10 +584,10 @@ function CatalogueManagement() {
 
                                         return (
                                             <Fragment key={question.id}>
-                                                {showSectionHeader && (
+                                                {SECTIONS_ENABLED && showSectionHeader && (
                                                     <tr className="section-header-row" style={{ backgroundColor: 'var(--bg-elevated)' }}>
-                                                        <td colSpan="6" style={{ padding: 'var(--space-md) var(--space-md)', color: 'var(--primary)', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)' }}>
-                                                            📁 {sectionName}
+                                                        <td colSpan={SECTIONS_ENABLED ? 6 : 5} style={{ padding: 'var(--space-md) var(--space-md)', color: 'var(--primary)', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)' }}>
+                                                            ?? {sectionName}
                                                         </td>
                                                     </tr>
                                                 )}
@@ -610,6 +613,7 @@ function CatalogueManagement() {
                                                     {questionText}
                                                     {isRequired && <span style={{ color: 'var(--error)', marginLeft: '4px' }}>*</span>}
                                                 </td>
+                                                {SECTIONS_ENABLED && (
                                                 <td>
                                                     <select
                                                         className="form-input form-select"
@@ -638,12 +642,13 @@ function CatalogueManagement() {
                                                             }
                                                         }}
                                                     >
-                                                        <option value="">بدون قسم</option>
+                                                        <option value="">???? ???</option>
                                                         {(sections || []).map(s => (
                                                             <option key={s.id} value={s.id}>{s.name}</option>
                                                         ))}
                                                     </select>
                                                 </td>
+                                                )}
                                                 <td>{getAnswerTypeLabel(question.answer_type || question.answerType)}</td>
                                                 <td>
                                                     <span className={`badge ${isQuestionActive ? 'badge-success' : 'badge-gray'}`}>
@@ -670,9 +675,9 @@ function CatalogueManagement() {
 
                                         return (
                                             <Fragment key={`mobile-question-${question.id}`}>
-                                                {showSectionHeader && (
+                                                {SECTIONS_ENABLED && showSectionHeader && (
                                                     <div className="mobile-section-header" style={{ padding: 'var(--space-md)', backgroundColor: 'var(--bg-elevated)', color: 'var(--primary)', fontWeight: 'bold', borderBottom: '1px solid var(--border-color)', borderTop: index > 0 ? '1px solid var(--border-color)' : 'none' }}>
-                                                        📁 {sectionName}
+                                                        ?? {sectionName}
                                                     </div>
                                                 )}
                                                 <div
@@ -972,23 +977,25 @@ function CatalogueManagement() {
                         {formErrors.questionText && <span className="form-error">{formErrors.questionText}</span>}
                     </div>
 
-                    <div className="form-group">
-                        <label className="form-label">Section</label>
-                        <select
-                            name="sectionId"
-                            value={formData.sectionId}
-                            onChange={handleQuestionFormChange}
-                            className="form-input form-select"
-                        >
-                            <option value="">بدون قسم</option>
-                            {(sections || []).map(s => (
-                                <option key={s.id} value={s.id}>{s.name}</option>
-                            ))}
-                        </select>
-                        <div style={{ marginTop: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
-                            لإدارة الأقسام (إنشاء/إعادة تسمية/ترتيب/حذف)، استخدم زر "Gérer les sections".
+                    {SECTIONS_ENABLED && (
+                        <div className="form-group">
+                            <label className="form-label">Section</label>
+                            <select
+                                name="sectionId"
+                                value={formData.sectionId}
+                                onChange={handleQuestionFormChange}
+                                className="form-input form-select"
+                            >
+                                <option value="">???? ???</option>
+                                {(sections || []).map(s => (
+                                    <option key={s.id} value={s.id}>{s.name}</option>
+                                ))}
+                            </select>
+                            <div style={{ marginTop: '6px', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                                ?????? ??????? (?????/????? ?????/?????/???)? ?????? ?? "Gérer les sections".
+                            </div>
                         </div>
-                    </div>
+                    )}
 
                     <div className="form-group">
                         <label className="form-label">{t.catalogue.answerType}</label>
@@ -1044,21 +1051,24 @@ function CatalogueManagement() {
                 </form>
             </Modal>
 
-            <SectionsManagerModal
-                isOpen={showSectionsModal}
-                onClose={() => setShowSectionsModal(false)}
-                catalogueId={catalogue?.id || selectedCatalogueId}
-                sections={sections}
-                loading={detailLoading}
-                catalogueService={catalogueService}
-                onChanged={async () => {
-                    if (catalogue?.id) {
-                        await refreshSelectedCatalogue(catalogue.id);
-                    }
-                }}
-            />
+            {SECTIONS_ENABLED && (
+                <SectionsManagerModal
+                    isOpen={showSectionsModal}
+                    onClose={() => setShowSectionsModal(false)}
+                    catalogueId={catalogue?.id || selectedCatalogueId}
+                    sections={sections}
+                    loading={detailLoading}
+                    catalogueService={catalogueService}
+                    onChanged={async () => {
+                        if (catalogue?.id) {
+                            await refreshSelectedCatalogue(catalogue.id);
+                        }
+                    }}
+                />
+            )}
         </div>
     );
 }
 
 export default CatalogueManagement;
+

@@ -68,7 +68,8 @@ async function sendMessage(req, res) {
         const aiConfig = activeAiConfig ? {
             provider: activeAiConfig.provider,
             apiKey: activeAiConfig.api_key,
-            model: activeAiConfig.model
+            model: activeAiConfig.model,
+            responseLanguage: activeAiConfig.response_language || 'ar'
         } : null;
 
         if (!aiConfig || !aiConfig.apiKey) {
@@ -84,7 +85,10 @@ async function sendMessage(req, res) {
         const chatHistory = history.filter(m => m.id !== doctorMsg.id);
 
         // Build context and call AI
-        const systemContext = aiService.buildChatSystemPrompt(anonymizeCaseDataForAI(caseData));
+        const systemContext = aiService.buildChatSystemPrompt(
+            anonymizeCaseDataForAI(caseData),
+            aiConfig?.responseLanguage || 'ar'
+        );
         const aiResponse = await aiService.chatWithAI(systemContext, chatHistory, message.trim(), aiConfig);
 
         // Save AI response
@@ -160,7 +164,8 @@ async function sendWithFullHistory(req, res) {
         const aiConfig = activeAiConfig ? {
             provider: activeAiConfig.provider,
             apiKey: activeAiConfig.api_key,
-            model: activeAiConfig.model
+            model: activeAiConfig.model,
+            responseLanguage: activeAiConfig.response_language || 'ar'
         } : null;
 
         if (!aiConfig || !aiConfig.apiKey) {
@@ -172,7 +177,10 @@ async function sendWithFullHistory(req, res) {
         const chatHistory = await AiChat.getMessages(caseId);
         const filteredHistory = chatHistory.filter(m => m.id !== doctorMsg.id);
 
-        const systemContext = aiService.buildChatSystemPrompt(anonymizeCaseDataForAI(caseData)) + '\n\n' + fullHistoryContext;
+        const systemContext = aiService.buildChatSystemPrompt(
+            anonymizeCaseDataForAI(caseData),
+            aiConfig?.responseLanguage || 'ar'
+        ) + '\n\n' + fullHistoryContext;
         const aiResponse = await aiService.chatWithAI(systemContext, filteredHistory, message, aiConfig);
 
         const aiMsg = await AiChat.addMessage(caseId, doctor.id, 'ai', aiResponse);
@@ -207,7 +215,8 @@ async function transcribe(req, res) {
         const aiConfig = activeAiConfig ? {
             provider: activeAiConfig.provider,
             apiKey: activeAiConfig.api_key,
-            model: activeAiConfig.model
+            model: activeAiConfig.model,
+            responseLanguage: activeAiConfig.response_language || 'ar'
         } : null;
 
         if (!aiConfig || !aiConfig.apiKey) {

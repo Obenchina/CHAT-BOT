@@ -201,7 +201,7 @@ app.use((err, req, res, next) => {
 // SERVER STARTUP
 // ======================
 
-const PORT = config.server.port;
+const PORT = Number(config.server.port) || 5000;
 
 async function ensureColumn(pool, tableName, columnName, definition) {
     const [rows] = await pool.execute(
@@ -258,6 +258,24 @@ async function runMigrations(pool) {
     await ensureColumn(pool, 'doctors', 'prescription_services_text', 'TEXT NULL');
     await ensureColumn(pool, 'doctors', 'analyses_list', 'TEXT NULL');
     await ensureColumn(pool, 'doctors', 'letter_template', 'TEXT NULL');
+
+    await pool.execute(`
+        CREATE TABLE IF NOT EXISTS ai_config (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            doctor_id INT NOT NULL,
+            provider VARCHAR(50) NOT NULL,
+            api_key TEXT NOT NULL,
+            model VARCHAR(120) NOT NULL,
+            is_active BOOLEAN NOT NULL DEFAULT FALSE,
+            response_language ENUM('ar','fr') NOT NULL DEFAULT 'ar',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_doctor_provider (doctor_id, provider),
+            INDEX idx_doctor_active (doctor_id, is_active),
+            FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB;
+    `);
+    await ensureColumn(pool, 'ai_config', 'response_language', "ENUM('ar','fr') NOT NULL DEFAULT 'ar'");
 
     await pool.execute(`
         UPDATE catalogues
@@ -368,6 +386,26 @@ async function runMigrations(pool) {
     console.log('Database migrations ready');
 }
 
+function listenWithFallback(preferredPort, maxAttempts = 10) {
+    return new Promise((resolve, reject) => {
+        const tryListen = (attempt) => {
+            const portToTry = preferredPort + attempt;
+            const server = app.listen(portToTry, () => resolve({ server, port: portToTry }));
+
+            server.on('error', (error) => {
+                if (error.code === 'EADDRINUSE' && attempt < maxAttempts - 1) {
+                    console.warn(`Port ${portToTry} already in use, trying ${portToTry + 1}...`);
+                    tryListen(attempt + 1);
+                    return;
+                }
+                reject(error);
+            });
+        };
+
+        tryListen(0);
+    });
+}
+
 async function startServer() {
     const dbConnected = await testConnection();
 
@@ -382,20 +420,23 @@ async function startServer() {
         }
     }
 
-    const server = app.listen(PORT, () => {
-        console.log(`Server running on http://localhost:${PORT}`);
+    try {
+        const { server, port } = await listenWithFallback(PORT, 20);
+        console.log(`Server running on http://localhost:${port}`);
         console.log(`Environment: ${config.server.env}`);
-    });
 
-    server.on('error', (error) => {
+        server.on('error', (error) => {
+            console.error('Server error:', error);
+            process.exit(1);
+        });
+    } catch (error) {
         if (error.code === 'EADDRINUSE') {
-            console.error(`Port ${PORT} is already in use. Stop the process using it, then restart the backend.`);
+            console.error(`No available port found starting from ${PORT}.`);
         } else {
             console.error('Server error:', error);
         }
-
         process.exit(1);
-    });
+    }
 }
 
 startServer();

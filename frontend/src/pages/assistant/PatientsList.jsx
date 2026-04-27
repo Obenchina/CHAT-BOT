@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Patients List Page
  * Assistant main page showing patient list
  */
@@ -15,6 +15,7 @@ import caseService from '../../services/caseService';
 import catalogueService from '../../services/catalogueService';
 import translations from '../../constants/translations';
 import { showError, showConfirm, showWarning } from '../../utils/toast';
+import { formatDateOnlyDisplay } from '../../utils/patientAge';
 import { GENDER_OPTIONS } from '../../constants/config';
 import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import EditIcon from '@mui/icons-material/Edit';
@@ -164,11 +165,11 @@ function PatientsList() {
         if (!formData.dateOfBirth) {
             errors.dateOfBirth = 'La date de naissance est requise.';
         } else if (new Date(formData.dateOfBirth) > new Date()) {
-            errors.dateOfBirth = 'La date de naissance ne peut pas être dans le futur.';
+            errors.dateOfBirth = 'La date de naissance ne peut pas Ãªtre dans le futur.';
         }
         if (!formData.phone.trim()) errors.phone = t.errors.required;
-        if (formData.siblingsAlive < 0) errors.siblingsAlive = 'Doit être positif.';
-        if (formData.siblingsDeceased < 0) errors.siblingsDeceased = 'Doit être positif.';
+        if (formData.siblingsAlive < 0) errors.siblingsAlive = 'Doit Ãªtre positif.';
+        if (formData.siblingsDeceased < 0) errors.siblingsDeceased = 'Doit Ãªtre positif.';
         setFormErrors(errors);
         return Object.keys(errors).length === 0;
     }
@@ -322,7 +323,7 @@ function PatientsList() {
     // Handle Delete Case
     async function handleDeleteCase(e, caseId, patientId) {
         e.stopPropagation();
-        const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cette visite en cours ?');
+        const confirmed = await showConfirm('ÃŠtes-vous sÃ»r de vouloir supprimer cette visite en cours ?');
         if (!confirmed) {
             return;
         }
@@ -350,7 +351,7 @@ function PatientsList() {
                     <div>
                         <h1 className="page-title">{t.assistant.patientsList}</h1>
                         <p style={{ margin: 0, fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
-                            Gérez vos patients et démarrez de nouvelles consultations.
+                            GÃ©rez vos patients et dÃ©marrez de nouvelles consultations.
                         </p>
                     </div>
                     <Button variant="primary" onClick={openNewPatientModal}>
@@ -405,10 +406,10 @@ function PatientsList() {
                                     value={sortBy}
                                     onChange={(e) => setSortBy(e.target.value)}
                                 >
-                                    <option value="newest">Plus récents</option>
+                                    <option value="newest">Plus rÃ©cents</option>
                                     <option value="name_asc">Nom (A-Z)</option>
-                                    <option value="age_desc">Âge (Décroissant)</option>
-                                    <option value="age_asc">Âge (Croissant)</option>
+                                    <option value="age_desc">Ã‚ge (DÃ©croissant)</option>
+                                    <option value="age_asc">Ã‚ge (Croissant)</option>
                                 </select>
                             </div>
                         </div>
@@ -464,7 +465,7 @@ function PatientsList() {
                                                                 patient.gender === 'female' ? t.patient.female : t.patient.other}
                                                         </span>
                                                     </td>
-                                                    <td>{patient.dateOfBirth || patient.date_of_birth || '—'}</td>
+                                                    <td>{formatDateOnlyDisplay(patient.dateOfBirth || patient.date_of_birth)}</td>
                                                     <td className="col-hide-md" style={{ color: 'var(--text-secondary)' }}>{patient.phone || '-'}</td>
                                                     <td className="col-actions">
                                                         <div>
@@ -477,7 +478,7 @@ function PatientsList() {
                                                                 }}
                                                                 title={t.assistant.startCase}
                                                             >
-                                                                <PlayArrowIcon fontSize="small" /> <span style={{ marginLeft: '4px' }}>Démarrer</span>
+                                                                <PlayArrowIcon fontSize="small" /> <span style={{ marginLeft: '4px' }}>DÃ©marrer</span>
                                                             </Button>
                                                             <Button
                                                                 variant="ghost"
@@ -535,7 +536,7 @@ function PatientsList() {
                                                                                                 }`}>
                                                                                                 {cse.status === 'in_progress' ? 'En cours' :
                                                                                                     cse.status === 'submitted' ? 'En attente' :
-                                                                                                        cse.status === 'reviewed' ? 'Traité' : 'Clôturé'}
+                                                                                                        cse.status === 'reviewed' ? 'TraitÃ©' : 'ClÃ´turÃ©'}
                                                                                             </span>
                                                                                         </td>
                                                                                         <td style={{ padding: 'var(--space-sm) var(--space-lg)' }}>
@@ -584,7 +585,7 @@ function PatientsList() {
                                                                         </table>
                                                                     ) : (
                                                                         <div className="text-center" style={{ padding: 'var(--space-xl)', color: 'var(--text-muted)' }}>
-                                                                            <p style={{ margin: 0 }}>Aucune visite précédente pour ce patient.</p>
+                                                                            <p style={{ margin: 0 }}>Aucune visite prÃ©cÃ©dente pour ce patient.</p>
                                                                         </div>
                                                                     )}
                                                                 </div>
@@ -615,7 +616,7 @@ function PatientsList() {
                                                         {patient.firstName || patient.first_name} {patient.lastName || patient.last_name}
                                                     </p>
                                                     <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                        {patient.dateOfBirth || patient.date_of_birth || '—'} · {patient.gender === 'female' ? 'Femme' : 'Homme'} {patient.phone ? `· ${patient.phone}` : ''}
+                                                        {formatDateOnlyDisplay(patient.dateOfBirth || patient.date_of_birth)} Â· {patient.gender === 'female' ? 'Femme' : 'Homme'} {patient.phone ? `Â· ${patient.phone}` : ''}
                                                     </p>
                                                 </div>
                                             </div>
@@ -635,7 +636,7 @@ function PatientsList() {
                                             <div className="mobile-list-content">
                                                 <div style={{ display: 'flex', gap: 'var(--space-sm)', padding: 'var(--space-md) 0', borderBottom: '1px solid var(--border-color)' }}>
                                                     <Button variant="primary" size="sm" style={{ flex: 1 }} onClick={(e) => { e.stopPropagation(); startCase(patient); }}>
-                                                        <PlayArrowIcon fontSize="small" /> Démarrer cas
+                                                        <PlayArrowIcon fontSize="small" /> DÃ©marrer cas
                                                     </Button>
                                                     <Button variant="secondary" size="sm" className="btn-icon" onClick={(e) => handleEditClick(e, patient)}>
                                                         <EditIcon fontSize="small" />
@@ -655,7 +656,7 @@ function PatientsList() {
                                                                 <div>
                                                                     <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 500 }}>{new Date(cse.createdAt || cse.created_at).toLocaleDateString()}</p>
                                                                     <span style={{ fontSize: '0.7rem' }} className={`badge badge-${cse.status === 'in_progress' ? 'warning' : cse.status === 'submitted' ? 'info' : cse.status === 'reviewed' ? 'success' : 'gray'}`}>
-                                                                        {cse.status === 'in_progress' ? 'En cours' : cse.status === 'submitted' ? 'En attente' : cse.status === 'reviewed' ? 'Traité' : 'Clôturé'}
+                                                                        {cse.status === 'in_progress' ? 'En cours' : cse.status === 'submitted' ? 'En attente' : cse.status === 'reviewed' ? 'TraitÃ©' : 'ClÃ´turÃ©'}
                                                                     </span>
                                                                 </div>
                                                                 <div className="flex gap-2">
@@ -672,7 +673,7 @@ function PatientsList() {
                                                         ))}
                                                     </div>
                                                 ) : (
-                                                    <p style={{ margin: 'var(--space-sm) 0', fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Aucune visite précédente.</p>
+                                                    <p style={{ margin: 'var(--space-sm) 0', fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Aucune visite prÃ©cÃ©dente.</p>
                                                 )}
                                             </div>
                                         )}
@@ -684,7 +685,7 @@ function PatientsList() {
                             {processedPatients.length > 0 && (
                                 <div className="card-footer flex justify-between items-center" style={{ background: 'var(--bg-card)' }}>
                                     <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                        Affichage de {((currentPage - 1) * rowsPerPage) + 1} à {Math.min(currentPage * rowsPerPage, processedPatients.length)} sur {processedPatients.length} patients
+                                        Affichage de {((currentPage - 1) * rowsPerPage) + 1} Ã  {Math.min(currentPage * rowsPerPage, processedPatients.length)} sur {processedPatients.length} patients
                                     </div>
                                     <div className="flex items-center gap-md">
                                         <select
@@ -704,7 +705,7 @@ function PatientsList() {
                                                 disabled={currentPage === 1}
                                                 onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                                             >
-                                                Précédent
+                                                PrÃ©cÃ©dent
                                             </Button>
                                             <Button
                                                 variant="secondary"
@@ -729,14 +730,14 @@ function PatientsList() {
                             }}>
                                 <GroupOffIcon fontSize="large" />
                             </div>
-                            <h3 style={{ marginBottom: 'var(--space-sm)' }}>Aucun patient trouvé</h3>
+                            <h3 style={{ marginBottom: 'var(--space-sm)' }}>Aucun patient trouvÃ©</h3>
                             <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', marginBottom: 'var(--space-lg)' }}>
                                 {searchQuery
-                                    ? `Nous n'avons trouvé aucun patient correspondant à "${searchQuery}".`
+                                    ? `Nous n'avons trouvÃ© aucun patient correspondant Ã  "${searchQuery}".`
                                     : "Vous n'avez pas encore de patients dans votre liste. Commencez par ajouter un nouveau patient."}
                             </p>
                             {searchQuery ? (
-                                <Button variant="secondary" onClick={clearSearch}>Réinitialiser la recherche</Button>
+                                <Button variant="secondary" onClick={clearSearch}>RÃ©initialiser la recherche</Button>
                             ) : (
                                 <Button variant="primary" onClick={openNewPatientModal}>
                                     <AddIcon fontSize="small" /> Ajouter un patient
@@ -909,7 +910,7 @@ function PatientsList() {
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 var(--space-md)' }}>
                         <Input
-                            label="Frères/sœurs vivants"
+                            label="FrÃ¨res/sÅ“urs vivants"
                             name="siblingsAlive"
                             type="number"
                             min="0"
@@ -918,7 +919,7 @@ function PatientsList() {
                             error={formErrors.siblingsAlive}
                         />
                         <Input
-                            label="Frères/sœurs décédés"
+                            label="FrÃ¨res/sÅ“urs dÃ©cÃ©dÃ©s"
                             name="siblingsDeceased"
                             type="number"
                             min="0"
@@ -934,3 +935,5 @@ function PatientsList() {
 }
 
 export default PatientsList;
+
+

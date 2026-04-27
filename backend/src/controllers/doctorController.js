@@ -146,7 +146,27 @@ async function getAiConfig(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
         const configs = await AiConfig.getAllConfigs(doctor.id);
-        res.json({ success: true, data: configs });
+        const configsByProvider = {};
+        let activeProvider = 'gemini';
+
+        (configs || []).forEach((cfg) => {
+            configsByProvider[cfg.provider] = {
+                apiKey: cfg.api_key || '',
+                model: cfg.model || '',
+                responseLanguage: cfg.response_language || 'ar'
+            };
+            if (cfg.is_active) {
+                activeProvider = cfg.provider;
+            }
+        });
+
+        res.json({
+            success: true,
+            data: {
+                activeProvider,
+                configs: configsByProvider
+            }
+        });
     } catch (error) {
         console.error('Get AI config error:', error);
         res.status(500).json({ success: false, message: 'Failed to load AI config' });
@@ -156,15 +176,31 @@ async function getAiConfig(req, res) {
 async function updateAiConfig(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
-        const { provider, api_key, model } = req.body;
+        const {
+            provider,
+            api_key,
+            apiKey,
+            model,
+            response_language,
+            responseLanguage
+        } = req.body;
         
         const config = await AiConfig.upsert(doctor.id, {
             provider,
-            apiKey: api_key,
-            model
+            apiKey: api_key || apiKey || '',
+            model,
+            responseLanguage: response_language || responseLanguage || 'ar'
         });
 
-        res.json({ success: true, message: 'AI configuration saved' });
+        res.json({
+            success: true,
+            message: 'AI configuration saved',
+            data: {
+                provider: config?.provider || provider,
+                model: config?.model || model,
+                responseLanguage: config?.response_language || response_language || responseLanguage || 'ar'
+            }
+        });
     } catch (error) {
         console.error('Update AI config error:', error);
         res.status(500).json({ success: false, message: 'Failed to save AI config' });

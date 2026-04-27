@@ -95,9 +95,13 @@ function rotateClockwise(image) {
     return { width: newWidth, height: newHeight, raw: out };
 }
 
-function shouldRotateClockwise(originalName, image) {
+function shouldRotateClockwise(originalName, image, measureKey) {
     const name = normalizeText(originalName);
+    if (name.includes('perimetre') || name.includes('cranien') || name.includes('-pc-') || name.includes('courbes-pc')) {
+        return true;
+    }
     if (name.includes('1-mois-3-ans') || name.includes('1 mois 3 ans')) return true;
+    if (measureKey === 'head' && image.height > image.width) return true;
     return image.width > image.height * 1.25 && name.includes('1-18') === false;
 }
 
@@ -217,6 +221,7 @@ function inferYDomain(measureKey, originalName) {
 
     if (measureKey === 'height') {
         if (name.includes('1-18') || name.includes('1 a 18')) return [60, 210];
+        if (name.includes('1-mois-3-ans') || name.includes('1 mois 3 ans')) return [40, 110];
         return [40, 130];
     }
 
@@ -235,6 +240,10 @@ function getKnownPlotArea(originalName, measureKey) {
     const name = normalizeText(originalName);
 
     if (name.includes('1-mois-3-ans') || name.includes('1 mois 3 ans')) {
+        if (measureKey === 'height') {
+            return { left: 4.952, top: 4.98, right: 95.27, bottom: 87.093, confidence: 0.98 };
+        }
+
         if (measureKey === 'weight') {
             return { left: 4.952, top: 4.98, right: 95.27, bottom: 87.093, confidence: 0.98 };
         }
@@ -290,7 +299,7 @@ function buildExtractedCharts(file, options = {}) {
 
     return meaningfulImages.map((rawImage, index) => {
         const measureKey = measureKeys[index] || measureKeys[0] || options.measureKey || 'weight';
-        const image = shouldRotateClockwise(file.originalname, rawImage) ? rotateClockwise(rawImage) : rawImage;
+        const image = shouldRotateClockwise(file.originalname, rawImage, measureKey) ? rotateClockwise(rawImage) : rawImage;
         const plotArea = getKnownPlotArea(file.originalname, measureKey) || detectPlotArea(image);
         const yDomain = inferYDomain(measureKey, file.originalname);
 

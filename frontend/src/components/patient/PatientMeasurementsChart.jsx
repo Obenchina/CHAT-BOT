@@ -11,7 +11,7 @@ import {
 import { CLINICAL_MEASURE_LABELS, getAuthUploadUrl } from '../../constants/config';
 import doctorService from '../../services/doctorService';
 
-function PatientMeasurementsChart({ data, measureKey, patient }) {
+function PatientMeasurementsChart({ data, measureKey, patient, height = 520 }) {
     const [availableCurves, setAvailableCurves] = useState([]);
     const measureInfo = CLINICAL_MEASURE_LABELS[measureKey] || { label: measureKey, unit: '' };
 
@@ -123,10 +123,12 @@ function PatientMeasurementsChart({ data, measureKey, patient }) {
         );
     }
 
+    const containerHeight = typeof height === 'number' ? `${height}px` : height;
+
     return (
         <div className="measurement-chart-container" style={{
             width: '100%',
-            height: 520,
+            height: containerHeight,
             position: 'relative',
             background: useOverlayTemplate ? 'transparent' : 'var(--bg-card)',
             borderRadius: 12,

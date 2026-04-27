@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import { CLINICAL_MEASURE_LABELS, getAuthUploadUrl } from '../../../constants/config';
 import patientService from '../../../services/patientService';
@@ -42,19 +42,6 @@ function CaseAnswersBlock({ answers, patient }) {
         setMeasurementsError('');
     }, [patientId]);
 
-    const groupedAnswers = useMemo(() => {
-        if (!answers || answers.length === 0) return {};
-
-        const groups = {};
-        answers.forEach((answer) => {
-            const sectionName = answer.section_name || answer.sectionName || 'Sans section';
-            if (!groups[sectionName]) groups[sectionName] = [];
-            groups[sectionName].push(answer);
-        });
-        return groups;
-    }, [answers]);
-
-    const sections = Object.keys(groupedAnswers);
     const activeMeasureInfo = activeMeasure
         ? (CLINICAL_MEASURE_LABELS[activeMeasure] || { label: activeMeasure, unit: '' })
         : null;
@@ -111,100 +98,85 @@ function CaseAnswersBlock({ answers, patient }) {
             <div className="card-body" style={{ padding: 0 }}>
                 {answers && answers.length > 0 ? (
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
-                        {sections.map((section, sectionIndex) => (
-                            <div key={`section-${sectionIndex}`}>
-                                <div style={{
-                                    padding: 'var(--space-sm) var(--space-lg)',
-                                    background: 'var(--bg-elevated)',
-                                    borderBottom: '1px solid var(--border-color)',
-                                    borderTop: sectionIndex > 0 ? '2px solid var(--border-color)' : 'none',
-                                    fontWeight: 'bold',
-                                    color: 'var(--primary)'
+                        {answers.map((answer, index) => {
+                            const curveMeasure = getAnswerMeasure(answer);
+
+                            return (
+                                <div key={answer.id || index} style={{
+                                    padding: 'var(--space-lg)',
+                                    borderBottom: index < answers.length - 1 ? '1px solid var(--border-color)' : 'none',
+                                    background: index % 2 === 0 ? 'transparent' : 'var(--bg-elevated)'
                                 }}>
-                                    {section}
-                                </div>
-
-                                {groupedAnswers[section].map((answer, index) => {
-                                    const curveMeasure = getAnswerMeasure(answer);
-
-                                    return (
-                                        <div key={answer.id || index} style={{
-                                            padding: 'var(--space-lg)',
-                                            borderBottom: index < groupedAnswers[section].length - 1 ? '1px solid var(--border-color)' : 'none',
-                                            background: index % 2 === 0 ? 'transparent' : 'var(--bg-elevated)'
+                                    <div style={{
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'space-between',
+                                        gap: 'var(--space-sm)',
+                                        marginBottom: 'var(--space-sm)',
+                                        flexWrap: 'wrap'
+                                    }}>
+                                        <div style={{
+                                            fontWeight: '600',
+                                            color: 'var(--text-primary)',
+                                            fontSize: '1.05rem',
+                                            minWidth: 0
                                         }}>
-                                            <div style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                gap: 'var(--space-sm)',
-                                                marginBottom: 'var(--space-sm)',
-                                                flexWrap: 'wrap'
-                                            }}>
-                                                <div style={{
-                                                    fontWeight: '600',
-                                                    color: 'var(--text-primary)',
-                                                    fontSize: '1.05rem',
-                                                    minWidth: 0
-                                                }}>
-                                                    <span style={{ color: 'var(--primary)', marginRight: 8 }}>Q.</span>
-                                                    {answer.question_text || answer.questionText}
-                                                </div>
-
-                                                {curveMeasure && (
-                                                    <Button
-                                                        variant="secondary"
-                                                        size="sm"
-                                                        startIcon={<ShowChartIcon fontSize="small" />}
-                                                        onClick={() => openCurveModal(curveMeasure)}
-                                                        style={{ flexShrink: 0 }}
-                                                    >
-                                                        Voir la courbe
-                                                    </Button>
-                                                )}
-                                            </div>
-
-                                            <div style={{
-                                                display: 'flex',
-                                                flexDirection: 'column',
-                                                gap: 'var(--space-sm)',
-                                                marginTop: 'var(--space-md)'
-                                            }}>
-                                                {(answer.audio_path || answer.audioPath) && (
-                                                    <div style={{
-                                                        background: 'var(--bg-card)',
-                                                        padding: 'var(--space-xs)',
-                                                        borderRadius: 'var(--radius-full)',
-                                                        border: '1px solid var(--border-color)',
-                                                        display: 'inline-block',
-                                                        width: 'fit-content'
-                                                    }}>
-                                                        <audio controls style={{ height: 36, width: 250 }}>
-                                                            <source src={getAuthUploadUrl(answer.audio_path || answer.audioPath)} type="audio/webm" />
-                                                        </audio>
-                                                    </div>
-                                                )}
-
-                                                <div style={{
-                                                    color: 'var(--text-secondary)',
-                                                    padding: 'var(--space-md)',
-                                                    background: 'var(--bg-card)',
-                                                    borderRadius: 'var(--radius-md)',
-                                                    border: '1px solid var(--border-color)',
-                                                    fontStyle: getAnswerText(answer) ? 'normal' : 'italic',
-                                                    direction: 'rtl',
-                                                    textAlign: 'right',
-                                                    fontSize: '0.95rem',
-                                                    lineHeight: 1.6
-                                                }}>
-                                                    {renderAnswerValue(answer)}
-                                                </div>
-                                            </div>
+                                            <span style={{ color: 'var(--primary)', marginRight: 8 }}>Q.</span>
+                                            {answer.question_text || answer.questionText}
                                         </div>
-                                    );
-                                })}
-                            </div>
-                        ))}
+
+                                        {curveMeasure && (
+                                            <Button
+                                                variant="secondary"
+                                                size="sm"
+                                                startIcon={<ShowChartIcon fontSize="small" />}
+                                                onClick={() => openCurveModal(curveMeasure)}
+                                                style={{ flexShrink: 0 }}
+                                            >
+                                                Voir la courbe
+                                            </Button>
+                                        )}
+                                    </div>
+
+                                    <div style={{
+                                        display: 'flex',
+                                        flexDirection: 'column',
+                                        gap: 'var(--space-sm)',
+                                        marginTop: 'var(--space-md)'
+                                    }}>
+                                        {(answer.audio_path || answer.audioPath) && (
+                                            <div style={{
+                                                background: 'var(--bg-card)',
+                                                padding: 'var(--space-xs)',
+                                                borderRadius: 'var(--radius-full)',
+                                                border: '1px solid var(--border-color)',
+                                                display: 'inline-block',
+                                                width: 'fit-content'
+                                            }}>
+                                                <audio controls style={{ height: 36, width: 250 }}>
+                                                    <source src={getAuthUploadUrl(answer.audio_path || answer.audioPath)} type="audio/webm" />
+                                                </audio>
+                                            </div>
+                                        )}
+
+                                        <div style={{
+                                            color: 'var(--text-secondary)',
+                                            padding: 'var(--space-md)',
+                                            background: 'var(--bg-card)',
+                                            borderRadius: 'var(--radius-md)',
+                                            border: '1px solid var(--border-color)',
+                                            fontStyle: getAnswerText(answer) ? 'normal' : 'italic',
+                                            direction: 'rtl',
+                                            textAlign: 'right',
+                                            fontSize: '0.95rem',
+                                            lineHeight: 1.6
+                                        }}>
+                                            {renderAnswerValue(answer)}
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
                     </div>
                 ) : (
                     <div className="text-center" style={{ padding: 'var(--space-xl)', color: 'var(--text-secondary)' }}>
@@ -217,15 +189,8 @@ function CaseAnswersBlock({ answers, patient }) {
                 isOpen={showCurveModal}
                 title={activeMeasureInfo ? `Courbe - ${activeMeasureInfo.label}` : 'Courbe'}
                 onClose={() => setShowCurveModal(false)}
-                maxWidth="1080px"
-                overlayStyle={{ alignItems: 'flex-start', paddingTop: 24, paddingBottom: 24 }}
-                modalStyle={{ maxHeight: 'calc(100vh - 48px)' }}
-                bodyStyle={{ padding: 'var(--space-lg)' }}
-                footer={
-                    <Button variant="secondary" onClick={() => setShowCurveModal(false)}>
-                        Fermer
-                    </Button>
-                }
+                fullscreen
+                bodyStyle={{ padding: 0, overflow: 'hidden' }}
             >
                 {loadingMeasurements ? (
                     <div style={{ padding: 'var(--space-md)', color: 'var(--text-secondary)' }}>
@@ -234,11 +199,12 @@ function CaseAnswersBlock({ answers, patient }) {
                 ) : measurementsError ? (
                     <div className="alert alert-danger">{measurementsError}</div>
                 ) : (
-                    <div style={{ width: '100%', minHeight: 540 }}>
+                    <div style={{ width: '100%', height: 'calc(100vh - 72px)', padding: 'var(--space-md)', boxSizing: 'border-box' }}>
                         <PatientMeasurementsChart
                             data={(measurements && activeMeasure) ? (measurements[activeMeasure] || []) : []}
                             measureKey={activeMeasure}
                             patient={patient}
+                            height="100%"
                         />
                     </div>
                 )}

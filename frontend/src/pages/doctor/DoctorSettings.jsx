@@ -33,6 +33,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import SaveIcon from '@mui/icons-material/Save';
 import MedicationIcon from '@mui/icons-material/Medication';
 import TimelineIcon from '@mui/icons-material/Timeline';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import MedicationCsvTab from '../../components/doctor/settings/MedicationCsvTab';
 import GrowthCurveManager from '../../components/doctor/settings/GrowthCurveManager';
 
@@ -55,7 +56,7 @@ const AI_PROVIDERS = [
     {
         id: 'gemini',
         name: 'Google Gemini',
-        icon: '✨',
+        icon: 'AI',
         description: 'Google AI',
         models: [
             { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite' },
@@ -67,7 +68,7 @@ const AI_PROVIDERS = [
     {
         id: 'openai',
         name: 'OpenAI ChatGPT',
-        icon: '🤖',
+        icon: 'GPT',
         description: 'OpenAI',
         models: [
             { value: 'gpt-5.4', label: 'GPT-5.4' },
@@ -89,17 +90,18 @@ const AI_PROVIDERS = [
 // TAB DEFINITIONS
 // ============================================================
 const TABS = [
-    { id: 'profile', label: 'Profil', icon: <PersonIcon fontSize="small" /> },
-    { id: 'assistants', label: 'Assistants', icon: <GroupIcon fontSize="small" /> },
-    { id: 'ai', label: 'Configuration IA', icon: <SmartToyIcon fontSize="small" /> },
-    { id: 'prescription', label: 'Édition Ordonnance', icon: <DescriptionIcon fontSize="small" /> },
-    { id: 'medications', label: 'Médicaments', icon: <MedicationIcon fontSize="small" /> },
-    { id: 'growth_curves', label: 'Courbes Pédiatriques', icon: <TimelineIcon fontSize="small" /> },
+    { id: 'profile', label: 'Profil', description: 'Informations du medecin et securite du compte', icon: <PersonIcon fontSize="small" /> },
+    { id: 'assistants', label: 'Assistants', description: 'Comptes assistants autorises a creer les visites', icon: <GroupIcon fontSize="small" /> },
+    { id: 'ai', label: 'Configuration IA', description: 'Fournisseur, modele et langue des reponses IA', icon: <SmartToyIcon fontSize="small" /> },
+    { id: 'prescription', label: 'Edition Ordonnance', description: 'PDF ordonnance, bilans et lettre orientation', icon: <DescriptionIcon fontSize="small" /> },
+    { id: 'medications', label: 'Medicaments', description: 'Import CSV et base medicamenteuse locale', icon: <MedicationIcon fontSize="small" /> },
+    { id: 'growth_curves', label: 'Courbes Pediatriques', description: 'Modeles PDF pour tracer les mesures patients', icon: <TimelineIcon fontSize="small" /> },
 ];
 
 function DoctorSettings() {
     const location = useLocation();
     const [activeTab, setActiveTab] = useState('profile');
+    const [viewMode, setViewMode] = useState('list');
 
     // Detect initial tab from URL hash or referrer
     useEffect(() => {
@@ -121,8 +123,14 @@ function DoctorSettings() {
 
         queueMicrotask(() => {
             setActiveTab(prev => (prev !== nextTab ? nextTab : prev));
+            setViewMode('detail');
         });
     }, [location]);
+
+    function openSettingsItem(tabId) {
+        setActiveTab(tabId);
+        setViewMode('detail');
+    }
 
     return (
         <div className="layout internal-shell doctor-settings-shell">
@@ -131,52 +139,52 @@ function DoctorSettings() {
                 <div className="page-content">
                     {/* Page Header */}
                     <div className="page-header">
-                        <h1 className="page-title">⚙️ Paramètres</h1>
+                        <h1 className="page-title">Parametres</h1>
                     </div>
 
-                    {/* Tab Navigation */}
-                    <div className="settings-tabs" style={{
-                        display: 'flex',
-                        gap: 'var(--space-xs)',
-                        marginBottom: 'var(--space-lg)',
-                        borderBottom: '2px solid var(--border-color)',
-                        paddingBottom: '0',
-                        overflowX: 'auto'
-                    }}>
-                        {TABS.map(tab => (
-                            <button
-                                key={tab.id}
-                                onClick={() => setActiveTab(tab.id)}
-                                className={`settings-tab ${activeTab === tab.id ? 'is-active' : ''}`}
-                                style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '6px',
-                                    padding: 'var(--space-sm) var(--space-md)',
-                                    border: 'none',
-                                    borderBottom: activeTab === tab.id ? '2px solid var(--primary)' : '2px solid transparent',
-                                    background: 'transparent',
-                                    color: activeTab === tab.id ? 'var(--primary)' : 'var(--text-secondary)',
-                                    fontWeight: activeTab === tab.id ? 600 : 400,
-                                    cursor: 'pointer',
-                                    transition: 'all 0.2s',
-                                    fontSize: '0.9rem',
-                                    whiteSpace: 'nowrap',
-                                    marginBottom: '-2px'
-                                }}
-                            >
-                                {tab.icon} {tab.label}
-                            </button>
-                        ))}
-                    </div>
+                    {viewMode === 'list' ? (
+                        <div className="settings-list-panel">
+                            <div className="settings-list">
+                                {TABS.map((tab) => (
+                                    <button
+                                        key={tab.id}
+                                        type="button"
+                                        onClick={() => openSettingsItem(tab.id)}
+                                        className="settings-list-item"
+                                    >
+                                        <span className="settings-list-item-main">
+                                            <span className="settings-list-item-icon">{tab.icon}</span>
+                                            <span className="settings-list-item-copy">
+                                                <span className="settings-list-item-title">{tab.label}</span>
+                                                <span className="settings-list-item-description">{tab.description}</span>
+                                            </span>
+                                        </span>
+                                        <span className="settings-list-item-arrow">{'>'}</span>
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+                    ) : (
+                        <>
+                            <div style={{ marginBottom: 'var(--space-md)' }}>
+                                <Button
+                                    variant="secondary"
+                                    size="sm"
+                                    startIcon={<ArrowBackIcon fontSize="small" />}
+                                    onClick={() => setViewMode('list')}
+                                >
+                                    Retour a la liste
+                                </Button>
+                            </div>
 
-                    {/* Tab Content */}
-                    {activeTab === 'profile' && <ProfileTab />}
-                    {activeTab === 'assistants' && <AssistantsTab />}
-                    {activeTab === 'ai' && <AiConfigTab />}
-                    {activeTab === 'prescription' && <PrescriptionPdfTab />}
-                    {activeTab === 'medications' && <MedicationCsvTab />}
-                    {activeTab === 'growth_curves' && <GrowthCurveManager />}
+                            {activeTab === 'profile' && <ProfileTab />}
+                            {activeTab === 'assistants' && <AssistantsTab />}
+                            {activeTab === 'ai' && <AiConfigTab />}
+                            {activeTab === 'prescription' && <PrescriptionPdfTab />}
+                            {activeTab === 'medications' && <MedicationCsvTab />}
+                            {activeTab === 'growth_curves' && <GrowthCurveManager />}
+                        </>
+                    )}
                 </div>
             </main>
         </div>
@@ -232,7 +240,7 @@ function ProfileTab() {
             if (response.success) {
                 updateProfile(response.data);
                 setIsEditing(false);
-                setMessage({ type: 'success', text: 'Profil mis à jour avec succès' });
+                setMessage({ type: 'success', text: 'Profil mis a jour avec succes' });
             }
         } catch (error) {
             setMessage({ type: 'danger', text: error.message || t.errors.serverError });
@@ -254,7 +262,7 @@ function ProfileTab() {
             if (response.success) {
                 setShowPasswordModal(false);
                 setPasswordData({ current: '', new: '', confirm: '' });
-                showSuccess('Mot de passe modifié avec succès');
+                showSuccess('Mot de passe modifie avec succes');
             }
         } catch (error) {
             setPasswordMessage({
@@ -279,15 +287,15 @@ function ProfileTab() {
                     <div className="profile-avatar">{getInitials(formData.firstName, formData.lastName)}</div>
                     <div className="profile-info">
                         <h2>{formData.firstName} {formData.lastName}</h2>
-                        <span className="profile-role">Médecin - {getSpecialtyLabel(formData.specialty)}</span>
+                        <span className="profile-role">Medecin - {getSpecialtyLabel(formData.specialty)}</span>
                     </div>
                 </div>
 
                 <div className="profile-content-grid">
                     <div className="profile-section-card">
                         <div className="section-header">
-                            <div className="section-title"><span>👤</span> Informations Personnelles</div>
-                            {!isEditing && <button className="btn-edit" onClick={() => setIsEditing(true)}>✏️ Modifier</button>}
+                            <div className="section-title"><span></span> Informations Personnelles</div>
+                            {!isEditing && <button className="btn-edit" onClick={() => setIsEditing(true)}> Modifier</button>}
                         </div>
 
                         {message.text && <div className={`alert alert-${message.type} mb-4`}>{message.text}</div>}
@@ -306,7 +314,7 @@ function ProfileTab() {
                                     <div className="input-group">
                                         <label>{t.doctor.gender}</label>
                                         <select className="input-field" value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}>
-                                            <option value="">-- Sélectionner --</option>
+                                            <option value="">-- Selectionner --</option>
                                             {GENDER_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                         </select>
                                     </div>
@@ -317,7 +325,7 @@ function ProfileTab() {
                                     <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                                         <label>{t.doctor.specialty}</label>
                                         <select className="input-field" value={formData.specialty} onChange={(e) => setFormData({ ...formData, specialty: e.target.value })} required>
-                                            <option value="">-- Sélectionner --</option>
+                                            <option value="">-- Selectionner --</option>
                                             {SPECIALTY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                         </select>
                                     </div>
@@ -350,11 +358,11 @@ function ProfileTab() {
 
                     <div className="profile-section-card">
                         <div className="section-header">
-                            <div className="section-title"><span>🔒</span> Sécurité</div>
+                            <div className="section-title"><span></span> Securite</div>
                         </div>
                         <div className="space-y-4">
-                            <p className="text-gray-500 text-sm">Gérez votre mot de passe et la sécurité de votre compte.</p>
-                            <button className="btn-password" onClick={() => setShowPasswordModal(true)}>🔑 Changer le mot de passe</button>
+                            <p className="text-gray-500 text-sm">Gerez votre mot de passe et la securite de votre compte.</p>
+                            <button className="btn-password" onClick={() => setShowPasswordModal(true)}> Changer le mot de passe</button>
                         </div>
                     </div>
                 </div>
@@ -365,15 +373,15 @@ function ProfileTab() {
                     <div className="modal-modern">
                         <div className="modal-header">
                             <h3 className="modal-title">Changer le mot de passe</h3>
-                            <button className="modal-close" onClick={() => { setShowPasswordModal(false); setPasswordData({ current: '', new: '', confirm: '' }); setPasswordMessage({ type: '', text: '' }); }}>×</button>
+                            <button className="modal-close" onClick={() => { setShowPasswordModal(false); setPasswordData({ current: '', new: '', confirm: '' }); setPasswordMessage({ type: '', text: '' }); }}>X</button>
                         </div>
                         <div className="modal-body">
                             {passwordMessage.text && <div className={`alert alert-${passwordMessage.type} mb-4 text-sm`}>{passwordMessage.text}</div>}
                             <form onSubmit={handlePasswordChange}>
                                 <div className="space-y-4">
-                                    <div className="input-group"><label>Mot de passe actuel</label><input type="password" className="input-field" value={passwordData.current} onChange={(e) => setPasswordData({ ...passwordData, current: e.target.value })} required placeholder="••••••••" /></div>
-                                    <div className="input-group"><label>Nouveau mot de passe</label><input type="password" className="input-field" value={passwordData.new} onChange={(e) => setPasswordData({ ...passwordData, new: e.target.value })} required minLength={6} placeholder="Minimum 6 caractères" /></div>
-                                    <div className="input-group"><label>Confirmer le mot de passe</label><input type="password" className="input-field" value={passwordData.confirm} onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })} required minLength={6} placeholder="Répétez le mot de passe" /></div>
+                                    <div className="input-group"><label>Mot de passe actuel</label><input type="password" className="input-field" value={passwordData.current} onChange={(e) => setPasswordData({ ...passwordData, current: e.target.value })} required placeholder="********" /></div>
+                                    <div className="input-group"><label>Nouveau mot de passe</label><input type="password" className="input-field" value={passwordData.new} onChange={(e) => setPasswordData({ ...passwordData, new: e.target.value })} required minLength={6} placeholder="Minimum 6 caracteres" /></div>
+                                    <div className="input-group"><label>Confirmer le mot de passe</label><input type="password" className="input-field" value={passwordData.confirm} onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })} required minLength={6} placeholder="Repetez le mot de passe" /></div>
                                 </div>
                                 <div className="modal-footer">
                                     <button type="button" className="btn-cancel" onClick={() => setShowPasswordModal(false)}>Annuler</button>
@@ -437,10 +445,10 @@ function AssistantsTab() {
         try {
             if (editingAssistant) {
                 await doctorService.updateAssistant(editingAssistant.id, formData);
-                showSuccess('Assistant modifié avec succès');
+                showSuccess('Assistant modifie avec succes');
             } else {
                 await doctorService.createAssistant(formData);
-                showSuccess('Assistant créé avec succès');
+                showSuccess('Assistant cree avec succes');
             }
             setShowModal(false);
             loadAssistants();
@@ -462,11 +470,11 @@ function AssistantsTab() {
     }
 
     async function handleDelete(id) {
-        const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cet assistant ?');
+        const confirmed = await showConfirm('Etes-vous sur de vouloir supprimer cet assistant ?');
         if (confirmed) {
             try {
                 await doctorService.deleteAssistant(id);
-                showSuccess('Assistant supprimé');
+                showSuccess('Assistant supprime');
                 loadAssistants();
             } catch (error) {
                 console.error('Delete assistant error:', error);
@@ -494,7 +502,7 @@ function AssistantsTab() {
                     <InboxIcon style={{ fontSize: '3rem', color: 'var(--text-muted)', marginBottom: 'var(--space-md)' }} />
                     <p style={{ color: 'var(--text-muted)' }}>Aucun assistant pour le moment</p>
                     <Button variant="primary" size="sm" onClick={handleAdd} style={{ marginTop: 'var(--space-md)' }}>
-                        <AddIcon fontSize="small" /> Créer un assistant
+                        <AddIcon fontSize="small" /> Creer un assistant
                     </Button>
                 </div>
             ) : (
@@ -537,7 +545,7 @@ function AssistantsTab() {
                 >
                     <form onSubmit={handleSubmit}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-md)' }}>
-                            <Input label="Prénom" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} required />
+                            <Input label="Prenom" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} required />
                             <Input label="Nom" value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} required />
                             <Input label="Email" type="email" value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} required disabled={!!editingAssistant} />
                             {!editingAssistant && (
@@ -547,7 +555,7 @@ function AssistantsTab() {
                         <div className="modal-footer" style={{ marginTop: 'var(--space-lg)' }}>
                             <Button variant="secondary" onClick={() => setShowModal(false)}>Annuler</Button>
                             <Button variant="primary" type="submit" disabled={saving}>
-                                {saving ? 'Enregistrement...' : (editingAssistant ? 'Modifier' : 'Créer')}
+                                {saving ? 'Enregistrement...' : (editingAssistant ? 'Modifier' : 'Cr?er')}
                             </Button>
                         </div>
                     </form>
@@ -577,7 +585,7 @@ function PrescriptionPdfTab() {
 
     const DEFAULT_ANALYSES = `Glycemie\nNFS + equilibre leucocytaire\nReticulocytes Frottis sanguin\nTest de COOMBS\nTP - TCK\nDosage IgE seriques\nASLO\nVS\nC-proteine reactive\nDosage ponderal des Ig\nHb A1C\nTSH\nFT3\nFT4\nPTH\nTransaminases (ASAT, ALAT)\nGamma GT\nEBV / MNI test\nRubeole\nCMV\nSerologie coeliaque\nGroupage Sg ABO/Rhesus D\nFer\nFerritine\nElectrophorese de l'Hb\nBilirubineTDI\nCalcium\nIonogramme sanguin\nUree - creatinine\nMicro albuminurie\nECBU\nDosage GH / iGf1\nCortisol\nPhosphatase alcaline\nCPK\nHepatite A - B - C\nVIH\nToxoplasmose\nAC anti-Transglutaminase\nAC IgG - A anti-Gliadine\nAC IgA anti-Endomysium\nAC Anti reticuline`;
 
-    const DEFAULT_LETTER = `Cher confrère,\n\nPermettez-moi de vous adresser le patient susnommé(e), âgé(e) de [Âge], aux ATCDs de ......\n\nQui présente .......\n.....\n......\n\nA l'examen clinique ...\n......\n.......\n\nJe vous le confie pour .....\n\n                                        Confraternellement.`;
+    const DEFAULT_LETTER = `Cher confrere,\n\nPermettez-moi de vous adresser le patient susnomme(e), age(e) de [Age], aux ATCDs de ......\n\nQui presente .......\n.....\n......\n\nA l'examen clinique ...\n......\n.......\n\nJe vous le confie pour .....\n\n                                        Confraternellement.`;
 
     useEffect(() => {
         loadAllConfigs();
@@ -676,7 +684,7 @@ function PrescriptionPdfTab() {
                 setFormData(nextConfig);
                 setLogoFile(null);
                 setLogoPreview(getUploadAssetUrl(nextConfig.logoPath));
-                setMessage({ type: 'success', text: "Configuration de l'ordonnance enregistrée avec succès." });
+                setMessage({ type: 'success', text: "Configuration de l'ordonnance enregistree avec succes." });
             }
         } catch (error) {
             setMessage({ type: 'danger', text: error.message || 'Erreur lors de la sauvegarde de l ordonnance.' });
@@ -693,7 +701,7 @@ function PrescriptionPdfTab() {
         try {
             const response = await doctorService.updateAnalysesConfig({ analysesList });
             if (response.success) {
-                setAnalysesMessage({ type: 'success', text: 'Liste des bilans enregistrée avec succès.' });
+                setAnalysesMessage({ type: 'success', text: 'Liste des bilans enregistree avec succes.' });
             }
         } catch (error) {
             setAnalysesMessage({ type: 'danger', text: error.message || 'Erreur lors de la sauvegarde.' });
@@ -710,7 +718,7 @@ function PrescriptionPdfTab() {
         try {
             const response = await doctorService.updateLetterConfig({ letterTemplate });
             if (response.success) {
-                setLetterMessage({ type: 'success', text: 'Modèle de lettre enregistré avec succès.' });
+                setLetterMessage({ type: 'success', text: 'Modele de lettre enregistre avec succes.' });
             }
         } catch (error) {
             setLetterMessage({ type: 'danger', text: error.message || 'Erreur lors de la sauvegarde.' });
@@ -733,9 +741,9 @@ function PrescriptionPdfTab() {
                 {/* Horizontal Tab Selector */}
                 <div style={{ display: 'flex', gap: '0', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', width: 'fit-content', marginBottom: 'var(--space-lg)' }}>
                     {[
-                        { key: 'ordonnance', icon: '🎨', label: 'En-t\u00eate & Couleurs' },
-                        { key: 'analyses', icon: '🔬', label: 'Analyses' },
-                        { key: 'lettre', icon: '✉️', label: 'Lettre' }
+                        { key: 'ordonnance', icon: '', label: 'En-t\u00eate & Couleurs' },
+                        { key: 'analyses', icon: '', label: 'Analyses' },
+                        { key: 'lettre', icon: '', label: 'Lettre' }
                     ].map(tab => (
                         <button
                             key={tab.key}
@@ -764,7 +772,7 @@ function PrescriptionPdfTab() {
                     <div className="profile-section-card">
                         <div className="section-header">
                             <div className="section-title">
-                                <span>🎨</span> Configuration de l'ordonnance
+                                <span></span> Configuration de l'ordonnance
                             </div>
                         </div>
 
@@ -841,14 +849,14 @@ function PrescriptionPdfTab() {
                                 </div>
 
                                 <div className="input-group">
-                                    <label>Spécialité affichée</label>
+                                    <label>Specialite affichee</label>
                                     <input
                                         type="text"
                                         value={formData.specialtyText}
                                         onChange={(e) => handleFieldChange('specialtyText', e.target.value)}
                                         className="input-field"
                                         maxLength={180}
-                                        placeholder="Urologue, Médecin généraliste, Nutritionniste..."
+                                        placeholder="Urologue, Medecin g?n?raliste, Nutritionniste..."
                                     />
                                 </div>
 
@@ -860,10 +868,10 @@ function PrescriptionPdfTab() {
                                         className="input-field"
                                         rows="6"
                                         maxLength={1200}
-                                        placeholder={'Un service par ligne\\nÉchographie\\nTraitement des calculs urinaires\\nSuivi nutritionnel'}
+                                        placeholder={'Un service par ligne\\nEchographie\\nTraitement des calculs urinaires\\nSuivi nutritionnel'}
                                     />
                                     <p className="prescription-help-text">
-                                        Saisissez chaque service sur une ligne distincte. Ils apparaîtront dans l'en-tête du PDF.
+                                        Saisissez chaque service sur une ligne distincte. Ils apparaitront dans l'en-tete du PDF.
                                     </p>
                                 </div>
                             </div>
@@ -882,12 +890,12 @@ function PrescriptionPdfTab() {
                     <div className="profile-section-card">
                         <div className="section-header">
                             <div className="section-title">
-                                <span>🔬</span> Personnalisation PDF des analyses
+                                <span></span> Personnalisation PDF des analyses
                             </div>
                         </div>
 
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                            L'en-tête du PDF utilise la même configuration que l'ordonnance (logo, couleurs, spécialité).
+                            L'en-tete du PDF utilise la meme configuration que l'ordonnance (logo, couleurs, specialite).
                             Configurez ici la liste des bilans biologiques que vous utilisez.
                         </p>
 
@@ -906,11 +914,11 @@ function PrescriptionPdfTab() {
                                     className="input-field"
                                     rows="12"
                                     maxLength={5000}
-                                    placeholder={'Glycémie\nNFS\nTP - TCK\n...'}
+                                    placeholder={'Glycemie\nNFS\nTP - TCK\n...'}
                                     style={{ fontFamily: 'monospace', fontSize: '0.85rem', lineHeight: '1.6' }}
                                 />
                                 <p className="prescription-help-text">
-                                    Saisissez chaque analyse sur une ligne distincte. Cette liste apparaîtra dans la page de détails du dossier.
+                                    Saisissez chaque analyse sur une ligne distincte. Cette liste apparaitra dans la page de details du dossier.
                                 </p>
                             </div>
 
@@ -928,13 +936,13 @@ function PrescriptionPdfTab() {
                     <div className="profile-section-card">
                         <div className="section-header">
                             <div className="section-title">
-                                <span>✉️</span> Personnalisation de la lettre
+                                <span></span> Personnalisation de la lettre
                             </div>
                         </div>
 
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                            L'en-tête du PDF utilise la même configuration que l'ordonnance.
-                            Configurez ici le modèle de lettre d'orientation pré-rempli.
+                            L'en-tete du PDF utilise la meme configuration que l'ordonnance.
+                            Configurez ici le modele de lettre d'orientation pre-rempli.
                         </p>
 
                         {letterMessage.text && (
@@ -945,18 +953,18 @@ function PrescriptionPdfTab() {
 
                         <form onSubmit={handleSaveLetter}>
                             <div className="input-group">
-                                <label>Modèle de lettre d'orientation</label>
+                                <label>Modele de lettre d'orientation</label>
                                 <textarea
                                     value={letterTemplate}
                                     onChange={(e) => setLetterTemplate(e.target.value)}
                                     className="input-field"
                                     rows="12"
                                     maxLength={5000}
-                                    placeholder={'Cher confrère,\n\nPermettez-moi de vous adresser le patient...'}
+                                    placeholder={'Cher confrere,\n\nPermettez-moi de vous adresser le patient...'}
                                     style={{ fontSize: '0.9rem', lineHeight: '1.7' }}
                                 />
                                 <p className="prescription-help-text">
-                                    Ce texte sera pré-rempli dans la page de consultation. Vous pourrez le modifier avant de générer le PDF.
+                                    Ce texte sera pre-rempli dans la page de consultation. Vous pourrez le modifier avant de generer le PDF.
                                 </p>
                             </div>
 
@@ -975,7 +983,7 @@ function PrescriptionPdfTab() {
                 <div className="profile-section-card">
                     <div className="section-header">
                         <div className="section-title">
-                            <span>Vue</span> Aperçu rapide
+                            <span>Vue</span> Apercu rapide
                         </div>
                     </div>
 
@@ -1029,11 +1037,11 @@ function PrescriptionPdfTab() {
                                     <strong>PATIENT</strong>
                                 </div>
                                 <div>
-                                    <span>Prénom</span>
+                                    <span>Prenom</span>
                                     <strong>EXEMPLE</strong>
                                 </div>
                                 <div>
-                                    <span>Âge</span>
+                                    <span>Age</span>
                                     <strong>45 ans</strong>
                                 </div>
                             </div>
@@ -1110,7 +1118,8 @@ function AiConfigTab() {
     const [formData, setFormData] = useState({
         provider: 'gemini',
         apiKey: '',
-        model: 'gemini-2.5-flash-lite'
+        model: 'gemini-2.5-flash-lite',
+        responseLanguage: 'ar'
     });
 
     const [configs, setConfigs] = useState({ gemini: {}, openai: {} });
@@ -1129,7 +1138,8 @@ function AiConfigTab() {
                 setFormData({
                     provider: active,
                     apiKey: provConfigs[active]?.apiKey || '',
-                    model: provConfigs[active]?.model || (active === 'gemini' ? 'gemini-2.5-flash' : 'gpt-5.4-mini')
+                    model: provConfigs[active]?.model || (active === 'gemini' ? 'gemini-2.5-flash' : 'gpt-5.4-mini'),
+                    responseLanguage: provConfigs[active]?.responseLanguage || 'ar'
                 });
             }
         } catch (error) {
@@ -1147,7 +1157,8 @@ function AiConfigTab() {
             ...formData,
             provider: providerId,
             model: configs[providerId]?.model || provider?.models[0]?.value || '',
-            apiKey: configs[providerId]?.apiKey || ''
+            apiKey: configs[providerId]?.apiKey || '',
+            responseLanguage: configs[providerId]?.responseLanguage || formData.responseLanguage || 'ar'
         });
 
         // Trigger backend activation silently
@@ -1167,7 +1178,7 @@ function AiConfigTab() {
         try {
             const response = await doctorService.updateAiConfig(formData);
             if (response.success) {
-                setMessage({ type: 'success', text: 'Configuration IA enregistrée avec succès ✓' });
+                setMessage({ type: 'success', text: 'Configuration IA enregistree avec succes' });
                 // Reload to get masked key
                 await loadConfig();
             }
@@ -1188,6 +1199,7 @@ function AiConfigTab() {
                 <div className={`alert alert-${message.type}`} style={{ marginBottom: 'var(--space-md)' }}>
                     {message.text}
                 </div>
+
             )}
 
             <form onSubmit={handleSave}>
@@ -1242,12 +1254,12 @@ function AiConfigTab() {
                 {/* API Key */}
                 <div style={{ marginBottom: 'var(--space-lg)' }}>
                     <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-xs)', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                        Clé API {currentProviderData?.name}
+                        Cle API {currentProviderData?.name}
                     </label>
                     <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-sm)' }}>
                         {formData.provider === 'gemini'
-                            ? 'Obtenez votre clé sur aistudio.google.com'
-                            : 'Obtenez votre clé sur platform.openai.com'}
+                            ? 'Obtenez votre cle sur aistudio.google.com'
+                            : 'Obtenez votre cle sur platform.openai.com'}
                     </p>
                     <div style={{ position: 'relative' }}>
                         <input
@@ -1255,7 +1267,7 @@ function AiConfigTab() {
                             className="form-input"
                             value={formData.apiKey}
                             onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                            placeholder={`Entrez votre clé API ${currentProviderData?.name || ''}`}
+                            placeholder={`Entrez votre cle API ${currentProviderData?.name || ''}`}
                             style={{
                                 width: '100%',
                                 paddingRight: '44px',
@@ -1286,7 +1298,7 @@ function AiConfigTab() {
                 {/* Model Selection */}
                 <div style={{ marginBottom: 'var(--space-xl)' }}>
                     <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-xs)', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                        Modèle
+                        Modele
                     </label>
                     <select
                         className="input-field"
@@ -1299,6 +1311,24 @@ function AiConfigTab() {
                         ))}
                     </select>
                 </div>
+                <div style={{ marginBottom: 'var(--space-xl)' }}>
+                    <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-xs)', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                        Langue des reponses IA
+                    </label>
+                    <select
+                        className="input-field"
+                        value={formData.responseLanguage}
+                        onChange={(e) => setFormData({ ...formData, responseLanguage: e.target.value })}
+                        style={{ width: '100%', fontSize: '0.9rem', padding: '10px 14px', borderRadius: 'var(--radius-md)' }}
+                    >
+                        <option value="ar">Arabe</option>
+                        <option value="fr">Francais</option>
+                    </select>
+                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', marginBottom: 0 }}>
+                        Cette modification change uniquement la langue de réponse de l'IA pour le médecin, sans modifier l'audio ou la transcription du patient.
+                    </p>
+                </div>
+
 
                 {/* Save Button */}
                 <button
@@ -1314,13 +1344,13 @@ function AiConfigTab() {
 
             {/* Info Card */}
             <div className="card" style={{ marginTop: 'var(--space-xl)', padding: 'var(--space-md)', background: 'var(--bg-elevated)' }}>
-                <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>ℹ️ À propos de la configuration IA</h4>
+                <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>Info a propos de la configuration IA</h4>
                 <ul style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.8', paddingLeft: 'var(--space-md)', margin: 0 }}>
-                    <li>L'IA analyse les cas médicaux soumis par vos assistants</li>
-                    <li><strong>Gemini</strong> supporte l'analyse d'images médicales (radiographies, photos, etc.)</li>
+                    <li>L'IA analyse les cas medicaux soumis par vos assistants</li>
+                    <li><strong>Gemini</strong> supporte l'analyse d'images medicales (radiographies, photos, etc.)</li>
                     <li><strong>ChatGPT</strong> fournit une analyse textuelle uniquement</li>
-                    <li>Votre clé API est stockée de manière sécurisée et n'est jamais partagée</li>
-                    <li>Si aucune clé n'est configurée, la configuration par défaut du serveur sera utilisée</li>
+                    <li>Votre cle API est stockee de maniere securisee et n'est jamais partagee</li>
+                    <li>Si aucune cle n'est configuree, la configuration par defaut du serveur sera utilisee</li>
                 </ul>
             </div>
         </div>

@@ -784,7 +784,7 @@ function isHallucinatedTranscription(text) {
 /**
  * Build system prompt for doctor-AI chat with patient context
  */
-function buildChatSystemPrompt(caseData) {
+function buildChatSystemPrompt(caseData, responseLanguage = 'ar') {
     const { patient, answers, documents } = caseData;
     
     let patientAge = patient.age;
@@ -793,6 +793,7 @@ function buildChatSystemPrompt(caseData) {
         const now = new Date();
         patientAge = Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000));
     }
+    const normalizedResponseLanguage = responseLanguage === 'fr' ? 'fr' : 'ar';
 
     let context = `أنت مساعد طبي ذكي (Senior Medical AI Consultant).
 أنت في محادثة مع الطبيب المعالج حول حالة مريض.
@@ -808,6 +809,14 @@ function buildChatSystemPrompt(caseData) {
 ═══════════════════════════════
 إجابات الاستبيان الطبي:
 ═══════════════════════════════`;
+
+    if (normalizedResponseLanguage === 'fr') {
+        context += `\n\nINSTRUCTION DE LANGUE: Reponds toujours en francais medical professionnel.
+Conserve les termes du patient en darija algerienne uniquement lorsqu'ils sont cites.`;
+    } else {
+        context += `\n\nتعليمة اللغة: اجب دائما بالعربية الطبية الواضحة.
+لا تغيّر معنى عبارات المريض بالدارجة الجزائرية عند الاقتباس منها.`;
+    }
 
     if (answers && answers.length > 0) {
         answers.forEach((answer, index) => {

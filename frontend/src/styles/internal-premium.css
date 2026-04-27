@@ -437,6 +437,85 @@
     margin-bottom: 20px;
 }
 
+.doctor-settings-shell .settings-list-panel {
+    border: 1px solid var(--shell-border);
+    background: linear-gradient(180deg, var(--shell-surface-strong), var(--shell-surface));
+    border-radius: 20px;
+    box-shadow: var(--shell-shadow-soft);
+    padding: 12px;
+}
+
+.doctor-settings-shell .settings-list {
+    display: grid;
+    gap: 10px;
+}
+
+.doctor-settings-shell .settings-list-item {
+    width: 100%;
+    min-height: 76px;
+    border: 1px solid rgba(148, 163, 184, 0.22);
+    background: rgba(255, 255, 255, 0.035);
+    color: var(--shell-text);
+    border-radius: 14px;
+    padding: 14px 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 160ms ease, background 160ms ease, transform 160ms ease;
+}
+
+.doctor-settings-shell .settings-list-item:hover {
+    border-color: rgba(104, 210, 255, 0.36);
+    background: rgba(104, 210, 255, 0.08);
+    transform: translateY(-1px);
+}
+
+.doctor-settings-shell .settings-list-item-main {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    min-width: 0;
+}
+
+.doctor-settings-shell .settings-list-item-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 42px;
+    background: rgba(104, 210, 255, 0.12);
+    color: var(--shell-accent);
+}
+
+.doctor-settings-shell .settings-list-item-copy {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+}
+
+.doctor-settings-shell .settings-list-item-title {
+    font-weight: 700;
+    color: var(--shell-text);
+}
+
+.doctor-settings-shell .settings-list-item-description {
+    color: var(--shell-text-muted);
+    font-size: 0.9rem;
+    line-height: 1.35;
+}
+
+.doctor-settings-shell .settings-list-item-arrow {
+    color: var(--shell-text-muted);
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
 .internal-shell .settings-tab {
     display: inline-flex !important;
     align-items: center !important;

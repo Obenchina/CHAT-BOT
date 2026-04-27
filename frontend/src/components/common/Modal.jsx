@@ -1,30 +1,21 @@
-/**
- * Modal Component
- * Reusable modal dialog
- */
-
 import { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
-/**
- * Modal component
- * @param {Object} props - Component props
- * @param {boolean} props.isOpen - Show modal
- * @param {Function} props.onClose - Close handler
- * @param {string} props.title - Modal title
- * @param {React.ReactNode} props.children - Modal content
- * @param {React.ReactNode} props.footer - Modal footer
- * @param {string} props.maxWidth - Optional modal max width
- * @param {Object} props.overlayStyle - Optional overlay inline style
- * @param {Object} props.modalStyle - Optional modal inline style
- * @param {Object} props.bodyStyle - Optional body inline style
- */
-function Modal({ isOpen, onClose, title, children, footer, maxWidth, overlayStyle, modalStyle, bodyStyle }) {
-    // Close on escape key
+function Modal({
+    isOpen,
+    onClose,
+    title,
+    children,
+    footer,
+    maxWidth,
+    overlayStyle,
+    modalStyle,
+    bodyStyle,
+    fullscreen = false
+}) {
     useEffect(() => {
         function handleEscape(e) {
-            if (e.key === 'Escape') {
-                onClose();
-            }
+            if (e.key === 'Escape') onClose();
         }
 
         if (isOpen) {
@@ -38,44 +29,64 @@ function Modal({ isOpen, onClose, title, children, footer, maxWidth, overlayStyl
         };
     }, [isOpen, onClose]);
 
-    // Don't render if not open
     if (!isOpen) return null;
 
-    return (
+    const resolvedOverlayStyle = fullscreen
+        ? {
+            position: 'fixed',
+            inset: 0,
+            padding: 0,
+            alignItems: 'stretch',
+            justifyContent: 'stretch',
+            zIndex: 9999,
+            ...overlayStyle
+        }
+        : overlayStyle;
+
+    const resolvedModalStyle = fullscreen
+        ? {
+            width: '100vw',
+            maxWidth: '100vw',
+            height: '100vh',
+            maxHeight: '100vh',
+            borderRadius: 0,
+            ...modalStyle
+        }
+        : {
+            ...(maxWidth ? { maxWidth } : {}),
+            ...modalStyle
+        };
+
+    return createPortal((
         <div
-            className="modal-overlay"
-            style={overlayStyle}
+            className={`modal-overlay ${fullscreen ? 'modal-overlay-fullscreen' : ''}`}
+            style={resolvedOverlayStyle}
             onClick={(e) => {
                 if (e.target === e.currentTarget) onClose();
             }}
         >
             <div
-                className="modal"
+                className={`modal ${fullscreen ? 'modal-fullscreen' : ''}`}
                 role="dialog"
                 aria-modal="true"
-                style={{
-                    ...(maxWidth ? { maxWidth } : {}),
-                    ...modalStyle
-                }}
+                style={resolvedModalStyle}
             >
-                {/* Header */}
                 <div className="modal-header">
                     <h3 className="modal-title">{title}</h3>
                     <button
+                        type="button"
                         className="modal-close"
                         onClick={onClose}
                         aria-label="Fermer"
                     >
-                        ×
+                        X
                     </button>
                 </div>
 
-                {/* Body */}
                 <div className="modal-body" style={bodyStyle}>
                     {children}
                 </div>
 
-                {/* Footer */}
                 {footer && (
                     <div className="modal-footer">
                         {footer}
@@ -83,7 +94,7 @@ function Modal({ isOpen, onClose, title, children, footer, maxWidth, overlayStyl
                 )}
             </div>
         </div>
-    );
+    ), document.body);
 }
 
 export default Modal;

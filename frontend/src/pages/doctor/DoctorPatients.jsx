@@ -15,6 +15,7 @@ import { showError, showConfirm } from '../../utils/toast';
 import caseService from '../../services/caseService';
 import translations from '../../constants/translations';
 import { GENDER_OPTIONS } from '../../constants/config';
+import { formatDateOnlyDisplay } from '../../utils/patientAge';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -441,7 +442,7 @@ function DoctorPatients() {
                                                                 patient.gender === 'female' ? t.patient.female : t.patient.other}
                                                         </span>
                                                     </td>
-                                                    <td data-label="Date de naissance">{patient.dateOfBirth || patient.date_of_birth || '—'}</td>
+                                                    <td data-label="Date de naissance">{formatDateOnlyDisplay(patient.dateOfBirth || patient.date_of_birth)}</td>
                                                     <td data-label={t.patient.phone} className="col-hide-md" style={{ color: 'var(--text-secondary)' }}>{patient.phone || '-'}</td>
                                                     <td data-label="Actions" className="col-actions">
                                                         <div>
@@ -515,6 +516,7 @@ function DoctorPatients() {
                                                                                         <PatientMeasurementsChart
                                                                                             data={measurementsData[patient.id][selectedMeasure[patient.id]]}
                                                                                             measureKey={selectedMeasure[patient.id]}
+                                                                                            patient={patient}
                                                                                         />
                                                                                     )}
                                                                                 </div>
@@ -545,7 +547,7 @@ function DoctorPatients() {
                                                                                             <strong>Visite #{historyData[patient.id].length - index}</strong>
                                                                                         </td>
                                                                                         <td style={{ padding: 'var(--space-sm) var(--space-lg)', color: 'var(--text-secondary)' }}>
-                                                                                            {new Date(cse.createdAt || cse.created_at).toLocaleString()}
+                                                                                            {new Date(cse.createdAt || cse.created_at).toLocaleDateString('fr-FR')}
                                                                                         </td>
                                                                                         <td style={{ padding: 'var(--space-sm) var(--space-lg)' }}>
                                                                                             <span className={`badge badge-${cse.status === 'in_progress' ? 'warning' :
@@ -618,7 +620,7 @@ function DoctorPatients() {
                                                         {patient.firstName || patient.first_name} {patient.lastName || patient.last_name}
                                                     </p>
                                                     <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                        {patient.dateOfBirth || patient.date_of_birth || '—'} · {patient.gender === 'female' ? 'Femme' : 'Homme'} {patient.phone ? `· ${patient.phone}` : ''}
+                                                        {formatDateOnlyDisplay(patient.dateOfBirth || patient.date_of_birth)} · {patient.gender === 'female' ? 'Femme' : 'Homme'} {patient.phone ? `· ${patient.phone}` : ''}
                                                     </p>
                                                 </div>
                                             </div>
@@ -681,6 +683,7 @@ function DoctorPatients() {
                                                                     <PatientMeasurementsChart
                                                                         data={measurementsData[patient.id][selectedMeasure[patient.id]]}
                                                                         measureKey={selectedMeasure[patient.id]}
+                                                                        patient={patient}
                                                                     />
                                                                 )}
                                                             </div>
