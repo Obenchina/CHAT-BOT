@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import aiChatService from '../../services/aiChatService';
 import { showError } from '../../utils/toast';
+import { getTextAlign, getTextDirection, isRtlText } from '../../utils/textDirection';
 import SmartToyIcon from '@mui/icons-material/SmartToy';
 import SendIcon from '@mui/icons-material/Send';
 import HistoryIcon from '@mui/icons-material/History';
@@ -128,6 +129,8 @@ function AiChatPanel({ caseId }) {
         setIsRecording(false);
     }
 
+    const inputIsRtl = isRtlText(input);
+
     return (
         <div className="card" style={{ marginTop: 'var(--space-lg)', display: 'flex', flexDirection: 'column', height: '600px' }}>
             <div className="card-header" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: 'var(--space-md) var(--space-lg)' }}>
@@ -166,42 +169,48 @@ function AiChatPanel({ caseId }) {
                         <p style={{ fontSize: '0.8rem', textAlign: 'center', maxWidth: '200px' }}>Je connais l'historique médical de ce patient et je peux vous aider.</p>
                     </div>
                 ) : (
-                    messages.map((msg, idx) => (
-                        <div key={msg.id || idx} style={{
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: msg.role === 'doctor' ? 'flex-end' : 'flex-start',
-                        }}>
-                            <div style={{
-                                maxWidth: '85%',
-                                padding: 'var(--space-md)',
-                                borderRadius: msg.role === 'doctor' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-                                backgroundColor: msg.role === 'doctor' ? 'var(--primary)' : 'var(--bg-card)',
-                                color: msg.role === 'doctor' ? 'white' : 'var(--text-primary)',
-                                boxShadow: 'var(--shadow-sm)',
-                                fontSize: '0.938rem',
-                                lineHeight: '1.5',
-                                whiteSpace: 'pre-wrap',
-                                wordBreak: 'break-word',
-                                border: msg.role === 'doctor' ? 'none' : '1px solid var(--border-color)',
-                                direction: 'rtl',
-                                textAlign: 'right'
-                            }}>
-                                {msg.content}
-                            </div>
-                            <div style={{ 
-                                fontSize: '0.7rem', 
-                                color: 'var(--text-muted)', 
-                                marginTop: '4px',
-                                padding: '0 8px',
+                    messages.map((msg, idx) => {
+                        const messageDirection = getTextDirection(msg.content);
+                        const messageAlign = getTextAlign(msg.content);
+
+                        return (
+                            <div key={msg.id || idx} style={{
                                 display: 'flex',
-                                gap: '8px'
+                                flexDirection: 'column',
+                                alignItems: msg.role === 'doctor' ? 'flex-end' : 'flex-start',
                             }}>
-                                <span>{msg.role === 'doctor' ? 'Vous' : 'IA'}</span>
-                                <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                <div style={{
+                                    maxWidth: '85%',
+                                    padding: 'var(--space-md)',
+                                    borderRadius: msg.role === 'doctor' ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                                    backgroundColor: msg.role === 'doctor' ? 'var(--primary)' : 'var(--bg-card)',
+                                    color: msg.role === 'doctor' ? 'white' : 'var(--text-primary)',
+                                    boxShadow: 'var(--shadow-sm)',
+                                    fontSize: '0.938rem',
+                                    lineHeight: '1.5',
+                                    whiteSpace: 'pre-wrap',
+                                    wordBreak: 'break-word',
+                                    border: msg.role === 'doctor' ? 'none' : '1px solid var(--border-color)',
+                                    direction: messageDirection,
+                                    textAlign: messageAlign,
+                                    unicodeBidi: 'plaintext'
+                                }}>
+                                    {msg.content}
+                                </div>
+                                <div style={{ 
+                                    fontSize: '0.7rem', 
+                                    color: 'var(--text-muted)', 
+                                    marginTop: '4px',
+                                    padding: '0 8px',
+                                    display: 'flex',
+                                    gap: '8px'
+                                }}>
+                                    <span>{msg.role === 'doctor' ? 'Vous' : 'IA'}</span>
+                                    <span>{new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                                </div>
                             </div>
-                        </div>
-                    ))
+                        );
+                    })
                 )}
                 {sending && (
                     <div style={{ display: 'flex', justifyContent: 'flex-start' }}>
@@ -257,7 +266,10 @@ function AiChatPanel({ caseId }) {
                             resize: 'none',
                             fontSize: '0.95rem',
                             outline: 'none',
-                            maxHeight: '150px'
+                            maxHeight: '150px',
+                            direction: inputIsRtl ? 'rtl' : 'ltr',
+                            textAlign: inputIsRtl ? 'right' : 'left',
+                            unicodeBidi: 'plaintext'
                         }}
                         disabled={sending || transcribing}
                     />

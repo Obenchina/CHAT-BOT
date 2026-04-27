@@ -421,7 +421,7 @@ function PrescriptionPdfTab() {
 
                             <div className="form-actions">
                                 <button type="submit" className="btn-save" disabled={savingLetter}>
-                                    {savingLetter ? 'Enregistrement...' : 'Enregistrer le modele de lettre'}
+                                    {savingLetter ? 'Enregistrement...' : 'Enregistrer le modèle de lettre'}
                                 </button>
                             </div>
                         </form>

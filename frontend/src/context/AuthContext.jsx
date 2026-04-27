@@ -65,6 +65,9 @@ export function AuthProvider({ children }) {
             if (response.success) {
                 // Token is now set in HttpOnly cookie by backend
 
+                // Save token to localStorage for authenticated static file requests (fallback)
+                localStorage.setItem('token', response.data.token);
+
                 // Update state
                 setUser(response.data.user);
                 setProfile(response.data.profile);
@@ -117,6 +120,9 @@ export function AuthProvider({ children }) {
 
             if (response.success) {
                 // Token is now set in HttpOnly cookie by backend
+
+                // Save token to localStorage for authenticated static file requests (fallback)
+                localStorage.setItem('token', response.data.token);
 
                 // Update state
                 setUser(response.data.user);

@@ -133,7 +133,7 @@ function AssistantProfile() {
                     <div>
                         <h1 className="page-title">Mon profil</h1>
                         <p style={{ margin: 0, fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
-                            Coordonnees personnelles et securite du compte assistant.
+                            Coordonnées personnelles et sécurité du compte assistant.
                         </p>
                     </div>
                 </div>

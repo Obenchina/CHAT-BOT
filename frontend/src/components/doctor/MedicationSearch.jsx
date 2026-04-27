@@ -67,7 +67,7 @@ function MedicationSearch({ onSelect }) {
                 value={query}
                 onChange={handleInputChange}
                 onFocus={() => { if (results.length > 0) setShowDropdown(true); }}
-                placeholder="Rechercher un medicament dans votre liste..."
+                placeholder="Rechercher un médicament dans votre liste..."
                 className="form-input"
                 style={{
                     width: '100%',
@@ -136,7 +136,7 @@ function MedicationSearch({ onSelect }) {
                     color: 'var(--text-secondary)',
                     zIndex: 1000
                 }}>
-                    Aucun medicament trouve pour "{query}"
+                    Aucun médicament trouvé pour "{query}"
                 </div>
             )}
         </div>

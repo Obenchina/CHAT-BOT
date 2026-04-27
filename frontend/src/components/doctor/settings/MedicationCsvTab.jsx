@@ -19,10 +19,10 @@ function MedicationCsvTab() {
     const sampleCsv = useMemo(() => {
         // Same fields used by the prescription editor in CaseDetails.
         return [
-            'nom_medicament;dosage;frequence;duree',
-            '"Paracetamol";"15 mg/kg";"Toutes les 6h";"3 jours"',
+            'nom du médicament;dosage;fréq;durée',
+            '"Paracétamol";"15 mg/kg";"Toutes les 6h";"3 jours"',
             '"Amoxicilline";"500 mg";"3 fois/jour";"7 jours"',
-            '"Ibuprofene";"10 mg/kg";"Toutes les 8h";"2 jours"'
+            '"Ibuprofène";"10 mg/kg";"Toutes les 8h";"2 jours"'
         ].join('\n');
     }, []);
 
@@ -92,12 +92,12 @@ function MedicationCsvTab() {
         <div>
             <div className="profile-section-card" style={{ marginBottom: 'var(--space-lg)' }}>
                 <div className="section-header">
-                        <div className="section-title">Base de medicaments (CSV)</div>
+                        <div className="section-title">Base de médicaments (CSV)</div>
                 </div>
 
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                    Importez un fichier CSV contenant vos medicaments. La colonne "nom_medicament" ou "nom" est obligatoire.
-                    Colonnes conseillees : nom_medicament, dosage, frequence, duree.
+                    Importez un fichier CSV contenant vos médicaments. La colonne "nom du médicament" est obligatoire.
+                    Colonnes conseillées : nom du médicament, dosage, fréq, durée.
                 </p>
 
                 <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -137,7 +137,7 @@ function MedicationCsvTab() {
                             fontSize: '0.85rem'
                         }}
                     >
-                        Telecharger un exemple CSV
+                        Télécharger un exemple CSV
                     </button>
 
                     {count > 0 && (
@@ -199,9 +199,9 @@ function MedicationCsvTab() {
                             <thead>
                                 <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left' }}>
                                     <th style={{ padding: '6px 8px' }}>Nom</th>
-                            <th style={{ padding: '6px 8px' }}>Dosage</th>
-                            <th style={{ padding: '6px 8px' }}>Freq.</th>
-                            <th style={{ padding: '6px 8px' }}>Duree</th>
+                                    <th style={{ padding: '6px 8px' }}>Dosage</th>
+                                    <th style={{ padding: '6px 8px' }}>Fréq.</th>
+                                    <th style={{ padding: '6px 8px' }}>Durée</th>
                                 </tr>
                             </thead>
                             <tbody>

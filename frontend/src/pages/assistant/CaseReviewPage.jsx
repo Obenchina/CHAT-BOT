@@ -86,7 +86,7 @@ function CaseReviewPage() {
             showSuccess('Document(s) ajoute(s) avec succes');
         } catch (error) {
             console.error('Upload error:', error);
-            showError(error.message || 'Erreur lors du telechargement');
+            showError(error.message || 'Erreur lors du téléchargement');
         } finally {
             setUploading(false);
             // reset input
@@ -118,7 +118,7 @@ function CaseReviewPage() {
     // Submit case
     async function handleSubmit() {
         if (isReadOnly) return;
-        const confirmed = await showConfirm('Soumettre ce cas au medecin ? Vous ne pourrez plus le modifier.');
+        const confirmed = await showConfirm('Soumettre ce cas au médecin ? Vous ne pourrez plus le modifier.');
         if (!confirmed) return;
 
         setSubmitting(true);
@@ -266,7 +266,7 @@ function CaseReviewPage() {
                                                                 <>{answer.text_answer || answer.textAnswer || answer.transcribed_text}</>
                                                             ) : (
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end', fontStyle: 'italic' }}>
-                                                                    <span>Reponse enregistree vocalement</span>
+                                                                    <span>Réponse enregistrée vocalement</span>
                                                                     <CheckIcon color="success" fontSize="small" />
                                                                 </div>
                                                             )}
@@ -277,7 +277,7 @@ function CaseReviewPage() {
                                         </div>
                                     ) : (
                                         <div style={{ padding: 'var(--space-2xl) var(--space-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                            Aucune reponse enregistree
+                                            Aucune réponse enregistrée
                                         </div>
                                     )}
                                 </div>
@@ -307,7 +307,7 @@ function CaseReviewPage() {
                                                         Cliquez pour ajouter des documents medicaux
                                                     </span>
                                                     <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                                        Images ou PDF pris en charge. Selectionnez plusieurs fichiers si besoin.
+                                                        Images ou PDF pris en charge. Sélectionnez plusieurs fichiers si besoin.
                                                     </span>
                                                 </div>
                                             </label>

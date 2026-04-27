@@ -300,7 +300,7 @@ function CaseDetails() {
     // Download analyses PDF
     async function handleDownloadAnalysesPdf() {
         if (selectedAnalyses.length === 0) {
-            setError('Veuillez selectionner au moins une analyse');
+            setError('Veuillez sélectionner au moins une analyse');
             return;
         }
         setDownloadingPdf(true);
@@ -322,7 +322,7 @@ function CaseDetails() {
             window.URL.revokeObjectURL(url);
         } catch (err) {
             console.error('Download analyses PDF error:', err);
-            setError('Erreur lors du telechargement du PDF');
+            setError('Erreur lors du téléchargement du PDF');
         } finally {
             setDownloadingPdf(false);
         }
@@ -352,7 +352,7 @@ function CaseDetails() {
             window.URL.revokeObjectURL(url);
         } catch (err) {
             console.error('Download letter PDF error:', err);
-            setError('Erreur lors du telechargement du PDF');
+            setError('Erreur lors du téléchargement du PDF');
         } finally {
             setDownloadingPdf(false);
         }

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import ShowChartIcon from '@mui/icons-material/ShowChart';
 import { CLINICAL_MEASURE_LABELS, getAuthUploadUrl } from '../../../constants/config';
 import patientService from '../../../services/patientService';
+import { getTextAlign, getTextDirection, isRtlText } from '../../../utils/textDirection';
 import Button from '../../common/Button';
 import Modal from '../../common/Modal';
 import PatientMeasurementsChart from '../../patient/PatientMeasurementsChart';
@@ -79,7 +80,7 @@ function CaseAnswersBlock({ answers, patient }) {
         if (!answerText) {
             return answer.audio_path || answer.audioPath
                 ? 'En attente de transcription...'
-                : 'Aucune reponse';
+                : 'Aucune réponse';
         }
 
         const measure = answer.clinical_measure || answer.clinicalMeasure;
@@ -100,6 +101,9 @@ function CaseAnswersBlock({ answers, patient }) {
                     <div style={{ display: 'flex', flexDirection: 'column' }}>
                         {answers.map((answer, index) => {
                             const curveMeasure = getAnswerMeasure(answer);
+                            const questionText = answer.question_text || answer.questionText || '';
+                            const answerValue = renderAnswerValue(answer);
+                            const questionIsRtl = isRtlText(questionText);
 
                             return (
                                 <div key={answer.id || index} style={{
@@ -119,10 +123,13 @@ function CaseAnswersBlock({ answers, patient }) {
                                             fontWeight: '600',
                                             color: 'var(--text-primary)',
                                             fontSize: '1.05rem',
-                                            minWidth: 0
+                                            minWidth: 0,
+                                            direction: questionIsRtl ? 'rtl' : 'ltr',
+                                            textAlign: questionIsRtl ? 'right' : 'left',
+                                            unicodeBidi: 'plaintext'
                                         }}>
                                             <span style={{ color: 'var(--primary)', marginRight: 8 }}>Q.</span>
-                                            {answer.question_text || answer.questionText}
+                                            {questionText}
                                         </div>
 
                                         {curveMeasure && (
@@ -166,12 +173,13 @@ function CaseAnswersBlock({ answers, patient }) {
                                             borderRadius: 'var(--radius-md)',
                                             border: '1px solid var(--border-color)',
                                             fontStyle: getAnswerText(answer) ? 'normal' : 'italic',
-                                            direction: 'rtl',
-                                            textAlign: 'right',
+                                            direction: getTextDirection(answerValue),
+                                            textAlign: getTextAlign(answerValue),
+                                            unicodeBidi: 'plaintext',
                                             fontSize: '0.95rem',
                                             lineHeight: 1.6
                                         }}>
-                                            {renderAnswerValue(answer)}
+                                            {answerValue}
                                         </div>
                                     </div>
                                 </div>
@@ -180,7 +188,7 @@ function CaseAnswersBlock({ answers, patient }) {
                     </div>
                 ) : (
                     <div className="text-center" style={{ padding: 'var(--space-xl)', color: 'var(--text-secondary)' }}>
-                        Aucune reponse enregistree
+                        Aucune réponse enregistrée
                     </div>
                 )}
             </div>

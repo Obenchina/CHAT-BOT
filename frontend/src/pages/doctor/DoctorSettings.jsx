@@ -90,11 +90,11 @@ const AI_PROVIDERS = [
 // TAB DEFINITIONS
 // ============================================================
 const TABS = [
-    { id: 'profile', label: 'Profil', description: 'Informations du medecin et securite du compte', icon: <PersonIcon fontSize="small" /> },
-    { id: 'assistants', label: 'Assistants', description: 'Comptes assistants autorises a creer les visites', icon: <GroupIcon fontSize="small" /> },
-    { id: 'ai', label: 'Configuration IA', description: 'Fournisseur, modele et langue des reponses IA', icon: <SmartToyIcon fontSize="small" /> },
+    { id: 'profile', label: 'Profil', description: 'Informations du médecin et sécurité du compte', icon: <PersonIcon fontSize="small" /> },
+    { id: 'assistants', label: 'Assistants', description: 'Comptes assistants autorisés à créer les visites', icon: <GroupIcon fontSize="small" /> },
+    { id: 'ai', label: 'Configuration IA', description: 'Fournisseur, modèle et langue des réponses IA', icon: <SmartToyIcon fontSize="small" /> },
     { id: 'prescription', label: 'Edition Ordonnance', description: 'PDF ordonnance, bilans et lettre orientation', icon: <DescriptionIcon fontSize="small" /> },
-    { id: 'medications', label: 'Medicaments', description: 'Import CSV et base medicamenteuse locale', icon: <MedicationIcon fontSize="small" /> },
+    { id: 'medications', label: 'Médicaments', description: 'Import CSV et base médicamenteuse locale', icon: <MedicationIcon fontSize="small" /> },
     { id: 'growth_curves', label: 'Courbes Pediatriques', description: 'Modeles PDF pour tracer les mesures patients', icon: <TimelineIcon fontSize="small" /> },
 ];
 
@@ -139,7 +139,7 @@ function DoctorSettings() {
                 <div className="page-content">
                     {/* Page Header */}
                     <div className="page-header">
-                        <h1 className="page-title">Parametres</h1>
+                        <h1 className="page-title">Paramètres</h1>
                     </div>
 
                     {viewMode === 'list' ? (
@@ -314,7 +314,7 @@ function ProfileTab() {
                                     <div className="input-group">
                                         <label>{t.doctor.gender}</label>
                                         <select className="input-field" value={formData.gender} onChange={(e) => setFormData({ ...formData, gender: e.target.value })}>
-                                            <option value="">-- Selectionner --</option>
+                                            <option value="">-- Sélectionner --</option>
                                             {GENDER_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                         </select>
                                     </div>
@@ -325,7 +325,7 @@ function ProfileTab() {
                                     <div className="input-group" style={{ gridColumn: '1 / -1' }}>
                                         <label>{t.doctor.specialty}</label>
                                         <select className="input-field" value={formData.specialty} onChange={(e) => setFormData({ ...formData, specialty: e.target.value })} required>
-                                            <option value="">-- Selectionner --</option>
+                                            <option value="">-- Sélectionner --</option>
                                             {SPECIALTY_OPTIONS.map(opt => <option key={opt.value} value={opt.value}>{opt.label}</option>)}
                                         </select>
                                     </div>
@@ -361,7 +361,7 @@ function ProfileTab() {
                             <div className="section-title"><span></span> Securite</div>
                         </div>
                         <div className="space-y-4">
-                            <p className="text-gray-500 text-sm">Gerez votre mot de passe et la securite de votre compte.</p>
+                            <p className="text-gray-500 text-sm">Gérez votre mot de passe et la sécurité de votre compte.</p>
                             <button className="btn-password" onClick={() => setShowPasswordModal(true)}> Changer le mot de passe</button>
                         </div>
                     </div>
@@ -684,7 +684,7 @@ function PrescriptionPdfTab() {
                 setFormData(nextConfig);
                 setLogoFile(null);
                 setLogoPreview(getUploadAssetUrl(nextConfig.logoPath));
-                setMessage({ type: 'success', text: "Configuration de l'ordonnance enregistree avec succes." });
+                setMessage({ type: 'success', text: "Configuration de l'ordonnance enregistrée avec succès." });
             }
         } catch (error) {
             setMessage({ type: 'danger', text: error.message || 'Erreur lors de la sauvegarde de l ordonnance.' });
@@ -701,7 +701,7 @@ function PrescriptionPdfTab() {
         try {
             const response = await doctorService.updateAnalysesConfig({ analysesList });
             if (response.success) {
-                setAnalysesMessage({ type: 'success', text: 'Liste des bilans enregistree avec succes.' });
+                setAnalysesMessage({ type: 'success', text: 'Liste des bilans enregistrée avec succès.' });
             }
         } catch (error) {
             setAnalysesMessage({ type: 'danger', text: error.message || 'Erreur lors de la sauvegarde.' });
@@ -942,7 +942,7 @@ function PrescriptionPdfTab() {
 
                         <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
                             L'en-tete du PDF utilise la meme configuration que l'ordonnance.
-                            Configurez ici le modele de lettre d'orientation pre-rempli.
+                            Configurez ici le modèle de lettre d'orientation pré-rempli.
                         </p>
 
                         {letterMessage.text && (
@@ -970,7 +970,7 @@ function PrescriptionPdfTab() {
 
                             <div className="form-actions">
                                 <button type="submit" className="btn-save" disabled={savingLetter}>
-                                    {savingLetter ? 'Enregistrement...' : 'Enregistrer le modele de lettre'}
+                                    {savingLetter ? 'Enregistrement...' : 'Enregistrer le modèle de lettre'}
                                 </button>
                             </div>
                         </form>
@@ -983,7 +983,7 @@ function PrescriptionPdfTab() {
                 <div className="profile-section-card">
                     <div className="section-header">
                         <div className="section-title">
-                            <span>Vue</span> Apercu rapide
+                            <span>Vue</span> Aperçu rapide
                         </div>
                     </div>
 
@@ -1178,7 +1178,7 @@ function AiConfigTab() {
         try {
             const response = await doctorService.updateAiConfig(formData);
             if (response.success) {
-                setMessage({ type: 'success', text: 'Configuration IA enregistree avec succes' });
+                setMessage({ type: 'success', text: 'Configuration IA enregistrée avec succès' });
                 // Reload to get masked key
                 await loadConfig();
             }
@@ -1267,7 +1267,7 @@ function AiConfigTab() {
                             className="form-input"
                             value={formData.apiKey}
                             onChange={(e) => setFormData({ ...formData, apiKey: e.target.value })}
-                            placeholder={`Entrez votre cle API ${currentProviderData?.name || ''}`}
+                            placeholder={`Entrez votre clé API ${currentProviderData?.name || ''}`}
                             style={{
                                 width: '100%',
                                 paddingRight: '44px',
@@ -1313,7 +1313,7 @@ function AiConfigTab() {
                 </div>
                 <div style={{ marginBottom: 'var(--space-xl)' }}>
                     <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-xs)', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                        Langue des reponses IA
+                        Langue des réponses IA
                     </label>
                     <select
                         className="input-field"
@@ -1349,7 +1349,7 @@ function AiConfigTab() {
                     <li>L'IA analyse les cas medicaux soumis par vos assistants</li>
                     <li><strong>Gemini</strong> supporte l'analyse d'images medicales (radiographies, photos, etc.)</li>
                     <li><strong>ChatGPT</strong> fournit une analyse textuelle uniquement</li>
-                    <li>Votre cle API est stockee de maniere securisee et n'est jamais partagee</li>
+                    <li>Votre clé API est stockée de manière sécurisée et n'est jamais partagée</li>
                     <li>Si aucune cle n'est configuree, la configuration par defaut du serveur sera utilisee</li>
                 </ul>
             </div>

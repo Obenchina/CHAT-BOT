@@ -16,10 +16,65 @@ function GrowthCurveManager() {
     const [curveToDelete, setCurveToDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [previewCurve, setPreviewCurve] = useState(null);
+    const [previewFileUrl, setPreviewFileUrl] = useState('');
+    const [previewLoading, setPreviewLoading] = useState(false);
+    const [previewError, setPreviewError] = useState('');
 
     useEffect(() => {
         loadCurves();
     }, []);
+
+    useEffect(() => {
+        let objectUrl = '';
+        let cancelled = false;
+
+        async function loadPreviewFile() {
+            if (!previewCurve?.file_path) {
+                setPreviewFileUrl('');
+                setPreviewError('');
+                setPreviewLoading(false);
+                return;
+            }
+
+            setPreviewFileUrl('');
+            setPreviewError('');
+            setPreviewLoading(true);
+
+            try {
+                const token = localStorage.getItem('token');
+                const response = await fetch(getAuthUploadUrl(previewCurve.file_path), {
+                    credentials: 'include',
+                    headers: token ? { Authorization: `Bearer ${token}` } : undefined
+                });
+
+                if (!response.ok) {
+                    throw new Error('Impossible de charger le fichier.');
+                }
+
+                const blob = await response.blob();
+                objectUrl = URL.createObjectURL(blob);
+                if (!cancelled) {
+                    setPreviewFileUrl(objectUrl);
+                }
+            } catch (error) {
+                console.error('Growth curve preview error:', error);
+                if (!cancelled) {
+                    setPreviewError(error?.message || 'Impossible de charger le fichier.');
+                }
+            } finally {
+                if (!cancelled) {
+                    setPreviewLoading(false);
+                }
+            }
+        }
+
+        loadPreviewFile();
+
+        return () => {
+            cancelled = true;
+            if (objectUrl) URL.revokeObjectURL(objectUrl);
+        };
+    }, [previewCurve]);
 
     async function loadCurves() {
         setLoading(true);
@@ -88,7 +143,7 @@ function GrowthCurveManager() {
     };
 
     const GENDER_LABELS = {
-        male: 'Garcon',
+        male: 'Garçon',
         female: 'Fille',
         both: 'Mixte'
     };
@@ -101,10 +156,10 @@ function GrowthCurveManager() {
             {/* Official templates */}
             <div className="profile-section-card" style={{ marginBottom: 'var(--space-lg)' }}>
                 <div className="section-header">
-                    <div className="section-title">Templates officiels pre-calibres</div>
+                    <div className="section-title">Templates officiels pré-calibrés</div>
                 </div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                    Ces templates sont calibres cote developpeur. Aucune calibration manuelle n'est autorisee cote medecin.
+                    Ces templates sont calibrés côté développeur. Aucune calibration manuelle n'est autorisée côté médecin.
                 </p>
 
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--space-md)' }}>
@@ -118,7 +173,7 @@ function GrowthCurveManager() {
                                 Sexe: {GENDER_LABELS[c.gender] || c.gender}
                             </div>
                             <div style={{ fontSize: '0.8rem', color: 'var(--success)', marginTop: '6px' }}>
-                                Trace patient autorise (template officiel)
+                                Tracé patient autorisé (template officiel)
                             </div>
                         </div>
                     ))}
@@ -128,10 +183,10 @@ function GrowthCurveManager() {
             {/* Personal uploads */}
             <div className="profile-section-card" style={{ marginBottom: 'var(--space-lg)' }}>
                 <div className="section-header">
-                    <div className="section-title">Reference personnalisee (PDF/Image)</div>
+                    <div className="section-title">Référence personnalisée (PDF/Image)</div>
                 </div>
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                    Uploadez un PDF ou une image. Pour les PDF AFPA propres, MediConsult extrait les courbes et autorise le trace patient automatiquement. Sinon le fichier reste une reference visuelle.
+                    Uploadez un PDF ou une image. Pour les PDF AFPA propres, MediConsult extrait les courbes et autorise le tracé patient automatiquement. Sinon le fichier reste une référence visuelle.
                 </p>
 
                 <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-md)' }}>
@@ -140,7 +195,7 @@ function GrowthCurveManager() {
                         <select className="input-field" value={measureKey} onChange={e => setMeasureKey(e.target.value)}>
                             <option value="weight">Poids</option>
                             <option value="height">Taille</option>
-                            <option value="head">Perimetre cranien</option>
+                            <option value="head">Périmètre crânien</option>
                             <option value="bmi">IMC</option>
                         </select>
                     </div>
@@ -148,7 +203,7 @@ function GrowthCurveManager() {
                         <label>Sexe</label>
                         <select className="input-field" value={gender} onChange={e => setGender(e.target.value)}>
                             <option value="both">Mixte</option>
-                            <option value="male">Garcon</option>
+                            <option value="male">Garçon</option>
                             <option value="female">Fille</option>
                         </select>
                     </div>
@@ -164,15 +219,15 @@ function GrowthCurveManager() {
                     onClick={handleUpload}
                     disabled={uploading}
                 >
-                    {uploading ? 'Upload...' : 'Uploader reference personnelle'}
+                    {uploading ? 'Upload...' : 'Uploader référence personnelle'}
                 </button>
             </div>
 
             <div className="curves-list">
-                <h4 style={{ marginBottom: 'var(--space-md)' }}>Mes references personnalisees</h4>
+                <h4 style={{ marginBottom: 'var(--space-md)' }}>Mes références personnalisées</h4>
                 {customCurves.length === 0 && !loading && (
                     <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: 'var(--space-xl)' }}>
-                        Aucune reference personnalisee.
+                        Aucune référence personnalisée.
                     </p>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 'var(--space-md)' }}>
@@ -184,7 +239,7 @@ function GrowthCurveManager() {
                                         {MEASURE_LABELS[c.measure_key] || c.measure_key} - {GENDER_LABELS[c.gender] || c.gender}
                                     </div>
                                     <div style={{ fontSize: '0.75rem', color: c.is_plot_enabled ? 'var(--success)' : 'var(--warning)' }}>
-                                        {c.is_plot_enabled ? 'Trace patient autorise' : 'Reference visuelle seulement'}
+                                        {c.is_plot_enabled ? 'Tracé patient autorisé' : 'Référence visuelle seulement'}
                                     </div>
                                     {c.template_config?.source && (
                                         <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: 4 }}>
@@ -239,7 +294,7 @@ function GrowthCurveManager() {
                 )}
             >
                 <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
-                    Cette action supprimera definitivement cette courbe.
+                    Cette action supprimera définitivement cette courbe.
                 </p>
             </Modal>
 
@@ -262,10 +317,18 @@ function GrowthCurveManager() {
                         background: 'var(--bg-app)',
                         boxSizing: 'border-box'
                     }}>
-                        {String(previewCurve.file_path || '').toLowerCase().endsWith('.pdf') ? (
+                        {previewLoading ? (
+                            <div style={{ color: 'var(--text-secondary)' }}>
+                                Chargement du fichier...
+                            </div>
+                        ) : previewError ? (
+                            <div className="alert alert-error" style={{ maxWidth: 520 }}>
+                                {previewError}
+                            </div>
+                        ) : String(previewCurve.file_path || '').toLowerCase().endsWith('.pdf') ? (
                             <iframe
-                                title="Apercu de la courbe"
-                                src={getAuthUploadUrl(previewCurve.file_path)}
+                                title="Aperçu de la courbe"
+                                src={previewFileUrl}
                                 style={{
                                     width: '100%',
                                     height: '100%',
@@ -276,7 +339,7 @@ function GrowthCurveManager() {
                             />
                         ) : (
                             <img
-                                src={getAuthUploadUrl(previewCurve.file_path)}
+                                src={previewFileUrl}
                                 alt="Courbe de croissance"
                                 style={{
                                     maxWidth: '100%',

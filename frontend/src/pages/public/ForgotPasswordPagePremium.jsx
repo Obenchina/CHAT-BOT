@@ -13,7 +13,7 @@ const t = translations;
 const coverHighlights = [
     {
         kicker: 'Recuperation',
-        title: 'Acces retrouve sans casser la securite',
+        title: 'Accès retrouvé sans casser la sécurité',
         description: 'Le reset suit un parcours clair avec verification email et nouveau mot de passe.'
     },
     {
