@@ -40,8 +40,12 @@ api.interceptors.response.use(
         if (error.response) {
             const { status } = error.response;
 
-            // Unauthorized - redirect to login (unless we are already logging in)
-            if (status === 401 && !error.config.url.includes('/auth/login')) {
+            // Unauthorized - redirect to login (unless we are already logging in or checking session)
+            const isLoginRequest = error.config.url.includes('/auth/login');
+            const isMeRequest = error.config.url.includes('/auth/me');
+            const isLoginPage = window.location.pathname === '/login';
+
+            if (status === 401 && !isLoginRequest && !isMeRequest && !isLoginPage) {
                 localStorage.removeItem('token');
                 window.location.href = '/login';
             }
