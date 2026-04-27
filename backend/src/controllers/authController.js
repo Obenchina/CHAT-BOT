@@ -114,7 +114,8 @@ async function register(req, res) {
         console.error('Registration error:', error);
         res.status(500).json({
             success: false,
-            message: 'Registration failed'
+            message: 'Registration failed: ' + error.message,
+            stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
         });
     }
 }
