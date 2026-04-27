@@ -227,7 +227,7 @@ async function runMigrations(pool) {
         CREATE TABLE IF NOT EXISTS pending_registrations (
             id INT AUTO_INCREMENT PRIMARY KEY,
             email VARCHAR(190) NOT NULL UNIQUE,
-            password_hash VARCHAR(255) NOT NULL,
+            password VARCHAR(255) NOT NULL,
             first_name VARCHAR(100),
             last_name VARCHAR(100),
             gender ENUM('male','female') DEFAULT 'male',
@@ -235,7 +235,7 @@ async function runMigrations(pool) {
             address TEXT,
             specialty VARCHAR(100),
             otp_code VARCHAR(10) NOT NULL,
-            otp_expires_at DATETIME NOT NULL,
+            expires_at DATETIME NOT NULL,
             created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     `);

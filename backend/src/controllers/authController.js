@@ -67,10 +67,10 @@ async function register(req, res) {
 
         // Upsert into pending_registrations (replace if same email exists)
         await pool.execute(
-            `INSERT INTO pending_registrations (email, password_hash, first_name, last_name, gender, phone, address, specialty, otp_code, otp_expires_at)
+            `INSERT INTO pending_registrations (email, password, first_name, last_name, gender, phone, address, specialty, otp_code, expires_at)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
              ON DUPLICATE KEY UPDATE
-                password_hash = VALUES(password_hash),
+                password = VALUES(password),
                 first_name = VALUES(first_name),
                 last_name = VALUES(last_name),
                 gender = VALUES(gender),
@@ -78,7 +78,7 @@ async function register(req, res) {
                 address = VALUES(address),
                 specialty = VALUES(specialty),
                 otp_code = VALUES(otp_code),
-                otp_expires_at = VALUES(otp_expires_at),
+                expires_at = VALUES(expires_at),
                 created_at = NOW()`,
             [email, passwordHash, firstName, lastName, gender || 'male', phone, address || '', specialty, otpCode, otpExpiresAt]
         );
@@ -151,7 +151,7 @@ async function verifyRegistration(req, res) {
         const pending = rows[0];
 
         // Check if OTP has expired
-        if (new Date() > new Date(pending.otp_expires_at)) {
+        if (new Date() > new Date(pending.expires_at)) {
             return res.status(400).json({
                 success: false,
                 message: 'Verification code has expired. Please request a new one.',
@@ -183,7 +183,7 @@ async function verifyRegistration(req, res) {
         const [userResult] = await pool.execute(
             `INSERT INTO users (email, password, first_name, last_name, role, is_active, created_at, updated_at)
              VALUES (?, ?, ?, ?, 'doctor', true, NOW(), NOW())`,
-            [pending.email, pending.password_hash, pending.first_name, pending.last_name]
+            [pending.email, pending.password, pending.first_name, pending.last_name]
         );
 
         const userId = userResult.insertId;
@@ -276,7 +276,7 @@ async function resendOtp(req, res) {
 
         // Update record
         await pool.execute(
-            'UPDATE pending_registrations SET otp_code = ?, otp_expires_at = ? WHERE id = ?',
+            'UPDATE pending_registrations SET otp_code = ?, expires_at = ? WHERE id = ?',
             [newOtp, newExpiry, pendingId]
         );
 
