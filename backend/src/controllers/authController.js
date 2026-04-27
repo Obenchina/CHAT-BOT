@@ -203,11 +203,11 @@ async function verifyRegistration(req, res) {
         // Generate token
         const token = generateToken({ id: userId, role: 'doctor' });
 
-        // Set HttpOnly cookie
+        // Set HttpOnly cookie - optimized for Cross-Domain (Vercel <-> Render)
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: true, // Must be true for sameSite: 'none'
+            sameSite: 'none', // Required for cross-domain cookies
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
 
@@ -358,11 +358,11 @@ async function login(req, res) {
         // Generate token
         const token = generateToken(user);
 
-        // Set HttpOnly cookie
+        // Set HttpOnly cookie - optimized for Cross-Domain (Vercel <-> Render)
         res.cookie('token', token, {
             httpOnly: true,
-            secure: process.env.NODE_ENV === 'production',
-            sameSite: 'strict',
+            secure: true, // Must be true for sameSite: 'none'
+            sameSite: 'none', // Required for cross-domain cookies
             maxAge: 24 * 60 * 60 * 1000 // 24 hours
         });
 
