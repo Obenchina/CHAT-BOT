@@ -50,7 +50,7 @@ async function sendVerificationCode(toEmail, code) {
                             </div>
                         </div>
                         
-                        <p style={{ color: '#94A3B8', margin: '0', fontSize: '13px', lineHeight: '1.5' }}>
+                        <p style="color: #94A3B8; margin: 0; font-size: 13px; line-height: 1.5;">
                             ⏱ Ce code expire dans <strong>10 minutes</strong>.<br>
                             Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail en toute sécurité.
                         </p>

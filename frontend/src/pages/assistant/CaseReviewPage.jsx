@@ -83,10 +83,10 @@ function CaseReviewPage() {
             }
             // Reload case to get updated documents
             await loadCase();
-            showSuccess('Document(s) ajoutÃ©(s) avec succÃ¨s');
+            showSuccess('Document(s) ajoute(s) avec succes');
         } catch (error) {
             console.error('Upload error:', error);
-            showError(error.message || 'Erreur lors du tÃ©lÃ©chargement');
+            showError(error.message || 'Erreur lors du telechargement');
         } finally {
             setUploading(false);
             // reset input
@@ -107,7 +107,7 @@ function CaseReviewPage() {
                     ...prev,
                     documents: prev.documents.filter(d => d.id !== docId)
                 }));
-                showSuccess('Document supprimÃ©');
+                showSuccess('Document supprime');
             }
         } catch (error) {
             console.error('Delete document error:', error);
@@ -118,7 +118,7 @@ function CaseReviewPage() {
     // Submit case
     async function handleSubmit() {
         if (isReadOnly) return;
-        const confirmed = await showConfirm('Soumettre ce cas au mÃ©decin ? Vous ne pourrez plus le modifier.');
+        const confirmed = await showConfirm('Soumettre ce cas au medecin ? Vous ne pourrez plus le modifier.');
         if (!confirmed) return;
 
         setSubmitting(true);
@@ -196,12 +196,12 @@ function CaseReviewPage() {
                             {/* 1. Patient info */}
                             <div className="card">
                                 <div className="card-header border-b">
-                                    <h2 className="card-title" style={{ fontSize: '1.1rem' }}>ðŸ‘¤ {t.patient.title}</h2>
+                                    <h2 className="card-title" style={{ fontSize: '1.1rem' }}>{t.patient.title}</h2>
                                     {isReadOnly && (
                                         <span className="badge badge-gray" style={{ background: 'var(--primary-color)', color: 'white' }}>
                                             {caseData.status === CASE_STATUS.SUBMITTED ? 'Soumis' :
                                                 caseData.status === CASE_STATUS.REVIEWED ? 'Revu' :
-                                                    caseData.status === CASE_STATUS.CLOSED ? 'ClÃ´turÃ©' : caseData.status}
+                                                    caseData.status === CASE_STATUS.CLOSED ? 'Cloture' : caseData.status}
                                         </span>
                                     )}
                                 </div>
@@ -216,7 +216,7 @@ function CaseReviewPage() {
                                             <strong style={{ textAlign: 'right' }}>{formatDateOnlyDisplay(caseData.patient?.dateOfBirth || caseData.patient?.date_of_birth)}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid var(--border-color)', paddingBottom: 'var(--space-xs)' }}>
-                                            <span style={{ color: 'var(--text-secondary)' }}>Ã‚ge:</span>
+                                            <span style={{ color: 'var(--text-secondary)' }}>Age:</span>
                                             <strong style={{ textAlign: 'right' }}>{computeAgeDisplay(caseData.patient?.dateOfBirth || caseData.patient?.date_of_birth).label}</strong>
                                         </div>
                                         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -230,7 +230,7 @@ function CaseReviewPage() {
                             {/* 2. Answers section */}
                             <div className="card">
                                 <div className="card-header border-b" style={{ paddingBottom: 'var(--space-sm)' }}>
-                                    <h2 className="card-title">ðŸ“‹ {t.case.answers}</h2>
+                                    <h2 className="card-title">{t.case.answers}</h2>
                                 </div>
                                 <div className="card-body" style={{ padding: '0' }}>
                                     {caseData.answers && caseData.answers.length > 0 ? (
@@ -266,7 +266,7 @@ function CaseReviewPage() {
                                                                 <>{answer.text_answer || answer.textAnswer || answer.transcribed_text}</>
                                                             ) : (
                                                                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end', fontStyle: 'italic' }}>
-                                                                    <span>RÃ©ponse enregistrÃ©e vocalement</span>
+                                                                    <span>Reponse enregistree vocalement</span>
                                                                     <CheckIcon color="success" fontSize="small" />
                                                                 </div>
                                                             )}
@@ -277,7 +277,7 @@ function CaseReviewPage() {
                                         </div>
                                     ) : (
                                         <div style={{ padding: 'var(--space-2xl) var(--space-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>
-                                            Aucune rÃ©ponse enregistrÃ©e
+                                            Aucune reponse enregistree
                                         </div>
                                     )}
                                 </div>
@@ -286,7 +286,7 @@ function CaseReviewPage() {
                             {/* 3. Documents */}
                             <div className="card">
                                 <div className="card-header border-b">
-                                    <h2 className="card-title" style={{ fontSize: '1.1rem' }}>ðŸ“Ž {t.documents.title}</h2>
+                                    <h2 className="card-title" style={{ fontSize: '1.1rem' }}>{t.documents.title}</h2>
                                 </div>
                                 <div className="card-body" style={{ padding: '0' }}>
                                     {/* Upload section */}
@@ -304,17 +304,17 @@ function CaseReviewPage() {
                                                 <div className="upload-zone-content" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 'var(--space-sm)' }}>
                                                     <InsertDriveFileIcon style={{ fontSize: '2.5rem', color: 'var(--primary)' }} />
                                                     <span style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-primary)' }}>
-                                                        Cliquez pour ajouter des documents mÃ©dicaux
+                                                        Cliquez pour ajouter des documents medicaux
                                                     </span>
                                                     <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                                                        Images ou PDF pris en charge. SÃ©lectionnez plusieurs fichiers si besoin.
+                                                        Images ou PDF pris en charge. Selectionnez plusieurs fichiers si besoin.
                                                     </span>
                                                 </div>
                                             </label>
 
                                             {uploading && (
                                                 <div className="flex justify-center" style={{ marginTop: 'var(--space-md)' }}>
-                                                    <LoadingSpinner size="sm" text="TÃ©lÃ©chargement..." />
+                                                    <LoadingSpinner size="sm" text="Telechargement..." />
                                                 </div>
                                             )}
                                         </div>
@@ -367,7 +367,7 @@ function CaseReviewPage() {
                                             fontSize: '0.85rem',
                                             fontStyle: 'italic'
                                         }}>
-                                            Aucun document mÃ©dical
+                                            Aucun document medical
                                         </div>
                                     )}
                                 </div>
@@ -376,7 +376,7 @@ function CaseReviewPage() {
                     ) : (
                         <div className="card">
                             <div className="card-body text-center" style={{ color: 'var(--gray-500)' }}>
-                                Cas non trouvÃ©
+                                Cas non trouve
                             </div>
                         </div>
                     )}

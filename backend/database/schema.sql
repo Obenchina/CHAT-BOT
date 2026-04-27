@@ -282,6 +282,7 @@ CREATE TABLE IF NOT EXISTS doctor_medications (
     dosage_form VARCHAR(100),
     default_dosage VARCHAR(100),
     default_frequency VARCHAR(100),
+    default_duration VARCHAR(100),
     notes TEXT,
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     INDEX idx_doctor_name (doctor_id, name)

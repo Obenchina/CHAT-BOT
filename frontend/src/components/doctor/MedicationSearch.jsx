@@ -53,8 +53,7 @@ function MedicationSearch({ onSelect }) {
             name: med.name,
             dosage: med.default_dosage || '',
             frequency: med.default_frequency || '',
-            duration: '',
-            dosage_form: med.dosage_form || ''
+            duration: med.default_duration || ''
         });
         setQuery('');
         setShowDropdown(false);
@@ -68,7 +67,7 @@ function MedicationSearch({ onSelect }) {
                 value={query}
                 onChange={handleInputChange}
                 onFocus={() => { if (results.length > 0) setShowDropdown(true); }}
-                placeholder="🔍 Rechercher un médicament dans votre liste..."
+                placeholder="Rechercher un medicament dans votre liste..."
                 className="form-input"
                 style={{
                     width: '100%',
@@ -113,9 +112,9 @@ function MedicationSearch({ onSelect }) {
                             onMouseLeave={e => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
                             <div style={{ fontWeight: '600', fontSize: '0.9rem', color: 'var(--text-primary)' }}>{med.name}</div>
-                            {(med.dosage_form || med.default_dosage) && (
+                            {(med.default_dosage || med.default_frequency || med.default_duration) && (
                                 <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                    {med.dosage_form}{med.default_dosage ? ` — ${med.default_dosage}` : ''}
+                                    {[med.default_dosage, med.default_frequency, med.default_duration].filter(Boolean).join(' - ')}
                                 </div>
                             )}
                         </div>
@@ -137,7 +136,7 @@ function MedicationSearch({ onSelect }) {
                     color: 'var(--text-secondary)',
                     zIndex: 1000
                 }}>
-                    Aucun médicament trouvé pour "{query}"
+                    Aucun medicament trouve pour "{query}"
                 </div>
             )}
         </div>

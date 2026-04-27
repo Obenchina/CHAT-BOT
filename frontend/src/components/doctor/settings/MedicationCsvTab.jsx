@@ -17,12 +17,12 @@ function MedicationCsvTab() {
     }, []);
 
     const sampleCsv = useMemo(() => {
-        // French headers (accepted), with quoted values & semicolon delimiter example
+        // Same fields used by the prescription editor in CaseDetails.
         return [
-            'nom;forme;dosage;frequence;notes',
-            '"Paracétamol";"Sirop";"15 mg/kg";"Toutes les 6h";"Douleur / fièvre"',
-            '"Amoxicilline";"Gélule";"500 mg";"3 fois/jour";""',
-            '"Ibuprofène";"Suspension";"10 mg/kg";"Toutes les 8h";"Éviter si déshydratation"'
+            'nom_medicament;dosage;frequence;duree',
+            '"Paracetamol";"15 mg/kg";"Toutes les 6h";"3 jours"',
+            '"Amoxicilline";"500 mg";"3 fois/jour";"7 jours"',
+            '"Ibuprofene";"10 mg/kg";"Toutes les 8h";"2 jours"'
         ].join('\n');
     }, []);
 
@@ -92,12 +92,12 @@ function MedicationCsvTab() {
         <div>
             <div className="profile-section-card" style={{ marginBottom: 'var(--space-lg)' }}>
                 <div className="section-header">
-                    <div className="section-title">💊 Base de médicaments (CSV)</div>
+                        <div className="section-title">Base de medicaments (CSV)</div>
                 </div>
 
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                    Importez un fichier CSV contenant vos médicaments. La colonne "nom" ou "name" est obligatoire.
-                    Colonnes optionnelles : forme, dosage, fréquence, notes.
+                    Importez un fichier CSV contenant vos medicaments. La colonne "nom_medicament" ou "nom" est obligatoire.
+                    Colonnes conseillees : nom_medicament, dosage, frequence, duree.
                 </p>
 
                 <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', flexWrap: 'wrap' }}>
@@ -110,7 +110,7 @@ function MedicationCsvTab() {
                         fontSize: '0.9rem',
                         fontWeight: '500'
                     }}>
-                        {uploading ? '⏳ Import en cours...' : '📁 Importer CSV'}
+                        {uploading ? 'Import en cours...' : 'Importer CSV'}
                         <input type="file" accept=".csv,.txt" onChange={handleUpload} style={{ display: 'none' }} disabled={uploading} />
                     </label>
 
@@ -137,7 +137,7 @@ function MedicationCsvTab() {
                             fontSize: '0.85rem'
                         }}
                     >
-                        ⬇️ Télécharger un exemple CSV
+                        Telecharger un exemple CSV
                     </button>
 
                     {count > 0 && (
@@ -150,7 +150,7 @@ function MedicationCsvTab() {
                             cursor: 'pointer',
                             fontSize: '0.85rem'
                         }}>
-                            🗑 Tout supprimer
+                            Tout supprimer
                         </button>
                     )}
 
@@ -199,18 +199,18 @@ function MedicationCsvTab() {
                             <thead>
                                 <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left' }}>
                                     <th style={{ padding: '6px 8px' }}>Nom</th>
-                                    <th style={{ padding: '6px 8px' }}>Forme</th>
-                                    <th style={{ padding: '6px 8px' }}>Dosage</th>
-                                    <th style={{ padding: '6px 8px' }}>Fréq.</th>
+                            <th style={{ padding: '6px 8px' }}>Dosage</th>
+                            <th style={{ padding: '6px 8px' }}>Freq.</th>
+                            <th style={{ padding: '6px 8px' }}>Duree</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {medications.slice(0, 50).map(med => (
                                     <tr key={med.id} style={{ borderBottom: '1px solid var(--border-light, #eee)' }}>
                                         <td style={{ padding: '6px 8px', fontWeight: '500' }}>{med.name}</td>
-                                        <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{med.dosage_form || '—'}</td>
-                                        <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{med.default_dosage || '—'}</td>
-                                        <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{med.default_frequency || '—'}</td>
+                                        <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{med.default_dosage || '-'}</td>
+                                        <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{med.default_frequency || '-'}</td>
+                                        <td style={{ padding: '6px 8px', color: 'var(--text-secondary)' }}>{med.default_duration || '-'}</td>
                                     </tr>
                                 ))}
                             </tbody>

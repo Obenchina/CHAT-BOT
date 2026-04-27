@@ -549,6 +549,9 @@ async function uploadMedicationCSV(req, res) {
         const defaultFrequencyKey = keyBy([
             (h) => h.includes('default frequency') || h.includes('frequence') || h.includes('freq') || h.includes('frequency')
         ]);
+        const defaultDurationKey = keyBy([
+            (h) => h.includes('default duration') || h.includes('duration') || h.includes('duree')
+        ]);
         const notesKey = keyBy([
             (h) => h === 'notes' || h.includes('note') || h.includes('remarque') || h.includes('comment')
         ]);
@@ -581,17 +584,19 @@ async function uploadMedicationCSV(req, res) {
             const dosage_form = dosageFormKey ? normalizeOptionalText(row[dosageFormKey], 100) : '';
             const default_dosage = defaultDosageKey ? normalizeOptionalText(row[defaultDosageKey], 100) : '';
             const default_frequency = defaultFrequencyKey ? normalizeOptionalText(row[defaultFrequencyKey], 100) : '';
+            const default_duration = defaultDurationKey ? normalizeOptionalText(row[defaultDurationKey], 100) : '';
             const notes = notesKey ? normalizeOptionalText(row[notesKey], 2000) : '';
 
             try {
                 await pool.execute(
-                    'INSERT INTO doctor_medications (doctor_id, name, dosage_form, default_dosage, default_frequency, notes) VALUES (?, ?, ?, ?, ?, ?)',
+                    'INSERT INTO doctor_medications (doctor_id, name, dosage_form, default_dosage, default_frequency, default_duration, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
                     [
                         doctor.id,
                         name,
                         dosage_form || null,
                         default_dosage || null,
                         default_frequency || null,
+                        default_duration || null,
                         notes || null
                     ]
                 );

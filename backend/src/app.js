@@ -251,7 +251,7 @@ async function runMigrations(pool) {
     try {
         await pool.execute("ALTER TABLE questions MODIFY COLUMN answer_type ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NOT NULL");
         await pool.execute("ALTER TABLE case_answers MODIFY COLUMN answer_type_snapshot ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NULL");
-    } catch(err) {
+    } catch (err) {
         console.warn('Could not modify ENUMs:', err.message);
     }
     await ensureColumn(pool, 'doctors', 'prescription_logo_path', 'VARCHAR(500) NULL');
@@ -261,6 +261,22 @@ async function runMigrations(pool) {
     await ensureColumn(pool, 'doctors', 'prescription_services_text', 'TEXT NULL');
     await ensureColumn(pool, 'doctors', 'analyses_list', 'TEXT NULL');
     await ensureColumn(pool, 'doctors', 'letter_template', 'TEXT NULL');
+
+    await pool.execute(`
+        CREATE TABLE IF NOT EXISTS doctor_medications (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            doctor_id INT NOT NULL,
+            name VARCHAR(255) NOT NULL,
+            dosage_form VARCHAR(100),
+            default_dosage VARCHAR(100),
+            default_frequency VARCHAR(100),
+            default_duration VARCHAR(100),
+            notes TEXT,
+            FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
+            INDEX idx_doctor_name (doctor_id, name)
+        ) ENGINE=InnoDB;
+    `);
+    await ensureColumn(pool, 'doctor_medications', 'default_duration', 'VARCHAR(100) NULL');
 
     await pool.execute(`
         CREATE TABLE IF NOT EXISTS ai_config (
