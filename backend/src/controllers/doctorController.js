@@ -6,6 +6,7 @@ const GrowthCurve = require('../models/GrowthCurve');
 const { pool } = require('../config/database');
 const { getValidatedOfficialTemplates } = require('../config/growthCurveTemplates');
 const { buildExtractedCharts, saveExtractedChartImage } = require('../services/growthCurvePdfService');
+const { calibrateGrowthChartWithAI } = require('../services/growthCurveAiCalibrationService');
 
 function normalizeOptionalText(value, maxLength) {
     if (value === undefined || value === null) {
@@ -357,15 +358,35 @@ async function uploadGrowthCurve(req, res) {
 
             if (extractedCharts.length > 0) {
                 const createdCurves = [];
+                let activeAiConfig = null;
+
+                try {
+                    activeAiConfig = await AiConfig.getEffectiveConfig(doctor.id);
+                } catch (error) {
+                    activeAiConfig = null;
+                }
 
                 for (const chart of extractedCharts) {
+                    const aiTemplateConfig = activeAiConfig
+                        ? await calibrateGrowthChartWithAI({
+                            image: chart.image,
+                            originalName: req.file.originalname,
+                            fallbackConfig: chart.templateConfig,
+                            fallbackMeasureKey: chart.measureKey,
+                            fallbackGender: chart.gender || gender || 'both',
+                            aiConfig: activeAiConfig
+                        })
+                        : null;
+                    const templateConfig = aiTemplateConfig || chart.templateConfig;
+                    const resolvedMeasureKey = templateConfig.measure_key || chart.measureKey;
+                    const resolvedGender = templateConfig.gender || chart.gender || gender || 'both';
                     const filePath = saveExtractedChartImage(chart.image);
                     const curve = await GrowthCurve.create({
                         doctor_id: doctor.id,
-                        measure_key: chart.measureKey,
-                        gender: chart.gender || gender || 'both',
+                        measure_key: resolvedMeasureKey,
+                        gender: resolvedGender,
                         file_path: filePath,
-                        template_config: chart.templateConfig,
+                        template_config: templateConfig,
                         is_calibrated: true
                     });
 
@@ -374,9 +395,10 @@ async function uploadGrowthCurve(req, res) {
                         source_type: 'custom_calibrated',
                         is_official: false,
                         is_custom_upload: true,
-                        display_name: chart.templateConfig.label,
+                        display_name: templateConfig.label,
                         is_plot_enabled: true,
-                        is_calibrated: true
+                        is_calibrated: true,
+                        calibration_source: aiTemplateConfig ? 'ai' : 'deterministic'
                     });
                 }
 

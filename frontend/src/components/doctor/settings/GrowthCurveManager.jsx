@@ -173,6 +173,12 @@ function GrowthCurveManager() {
                                     <div style={{ fontSize: '0.75rem', color: c.is_plot_enabled ? 'var(--success)' : 'var(--warning)' }}>
                                         {c.is_plot_enabled ? 'Tracé patient autorisé' : 'Référence visuelle seulement'}
                                     </div>
+                                    {c.template_config?.source && (
+                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: 4 }}>
+                                            Calibration: {c.template_config.source === 'ai_calibrated' ? 'IA' : 'automatique'}
+                                            {c.template_config.auto_confidence ? ` (${Math.round(c.template_config.auto_confidence * 100)}%)` : ''}
+                                        </div>
+                                    )}
                                 </div>
                                 <button
                                     onClick={() => requestDeleteCurve(c)}

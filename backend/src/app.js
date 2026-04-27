@@ -24,6 +24,9 @@ const aiChatRoutes = require('./routes/aiChatRoutes');
 // Initialize Express app
 const app = express();
 
+// Trust proxy for express-rate-limit on Render/Vercel
+app.set('trust proxy', 1);
+
 // ======================
 // MIDDLEWARE CONFIGURATION
 // ======================

@@ -43,7 +43,7 @@ async function analyzeCase(caseData, aiConfig = null) {
         const docResult = await processCaseDocuments(caseData);
 
         // Build base text prompt
-        let baseTextPrompt = buildAnalysisPrompt(caseData);
+        let baseTextPrompt = buildAnalysisPrompt(caseData, cfg.responseLanguage || 'ar');
 
         if (cfg.provider === 'openai') {
             // OpenAI multimodal path (Text extraction for PDFs)
@@ -196,9 +196,10 @@ async function processCaseDocuments(caseData) {
  * @param {Object} caseData - Case data
  * @returns {string} Formatted prompt
  */
-function buildAnalysisPrompt(caseData) {
+function buildAnalysisPrompt(caseData, responseLanguage = 'ar') {
     const { patient, answers, documents } = caseData;
     const hasDocs = documents && documents.length > 0;
+    const normalizedResponseLanguage = responseLanguage === 'fr' ? 'fr' : 'ar';
 
     // Use computed age from backend (TIMESTAMPDIFF), fallback to manual calculation from date_of_birth
     let patientAge = patient.age;
@@ -253,6 +254,25 @@ function buildAnalysisPrompt(caseData) {
   ],
   "additionalNotes": "ضع هنا أي تنبيهات طوارئ أو نصائح طبية تخصصية للطبيب."
 }`;
+
+    if (normalizedResponseLanguage === 'fr') {
+        prompt += `
+
+CRITICAL LANGUAGE OVERRIDE:
+- Return valid JSON only.
+- Keep the JSON keys exactly as requested: summary, diagnoses, additionalNotes, name, probability, reasoning.
+- All human-readable values MUST be written in professional medical French.
+- Do not write Arabic in the AI analysis, except when quoting the patient's original Darja wording.
+- Diagnosis names should be in French medical terminology.`;
+    } else {
+        prompt += `
+
+CRITICAL LANGUAGE OVERRIDE:
+- Return valid JSON only.
+- Keep the JSON keys exactly as requested: summary, diagnoses, additionalNotes, name, probability, reasoning.
+- All human-readable values MUST be written in clear medical Arabic.
+- French medical terms may be kept when clinically useful.`;
+    }
 
     return prompt;
 }
@@ -441,6 +461,9 @@ async function callOpenAIAPI(userContent, cfg) {
     const apiKey = cfg.apiKey;
     const model = cfg.model || 'gpt-4o-mini';
     const url = 'https://api.openai.com/v1/chat/completions';
+    const systemContent = cfg.responseLanguage === 'fr'
+        ? 'You are a senior medical AI assistant. Analyze medical case data and return structured JSON. All human-readable values must be in professional medical French unless quoting the patient verbatim.'
+        : 'You are a senior medical AI assistant. Analyze medical case data and return structured JSON. All human-readable values must be in clear medical Arabic, with French medical terms when clinically useful.';
 
     const MAX_RETRIES = 3;
     let retryCount = 0;
@@ -458,7 +481,7 @@ async function callOpenAIAPI(userContent, cfg) {
                 body: JSON.stringify({
                     model: model,
                     messages: [
-                        { role: 'system', content: 'أنت طبيب مساعد ذكي (AI Medical Assistant). مهمتك تحليل البيانات الطبية المدخلة واستخراج ملخص تشخيصي دقيق للطبيب. ملاحظة ثقافية هامة: المريض جزائري ويتحدث بالدارجة الجزائرية (Algerian Darja) والتي قد تتضمن مزيجاً من العربية والفرنسية ومصطلحات محلية. يجب عليك فهم هذه المصطلحات بدقة عند تحليل الأعراض. قدم إجابتك دائماً بصيغة JSON منسقة بالعربية. قسم الأدوية يجب أن يكون بالفرنسية العلمية. المريض موجود بالفعل عند الطبيب ويتم فحصه، لا تقترح زيارة طبيب إلا في حالات الطوارئ الشديدة.' },
+                        { role: 'system', content: systemContent },
                         { role: 'user', content: userContent }
                     ],
                     temperature: 0.3,
