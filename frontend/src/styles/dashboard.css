@@ -1,15 +1,71 @@
 /**
  * Dashboard CSS Styles
+ * Professional dashboard layouts with improved spacing and responsiveness
  */
 
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: var(--space-lg);
+    margin-bottom: var(--space-2xl);
 }
 
 .dashboard-section {
-    margin-top: var(--space-xl);
+    margin-top: var(--space-2xl);
+}
+
+.dashboard-section:first-child {
+    margin-top: 0;
+}
+
+/* Enhanced Segmented Buttons */
+.segmented-group {
+    background: var(--gray-50);
+    padding: 4px;
+    border-radius: var(--radius-md);
+    display: inline-flex;
+    border: 1px solid var(--gray-200);
+}
+
+.seg-btn {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    border-radius: calc(var(--radius-md) - 2px);
+    font-weight: 500;
+    font-size: 0.9rem;
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all var(--transition-fast);
+}
+
+.seg-btn:hover:not(.seg-active) {
+    color: var(--text-primary);
+}
+
+.seg-btn.seg-active {
+    background: white;
+    color: var(--primary-600);
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+}
+
+/* Table Container Styling */
+.table-container {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+.desktop-table-container {
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+
+/* Responsive Design */
+@media (max-width: 1280px) {
+    .stats-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
 }
 
 @media (max-width: 1024px) {
@@ -19,9 +75,25 @@
     }
 }
 
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+        gap: var(--space-md);
+    }
+}
+
 @media (max-width: 480px) {
     .stats-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
         gap: var(--space-sm);
+    }
+
+    .dashboard-section {
+        margin-top: var(--space-lg);
+    }
+
+    .seg-btn {
+        padding: 6px 12px;
+        font-size: 0.85rem;
     }
 }
