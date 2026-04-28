@@ -147,10 +147,20 @@ function mapQuestionForQuestionnaire(question) {
     return {
         id: question.id,
         questionText: question.question_text,
+        question_text: question.question_text,
         answerType: question.answer_type,
+        answer_type: question.answer_type,
         choices: question.choices,
         isRequired: question.is_required,
-        orderIndex: question.order_index
+        is_required: question.is_required,
+        orderIndex: question.order_index,
+        order_index: question.order_index,
+        sectionName: question.section_name,
+        section_name: question.section_name,
+        sectionOrder: question.section_order,
+        section_order: question.section_order,
+        clinicalMeasure: question.clinical_measure,
+        clinical_measure: question.clinical_measure
     };
 }
 
@@ -286,14 +296,26 @@ async function getById(req, res) {
                     question_id: a.question_id,
                     questionText: a.question_text,
                     question_text: a.question_text,
+                    questionTextSnapshot: a.question_text_snapshot,
+                    question_text_snapshot: a.question_text_snapshot,
                     answerType: a.answer_type,
                     answer_type: a.answer_type,
+                    answerTypeSnapshot: a.answer_type_snapshot,
+                    answer_type_snapshot: a.answer_type_snapshot,
+                    sectionName: a.section_name,
+                    section_name: a.section_name,
+                    sectionOrder: a.section_order,
+                    section_order: a.section_order,
+                    clinicalMeasure: a.clinical_measure,
+                    clinical_measure: a.clinical_measure,
                     audioPath: a.audio_path,
                     audio_path: a.audio_path,
                     transcribedText: a.transcribed_text,
                     transcribed_text: a.transcribed_text,
                     textAnswer: a.text_answer,
-                    text_answer: a.text_answer
+                    text_answer: a.text_answer,
+                    createdAt: a.created_at,
+                    created_at: a.created_at
                 })),
                 documents: (caseData.documents || []).map(d => ({
                     id: d.id,
@@ -302,9 +324,14 @@ async function getById(req, res) {
                     filePath: d.file_path,
                     uploadedAt: d.uploaded_at
                 })),
+                aiSummary: caseData.ai_summary || null,
+                ai_summary: caseData.ai_summary || null,
                 aiAnalysis: caseData.aiAnalysis,
+                ai_analysis: caseData.aiAnalysis,
                 doctorDiagnosis: caseData.doctor_diagnosis,
+                doctor_diagnosis: caseData.doctor_diagnosis,
                 doctorPrescription: caseData.doctor_prescription,
+                doctor_prescription: caseData.doctor_prescription,
                 catalogueId: caseData.catalogue?.id || caseData.catalogue_version_id || null,
                 catalogueName: caseData.catalogue?.name || '',
                 createdAt: caseData.created_at,

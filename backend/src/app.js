@@ -47,6 +47,16 @@ app.use(helmet({
     crossOriginOpenerPolicy: { policy: "unsafe-none" }
 }));
 
+// Force UTF-8 charset on all JSON responses
+app.use((req, res, next) => {
+    const originalJson = res.json.bind(res);
+    res.json = (body) => {
+        res.setHeader('Content-Type', 'application/json; charset=utf-8');
+        return originalJson(body);
+    };
+    next();
+});
+
 // Parse cookies
 app.use(cookieParser());
 

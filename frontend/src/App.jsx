@@ -13,6 +13,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 
 // Import styles
+import './styles/tokens.css';
 import './styles/global.css';
 import './styles/components.css';
 
@@ -26,12 +27,12 @@ import ForgotPasswordPage from './pages/public/ForgotPasswordPagePremium';
 const DoctorDashboard = lazy(() => import('./pages/doctor/DoctorDashboard'));
 const CatalogueManagement = lazy(() => import('./pages/doctor/CatalogueManagement'));
 
-const CaseDetails = lazy(() => import('./pages/doctor/CaseDetails'));
+const CaseDetails = lazy(() => import('./pages/doctor/CaseDetailsV2'));
 const DoctorPatients = lazy(() => import('./pages/doctor/DoctorPatients'));
 
 const DoctorSettings = lazy(() => import('./pages/doctor/DoctorSettings'));
 const PatientsList = lazy(() => import('./pages/assistant/PatientsList'));
-const QuestionnairePage = lazy(() => import('./pages/assistant/QuestionnairePage'));
+const QuestionnairePage = lazy(() => import('./pages/assistant/EntretienV2'));
 const CaseReviewPage = lazy(() => import('./pages/assistant/CaseReviewPage'));
 const AssistantProfile = lazy(() => import('./pages/assistant/AssistantProfile'));
 
