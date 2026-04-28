@@ -8,6 +8,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import DocumentPreviewModal from '../../components/common/DocumentPreviewModal';
 import PatientIdentityBlock from '../../components/doctor/case/PatientIdentityBlock';
 import CaseAnswersBlock from '../../components/doctor/case/CaseAnswersBlock';
 import AiSummaryBlock from '../../components/doctor/case/AiSummaryBlock';
@@ -15,7 +16,6 @@ import api from '../../services/api';
 import caseService from '../../services/caseService';
 import doctorService from '../../services/doctorService';
 import translations from '../../constants/translations';
-import { getAuthUploadUrl } from '../../constants/config';
 import AiChatPanel from '../../components/doctor/AiChatPanel';
 import MedicationSearch from '../../components/doctor/MedicationSearch';
 import aiChatService from '../../services/aiChatService';
@@ -46,6 +46,7 @@ function CaseDetails() {
     const [selectedAnalyses, setSelectedAnalyses] = useState([]);
     const [letterContent, setLetterContent] = useState('');
     const [suggestingMeds, setSuggestingMeds] = useState(false);
+    const [previewDocument, setPreviewDocument] = useState(null);
 
     // Diagnostic voice dictation
     const [diagRecording, setDiagRecording] = useState(false);
@@ -157,7 +158,7 @@ function CaseDetails() {
     // Save review
     async function handleSaveReview() {
         if (!diagnosis.trim()) {
-            setError('التشخيص مطلوب');
+            setError('Le diagnostic est requis');
             return;
         }
 
@@ -169,12 +170,12 @@ function CaseDetails() {
             const prescription = JSON.stringify(medications);
             const response = await caseService.saveReview(id, { diagnosis, prescription });
             if (response.success) {
-                setSuccess('تم حفظ التشخيص بنجاح');
+                setSuccess('Diagnostic enregistré avec succès');
                 setCaseData(prev => ({ ...prev, status: 'reviewed' }));
             }
         } catch (err) {
             console.error('Save review error:', err);
-            setError('خطأ أثناء الحفظ');
+            setError('Erreur lors de l\'enregistrement');
         } finally {
             setSaving(false);
         }
@@ -410,6 +411,18 @@ function CaseDetails() {
     const answers = caseData.answers || [];
     const documents = caseData.documents || [];
     const aiAnalysis = caseData.aiAnalysis || caseData.ai_analysis;
+    const createdAt = caseData.createdAt || caseData.created_at || caseData.createdDate || caseData.created_date;
+    const updatedAt = caseData.updatedAt || caseData.updated_at || caseData.reviewedAt || caseData.reviewed_at;
+    const patientName = `${patient.firstName || patient.first_name || ''} ${patient.lastName || patient.last_name || ''}`.trim();
+    const formatCaseDate = (value) => {
+        if (!value) return 'Non renseigné';
+        const parsed = new Date(value);
+        if (Number.isNaN(parsed.getTime())) return 'Non renseigné';
+        return new Intl.DateTimeFormat('fr-FR', {
+            dateStyle: 'medium',
+            timeStyle: 'short'
+        }).format(parsed);
+    };
 
 
 
@@ -434,20 +447,21 @@ function CaseDetails() {
                 </div>
 
                 <div className="page-content">
-                    <div className="case-stack case-details-stack" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', maxWidth: '900px', margin: '0 auto' }}>
+                    <div className="case-details-layout">
+                        <section className="case-details-main">
                         {/* 1. Patient Info */}
                         <PatientIdentityBlock patient={patient} />
 
-                        {/* 2. Questionnaire (grouped by section) */}
-                        <CaseAnswersBlock answers={answers} patient={patient} />
-
-                        {/* 3. AI Analysis */}
+                        {/* 2. AI Analysis */}
                         <AiSummaryBlock aiAnalysis={aiAnalysis} />
 
-                        {/* 3. Documents */}
+                        {/* 3. Questionnaire (grouped by section) */}
+                        <CaseAnswersBlock answers={answers} patient={patient} />
+
+                        {/* 4. Documents */}
                         <div className="card">
                             <div className="card-header border-b">
-                                <h2 className="card-title" style={{ fontSize: '1.1rem' }}>📎 Documents</h2>
+                                <h2 className="card-title" style={{ fontSize: '1.1rem' }}>Documents joints</h2>
                             </div>
                             <div className="card-body" style={{ padding: '0' }}>
                                 {documents.length > 0 ? (
@@ -460,21 +474,20 @@ function CaseDetails() {
                                                 alignItems: 'center',
                                                 gap: 'var(--space-sm)'
                                             }}>
-                                                <span style={{ fontSize: '1.2rem' }}>📄</span>
+                                                <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-muted)' }}>DOC</span>
                                                 <div style={{ flex: 1, minWidth: 0 }}>
                                                     <div style={{ fontWeight: '500', fontSize: '0.85rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                                         {doc.fileName || doc.file_name || 'Document'}
                                                     </div>
                                                 </div>
-                                                <a
-                                                    href={getAuthUploadUrl(doc.filePath || doc.file_path)}
-                                                    target="_blank"
-                                                    rel="noopener noreferrer"
-                                                    className="btn btn-ghost btn-icon btn-sm"
+                                                <button
+                                                    type="button"
+                                                    className="btn btn-ghost btn-sm"
                                                     title="Voir le document"
+                                                    onClick={() => setPreviewDocument(doc)}
                                                 >
-                                                    👁️
-                                                </a>
+                                                    Voir
+                                                </button>
                                             </div>
                                         ))}
                                     </div>
@@ -489,9 +502,9 @@ function CaseDetails() {
                             <div className="card-header border-b">
                                 <div style={{ display: 'flex', gap: '0', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', width: 'fit-content' }}>
                                     {[
-                                        { key: 'ordonnance', icon: '💊', label: 'Ordonnance' },
-                                        { key: 'analyses', icon: '🔬', label: 'Analyses' },
-                                        { key: 'lettre', icon: '✉️', label: 'Lettre' }
+                                        { key: 'ordonnance', label: 'Ordonnance' },
+                                        { key: 'analyses', label: 'Analyses' },
+                                        { key: 'lettre', label: 'Lettre' }
                                     ].map(tab => (
                                         <button
                                             key={tab.key}
@@ -511,7 +524,7 @@ function CaseDetails() {
                                                 gap: '6px'
                                             }}
                                         >
-                                            <span>{tab.icon}</span> {tab.label}
+                                            {tab.label}
                                         </button>
                                     ))}
                                 </div>
@@ -540,7 +553,7 @@ function CaseDetails() {
                                                     disabled={suggestingMeds}
                                                     style={{ padding: 'var(--space-xs) var(--space-md)', fontSize: '0.8rem' }}
                                                 >
-                                                    {suggestingMeds ? '⏳ IA...' : '🤖 Proposer via IA'}
+                                                    {suggestingMeds ? 'IA...' : 'Proposer via IA'}
                                                 </Button>
                                                 <Button variant="primary" onClick={addMedication} style={{ padding: 'var(--space-xs) var(--space-md)' }}>
                                                     + Ajouter
@@ -600,7 +613,7 @@ function CaseDetails() {
                                                                 }}
                                                                 title="Supprimer"
                                                             >
-                                                                🗑
+                                                                ×
                                                             </button>
                                                         </div>
 
@@ -678,7 +691,7 @@ function CaseDetails() {
                                             onChange={(e) => setLetterContent(e.target.value)}
                                             className="form-input"
                                             rows="12"
-                                            placeholder="Cher confrere,..."
+                                            placeholder="Cher confrère,..."
                                             style={{ fontSize: '0.9rem', lineHeight: '1.7', width: '100%' }}
                                         />
                                     </div>
@@ -689,7 +702,7 @@ function CaseDetails() {
                         {/* 6. Diagnostic */}
                         <div className="card">
                             <div className="card-header border-b">
-                                <h2 className="card-title">📝 Diagnostic</h2>
+                                <h2 className="card-title">Diagnostic</h2>
                             </div>
                             <div className="card-body">
                                 {error && <div className="alert alert-error" style={{ marginBottom: 'var(--space-md)' }}>{error}</div>}
@@ -713,10 +726,10 @@ function CaseDetails() {
                                                 alignItems: 'center',
                                                 gap: '6px'
                                             }}
-                                            title={diagRecording ? 'Arrêter' : 'Dicter صوتياً'}
+                                            title={diagRecording ? 'Arrêter' : 'Dicter vocalement'}
                                         >
                                             {diagRecording ? <StopIcon style={{ fontSize: '0.95rem' }} /> : <MicIcon style={{ fontSize: '0.95rem' }} />}
-                                            {diagTranscribing ? '...' : 'Voice'}
+                                            {diagTranscribing ? '...' : 'Dicter'}
                                         </button>
                                     </label>
                                     <textarea
@@ -746,7 +759,7 @@ function CaseDetails() {
                                             loading={downloadingPdf}
                                             style={{ minWidth: '180px' }}
                                         >
-                                            📄 Télécharger l'ordonnance
+                                            Télécharger l'ordonnance
                                         </Button>
                                     )}
 
@@ -757,7 +770,7 @@ function CaseDetails() {
                                             loading={downloadingPdf}
                                             disabled={selectedAnalyses.length === 0}
                                         >
-                                            📄 Télécharger le bilan
+                                            Télécharger le bilan
                                         </Button>
                                     )}
 
@@ -768,27 +781,74 @@ function CaseDetails() {
                                             loading={downloadingPdf}
                                             disabled={!letterContent.trim()}
                                         >
-                                            📄 Télécharger la lettre
+                                            Télécharger la lettre
                                         </Button>
                                     )}
 
                                     {autoSaving && (
                                         <span style={{ fontSize: '0.875rem', color: 'var(--gray-500)', fontStyle: 'italic' }}>
-                                            ⏳ Enregistrement automatique...
+                                            Enregistrement automatique...
                                         </span>
                                     )}
                                 </div>
                             </div>
                         </div>
 
-                        {/* AI Chat Panel */}
-                        {caseData && caseData.status !== 'in_progress' && (
-                            <AiChatPanel caseId={id} />
-                        )}
+                        </section>
 
+                        <aside className="case-details-aside">
+                            <div className="card case-status-card">
+                                <div className="card-header">
+                                    <h2 className="card-title">Synthèse du dossier</h2>
+                                </div>
+                                <div className="card-body">
+                                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 'var(--space-sm)', marginBottom: 'var(--space-md)' }}>
+                                        <span style={{ color: 'var(--text-secondary)', fontSize: '0.875rem' }}>Statut</span>
+                                        {getStatusBadge(caseData.status)}
+                                    </div>
+                                    <div className="case-status-row">
+                                        <span>Patient</span>
+                                        <strong>{patientName || 'Non renseigné'}</strong>
+                                    </div>
+                                    <div className="case-status-row">
+                                        <span>Créé le</span>
+                                        <strong>{formatCaseDate(createdAt)}</strong>
+                                    </div>
+                                    <div className="case-status-row">
+                                        <span>Dernière mise à jour</span>
+                                        <strong>{formatCaseDate(updatedAt)}</strong>
+                                    </div>
+                                    <div className="case-status-row">
+                                        <span>Réponses</span>
+                                        <strong>{answers.length}</strong>
+                                    </div>
+                                    <div className="case-status-row">
+                                        <span>Documents</span>
+                                        <strong>{documents.length}</strong>
+                                    </div>
+                                    <div className="case-status-row">
+                                        <span>Médicaments</span>
+                                        <strong>{medications.length}</strong>
+                                    </div>
+                                    <div className="case-status-row">
+                                        <span>Analyses cochées</span>
+                                        <strong>{selectedAnalyses.length}</strong>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {caseData && caseData.status !== 'in_progress' && (
+                                <AiChatPanel caseId={id} />
+                            )}
+                        </aside>
                     </div>
                 </div> {/* closes page-content */}
             </main>
+            <DocumentPreviewModal
+                document={previewDocument}
+                isOpen={Boolean(previewDocument)}
+                onClose={() => setPreviewDocument(null)}
+            />
         </div>
     );
 }

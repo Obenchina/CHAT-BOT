@@ -8,11 +8,13 @@ import { useParams, useNavigate } from 'react-router-dom';
 import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
+import DocumentPreviewModal from '../../components/common/DocumentPreviewModal';
 import caseService from '../../services/caseService';
 import translations from '../../constants/translations';
-import { DOCUMENT_TYPES, CASE_STATUS, UPLOAD_URL, getAuthUploadUrl } from '../../constants/config';
+import { DOCUMENT_TYPES, CASE_STATUS } from '../../constants/config';
 import { showSuccess, showError, showConfirm } from '../../utils/toast';
 import { computeAgeDisplay, formatDateOnlyDisplay } from '../../utils/patientAge';
+import { getTextAlign, getTextDirection, isRtlText } from '../../utils/textDirection';
 import CheckIcon from '@mui/icons-material/Check';
 import CloudUploadIcon from '@mui/icons-material/CloudUpload';
 import DeleteIcon from '@mui/icons-material/Delete';
@@ -31,6 +33,7 @@ function CaseReviewPage() {
     const [loading, setLoading] = useState(true);
     const [submitting, setSubmitting] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [previewDocument, setPreviewDocument] = useState(null);
 
     // Derived state
     const isReadOnly = caseData?.status && caseData.status !== CASE_STATUS.IN_PROGRESS;
@@ -235,15 +238,28 @@ function CaseReviewPage() {
                                 <div className="card-body" style={{ padding: '0' }}>
                                     {caseData.answers && caseData.answers.length > 0 ? (
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
-                                            {caseData.answers.map((answer, idx) => (
+                                            {caseData.answers.map((answer, idx) => {
+                                                const questionText = answer.question_text || answer.question?.question_text || `Question ${idx + 1}`;
+                                                const answerText = answer.text_answer || answer.textAnswer || answer.transcribed_text || '';
+                                                const answerDirection = getTextDirection(answerText || questionText);
+                                                const questionIsRtl = isRtlText(questionText);
+
+                                                return (
                                                 <div key={idx} style={{
                                                     padding: 'var(--space-lg)',
                                                     borderBottom: idx < caseData.answers.length - 1 ? '1px solid var(--border-color)' : 'none',
                                                     background: idx % 2 === 0 ? 'transparent' : 'var(--bg-elevated)'
                                                 }}>
-                                                    <div style={{ fontWeight: '600', marginBottom: 'var(--space-sm)', color: 'var(--text-primary)', fontSize: '1.05rem' }}>
-                                                        <span style={{ color: 'var(--primary)', marginRight: '8px' }}>Q{idx + 1}.</span>
-                                                        {answer.question_text || answer.question?.question_text || `Question ${idx + 1}`}
+                                                    <div style={{
+                                                        fontWeight: '600',
+                                                        marginBottom: 'var(--space-sm)',
+                                                        color: 'var(--text-primary)',
+                                                        fontSize: '1.05rem',
+                                                        direction: questionIsRtl ? 'rtl' : 'ltr',
+                                                        textAlign: questionIsRtl ? 'right' : 'left'
+                                                    }}>
+                                                        <span style={{ color: 'var(--primary)', marginInlineEnd: '8px' }}>Q{idx + 1}.</span>
+                                                        {questionText}
                                                     </div>
                                                     <div style={{
                                                         display: 'flex',
@@ -257,15 +273,15 @@ function CaseReviewPage() {
                                                             background: 'var(--bg-card)',
                                                             borderRadius: 'var(--radius-md)',
                                                             border: '1px solid var(--border-color)',
-                                                            direction: 'rtl',
-                                                            textAlign: 'right',
+                                                            direction: answerDirection,
+                                                            textAlign: getTextAlign(answerText || questionText),
                                                             fontSize: '0.95rem',
                                                             lineHeight: '1.6'
                                                         }}>
-                                                            {(answer.text_answer || answer.textAnswer || answer.transcribed_text) ? (
-                                                                <>{answer.text_answer || answer.textAnswer || answer.transcribed_text}</>
+                                                            {answerText ? (
+                                                                <>{answerText}</>
                                                             ) : (
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'flex-end', fontStyle: 'italic' }}>
+                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: answerDirection === 'rtl' ? 'flex-end' : 'flex-start', fontStyle: 'italic' }}>
                                                                     <span>Réponse enregistrée vocalement</span>
                                                                     <CheckIcon color="success" fontSize="small" />
                                                                 </div>
@@ -273,7 +289,8 @@ function CaseReviewPage() {
                                                         </div>
                                                     </div>
                                                 </div>
-                                            ))}
+                                                );
+                                            })}
                                         </div>
                                     ) : (
                                         <div style={{ padding: 'var(--space-2xl) var(--space-xl)', textAlign: 'center', color: 'var(--text-muted)' }}>
@@ -314,7 +331,7 @@ function CaseReviewPage() {
 
                                             {uploading && (
                                                 <div className="flex justify-center" style={{ marginTop: 'var(--space-md)' }}>
-                                                    <LoadingSpinner size="sm" text="Telechargement..." />
+                                                    <LoadingSpinner size="sm" text="Téléchargement..." />
                                                 </div>
                                             )}
                                         </div>
@@ -335,16 +352,17 @@ function CaseReviewPage() {
                                                     }}
                                                 >
                                                     <span style={{ display: 'flex', flexWrap: 'wrap', gap: 'var(--space-xs)', alignItems: 'center' }}>
-                                                        <a
-                                                            href={getAuthUploadUrl(doc.file_path || doc.filePath)}
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                            style={{ textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center' }}
-                                                            onClick={(e) => isReadOnly && e.stopPropagation()}
+                                                        <button
+                                                            type="button"
+                                                            style={{ border: 'none', background: 'transparent', padding: 0, textDecoration: 'none', color: 'inherit', display: 'flex', alignItems: 'center', cursor: 'pointer' }}
+                                                            onClick={(e) => {
+                                                                if (isReadOnly) e.stopPropagation();
+                                                                setPreviewDocument(doc);
+                                                            }}
                                                         >
                                                             <AttachFileIcon fontSize="small" style={{ marginRight: '4px', color: 'var(--primary)' }} />
                                                             <span style={{ fontSize: '0.85rem', fontWeight: 500 }}>{doc.file_name || doc.fileName}</span>
-                                                        </a>
+                                                        </button>
                                                     </span>
                                                     {!isReadOnly && (
                                                         <Button
@@ -367,7 +385,7 @@ function CaseReviewPage() {
                                             fontSize: '0.85rem',
                                             fontStyle: 'italic'
                                         }}>
-                                            Aucun document medical
+                                            Aucun document médical
                                         </div>
                                     )}
                                 </div>
@@ -376,12 +394,18 @@ function CaseReviewPage() {
                     ) : (
                         <div className="card">
                             <div className="card-body text-center" style={{ color: 'var(--gray-500)' }}>
-                                Cas non trouve
+                                Cas non trouvé
                             </div>
                         </div>
                     )}
                 </div>
             </main >
+
+            <DocumentPreviewModal
+                document={previewDocument}
+                isOpen={Boolean(previewDocument)}
+                onClose={() => setPreviewDocument(null)}
+            />
 
             <style>{`
         .upload-zone {

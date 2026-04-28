@@ -1214,3 +1214,386 @@ body.sidebar-collapsed .sidebar-header {
     display: inline-flex;
 }
 
+/* ======================
+   CLINICAL INFORMATION ARCHITECTURE OVERRIDES
+   Quiet medical SaaS shell. This intentionally removes the old decorative
+   glass/orb language and prioritizes scan speed, density, and deployment-safe CSS.
+   ====================== */
+.internal-shell {
+    --shell-bg: var(--color-bg);
+    --shell-surface: var(--color-surface);
+    --shell-surface-strong: var(--color-surface);
+    --shell-border: var(--color-border);
+    --shell-line: var(--color-divider);
+    --shell-shadow: var(--shadow-sm);
+    --shell-shadow-soft: var(--shadow-sm);
+    --shell-text: var(--color-text-primary);
+    --shell-text-muted: var(--color-text-tertiary);
+    --shell-chip: var(--color-surface-2);
+    --shell-accent: var(--color-brand-500);
+    --shell-accent-soft: var(--color-accent-500);
+    --shell-success: var(--color-success-500);
+    background: var(--color-bg) !important;
+}
+
+[data-theme="dark"] .internal-shell {
+    background: var(--color-bg) !important;
+}
+
+.internal-shell .main-content::before,
+.internal-shell .page-header::before,
+.internal-shell .profile-header-card::after,
+.internal-shell .stat-card::after,
+.internal-shell .sidebar::before {
+    display: none !important;
+}
+
+.internal-shell .main-content {
+    background: var(--color-bg);
+}
+
+.internal-shell .page-header {
+    min-height: 76px;
+    margin: 0;
+    padding: var(--space-4) var(--space-8);
+    border-radius: 0;
+    border: 0;
+    border-bottom: 1px solid var(--color-border);
+    background: var(--color-surface);
+    box-shadow: none;
+    backdrop-filter: none;
+    gap: var(--space-4);
+}
+
+.internal-shell .page-title {
+    font-size: 1.35rem;
+    font-weight: 750;
+    letter-spacing: 0;
+}
+
+.internal-shell .page-header p {
+    color: var(--color-text-tertiary) !important;
+    font-size: 0.84rem !important;
+}
+
+.internal-shell .page-content {
+    max-width: var(--max-content-width);
+    padding: var(--space-6) var(--space-8);
+}
+
+.internal-shell .card,
+.internal-shell .stat-card,
+.internal-shell .profile-header-card,
+.internal-shell .profile-section-card,
+.internal-shell .modal,
+.internal-shell .modal-modern,
+.internal-shell .skeleton-card-container,
+.internal-shell .toolbar-shell,
+.doctor-settings-shell .settings-list-panel {
+    background: var(--color-surface) !important;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: var(--shadow-sm) !important;
+    backdrop-filter: none;
+}
+
+.internal-shell .card-header,
+.internal-shell .card-footer,
+.internal-shell .modal-header,
+.internal-shell .modal-footer,
+.internal-shell .section-header {
+    background: var(--color-surface);
+    border-color: var(--color-divider);
+}
+
+.internal-shell .card-header {
+    padding: var(--space-4) var(--space-5);
+}
+
+.internal-shell .card-body {
+    padding: var(--space-5);
+}
+
+.internal-shell .stats-grid {
+    gap: var(--space-4);
+}
+
+.internal-shell .stat-card {
+    border-radius: var(--radius-card);
+    padding: var(--space-5);
+    min-height: 132px;
+}
+
+.internal-shell .stat-card-icon {
+    width: 42px;
+    height: 42px;
+    border-radius: var(--radius-md);
+    margin-bottom: var(--space-4);
+    backdrop-filter: none;
+}
+
+.internal-shell .stat-card-value {
+    font-size: 2rem;
+    font-weight: 780;
+    color: var(--color-text-primary);
+}
+
+.internal-shell .stat-card-label {
+    color: var(--color-text-secondary);
+    font-size: 0.86rem;
+}
+
+.internal-shell .toolbar-shell {
+    padding: var(--space-4);
+    border-radius: var(--radius-card);
+}
+
+.internal-shell .settings-tabs {
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-card);
+    box-shadow: none;
+    padding: var(--space-2);
+}
+
+.internal-shell .settings-tab,
+.doctor-settings-shell .settings-list-item {
+    border-radius: var(--radius-md) !important;
+}
+
+.internal-shell .settings-tab.is-active,
+.doctor-settings-shell .settings-list-item:hover {
+    background: var(--color-brand-50) !important;
+    color: var(--color-brand-700) !important;
+    border-color: var(--color-brand-200) !important;
+    transform: none;
+}
+
+[data-theme="dark"] .internal-shell .settings-tab.is-active,
+[data-theme="dark"] .doctor-settings-shell .settings-list-item:hover {
+    background: var(--color-brand-50) !important;
+    color: var(--color-brand-700) !important;
+}
+
+.internal-shell .sidebar {
+    background: #071122;
+    border-right: 1px solid rgb(255 255 255 / 0.08);
+    box-shadow: none;
+    backdrop-filter: none;
+}
+
+.sidebar-brand-mark,
+.sidebar-user-avatar {
+    background: var(--color-brand-500);
+    color: var(--color-text-on-brand);
+    box-shadow: none;
+    border-radius: var(--radius-md);
+}
+
+.sidebar-link {
+    border-radius: var(--radius-md);
+    padding: 11px 12px;
+    margin-bottom: 4px;
+}
+
+.sidebar-link:hover {
+    padding-left: 12px;
+    background: rgb(255 255 255 / 0.07);
+}
+
+.sidebar-link.active {
+    background: rgb(107 167 232 / 0.16);
+    border-color: rgb(107 167 232 / 0.18);
+}
+
+.sidebar-user-card {
+    border-radius: var(--radius-md);
+}
+
+.internal-shell .empty-state-card {
+    border-radius: var(--radius-card);
+}
+
+.internal-shell .answer-text-box,
+.internal-shell .upload-zone,
+.internal-shell .document-row,
+.internal-shell .prescription-list>div,
+.internal-shell audio {
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    border-color: var(--color-border);
+}
+
+.internal-shell .ai-analysis-card {
+    background: var(--color-info-50) !important;
+    border-color: color-mix(in srgb, var(--color-info-500) 22%, var(--color-border));
+}
+
+.case-details-shell .page-content,
+.questionnaire-shell .page-content,
+.doctor-dashboard-shell .page-content,
+.doctor-patients-shell .page-content,
+.assistant-patients-shell .page-content {
+    width: 100%;
+}
+
+.case-details-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(320px, 380px);
+    gap: var(--space-5);
+    align-items: start;
+}
+
+.case-details-main {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-5);
+    min-width: 0;
+}
+
+.case-details-aside {
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-5));
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-4);
+    min-width: 0;
+}
+
+.case-status-card .card-body {
+    display: grid;
+    gap: var(--space-3);
+}
+
+.case-status-row {
+    display: flex;
+    justify-content: space-between;
+    gap: var(--space-3);
+    color: var(--color-text-secondary);
+    font-size: 0.86rem;
+}
+
+.case-status-row strong {
+    color: var(--color-text-primary);
+    text-align: right;
+}
+
+.case-details-aside .card:has(.ai-chat-input) {
+    margin-top: 0 !important;
+    height: min(620px, calc(100vh - 260px)) !important;
+}
+
+.questionnaire-workspace {
+    display: grid;
+    grid-template-columns: 240px minmax(0, 1fr) 300px;
+    gap: var(--space-5);
+    align-items: start;
+}
+
+.questionnaire-plan,
+.questionnaire-preview {
+    position: sticky;
+    top: calc(var(--header-height) + var(--space-5));
+}
+
+.questionnaire-plan-list {
+    display: grid;
+    gap: var(--space-2);
+}
+
+.questionnaire-plan-item {
+    width: 100%;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--color-text-secondary);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    text-align: left;
+    display: flex;
+    align-items: center;
+    gap: var(--space-3);
+}
+
+.questionnaire-plan-item:hover,
+.questionnaire-plan-item.is-current {
+    background: var(--color-brand-50);
+    color: var(--color-brand-700);
+    border-color: var(--color-brand-200);
+}
+
+.questionnaire-plan-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 999px;
+    border: 2px solid var(--color-border-strong);
+    flex: 0 0 auto;
+}
+
+.questionnaire-plan-item.is-answered .questionnaire-plan-dot {
+    background: var(--color-success-500);
+    border-color: var(--color-success-500);
+}
+
+.questionnaire-progress-summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--space-3);
+    margin-bottom: var(--space-4);
+    color: var(--color-text-secondary);
+    font-size: 0.86rem;
+}
+
+.questionnaire-main-column {
+    min-width: 0;
+}
+
+.questionnaire-card {
+    min-height: 0;
+}
+
+.questionnaire-preview-list {
+    display: grid;
+    gap: var(--space-3);
+}
+
+.questionnaire-preview-stat {
+    padding: var(--space-3);
+    background: var(--color-surface-2);
+    border-radius: var(--radius-md);
+}
+
+@media (max-width: 1180px) {
+    .case-details-layout,
+    .questionnaire-workspace {
+        grid-template-columns: 1fr;
+    }
+
+    .case-details-aside,
+    .questionnaire-plan,
+    .questionnaire-preview {
+        position: static;
+    }
+
+    .questionnaire-plan {
+        order: -1;
+    }
+}
+
+@media (max-width: 768px) {
+    .internal-shell .page-header {
+        margin: 0;
+        padding: var(--space-3) var(--space-4) var(--space-3) 60px;
+        border-radius: 0;
+    }
+
+    .internal-shell .page-content {
+        padding: var(--space-4);
+    }
+
+    .internal-shell .card-body,
+    .internal-shell .card-header {
+        padding: var(--space-4);
+    }
+}
+

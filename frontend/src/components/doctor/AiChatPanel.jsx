@@ -70,10 +70,10 @@ function AiChatPanel({ caseId }) {
                     return [...withoutOptimistic, res.data.doctorMessage, res.data.aiMessage];
                 });
             } else {
-                setError(res.message || 'خطأ في الإرسال');
+                setError(res.message || 'Erreur lors de l\'envoi');
             }
         } catch (e) {
-            setError(e.message || 'خطأ في الاتصال بالذكاء الاصطناعي');
+            setError(e.message || 'Erreur de connexion avec l\'assistant IA');
         }
         setSending(false);
     }
@@ -318,10 +318,10 @@ function AiChatPanel({ caseId }) {
                                     alignItems: 'center',
                                     gap: '6px'
                                 }}
-                                title={isRecording ? 'Arrêter' : 'Dicter صوتياً'}
+                                title={isRecording ? 'Arrêter' : 'Dicter vocalement'}
                             >
                                 {isRecording ? <StopIcon style={{ fontSize: '0.9rem' }} /> : <MicIcon style={{ fontSize: '0.9rem' }} />}
-                                {transcribing ? '...' : 'Voice'}
+                                {transcribing ? '...' : 'Dicter'}
                             </button>
                         </div>
 

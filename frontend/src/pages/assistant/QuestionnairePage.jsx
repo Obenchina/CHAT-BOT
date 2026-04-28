@@ -204,6 +204,27 @@ function QuestionnairePage() {
 
     const curveEligibleMeasure = currentQuestion?.clinical_measure;
     const canShowCurve = Boolean(curveEligibleMeasure && ['weight', 'height', 'head_circumference'].includes(curveEligibleMeasure));
+    const answeredCount = questions.filter((q) => answers[q.id]).length;
+    const answeredPercent = questions.length > 0 ? Math.round((answeredCount / questions.length) * 100) : 0;
+    const currentSectionName = currentQuestion?.section_name || currentQuestion?.sectionName || 'Sans section';
+    const patientName = patient
+        ? `${patient.firstName || patient.first_name || ''} ${patient.lastName || patient.last_name || ''}`.trim()
+        : '';
+    const patientGender = patient?.gender === 'female'
+        ? 'Femme'
+        : patient?.gender === 'male'
+            ? 'Homme'
+            : 'Non renseigné';
+    const currentAnswerType = currentQuestion?.answerType || currentQuestion?.answer_type;
+    const answerTypeLabels = {
+        yes_no: 'Oui / non',
+        choices: 'Choix',
+        text_short: 'Texte court',
+        text_long: 'Texte long',
+        number: 'Nombre',
+        voice: 'Vocal'
+    };
+    const currentAnswerTypeLabel = answerTypeLabels[currentAnswerType] || 'Texte';
 
     async function openCurveModal() {
         setShowCurveModal(true);
@@ -531,223 +552,272 @@ function QuestionnairePage() {
                             </div>
                         </div>
                     ) : (
-                        <div className="questionnaire-container">
-                            {/* Progress bar */}
-                            <div className="questionnaire-progress">
-                                <div className="progress-bar">
-                                    <div className="progress-fill" style={{ width: `${progress}%` }}></div>
+                        <div className="questionnaire-container questionnaire-workspace">
+                            <aside className="card questionnaire-plan">
+                                <div className="card-header">
+                                    <h2 className="card-title">Plan du questionnaire</h2>
                                 </div>
-                                <div className="progress-text">
-                                    {t.questionnaire.question} {currentIndex + 1} / {questions.length}
-                                </div>
-                            </div>
-
-                            {/* Question card */}
-                            <div className="card questionnaire-card">
                                 <div className="card-body">
-                                    {/* Question text */}
-                                    <div style={{ marginBottom: '8px' }}>
-                                        <span className="badge badge-info">
-                                            {currentQuestion.section_name || currentQuestion.sectionName || 'بدون قسم'}
-                                        </span>
+                                    <div className="questionnaire-progress-summary">
+                                        <span>{answeredCount}/{questions.length} réponses</span>
+                                        <span>{answeredPercent}%</span>
                                     </div>
-                                    <h2 className="question-text">
-                                        {currentQuestion.questionText || currentQuestion.question_text}
-                                        {(currentQuestion.isRequired || currentQuestion.is_required) && (
-                                            <span style={{ color: 'var(--error)' }}> *</span>
-                                        )}
-                                    </h2>
-                                    {currentQuestion.clinical_measure && currentQuestion.clinical_measure !== 'none' && (
-                                        <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                                            Mesure : {CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure]?.label || currentQuestion.clinical_measure}
-                                        </p>
-                                    )}
-                                    {canShowCurve && (
-                                        <div style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>
-                                            <Button variant="secondary" size="sm" onClick={openCurveModal}>
-                                                📈 Voir la courbe
-                                            </Button>
+                                    <div className="progress-bar" style={{ marginBottom: 'var(--space-4)' }}>
+                                        <div className="progress-fill" style={{ width: `${answeredPercent}%` }} />
+                                    </div>
+                                    <div className="questionnaire-plan-list">
+                                        {questions.map((q, idx) => {
+                                            const section = q.section_name || q.sectionName || 'Sans section';
+                                            return (
+                                                <button
+                                                    key={q.id}
+                                                    type="button"
+                                                    className={`questionnaire-plan-item ${answers[q.id] ? 'is-answered' : ''} ${idx === currentIndex ? 'is-current' : ''}`}
+                                                    onClick={() => setCurrentIndex(idx)}
+                                                    title={`Question ${idx + 1}`}
+                                                >
+                                                    <span className="questionnaire-plan-dot" />
+                                                    <span style={{ minWidth: 0 }}>
+                                                        <span style={{ display: 'block', fontWeight: 700 }}>Q{idx + 1}</span>
+                                                        <span style={{ display: 'block', fontSize: '0.75rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                                            {section}
+                                                        </span>
+                                                    </span>
+                                                </button>
+                                            );
+                                        })}
+                                    </div>
+                                </div>
+                            </aside>
+
+                            <section className="questionnaire-main-column">
+                                <div className="questionnaire-progress">
+                                    <div className="progress-bar">
+                                        <div className="progress-fill" style={{ width: `${progress}%` }} />
+                                    </div>
+                                    <div className="progress-text">
+                                        Section : {currentSectionName} · {t.questionnaire.question} {currentIndex + 1} / {questions.length}
+                                    </div>
+                                </div>
+
+                                <div className="card questionnaire-card">
+                                    <div className="card-body">
+                                        <div style={{ marginBottom: '8px' }}>
+                                            <span className="badge badge-info">
+                                                {currentSectionName}
+                                            </span>
                                         </div>
-                                    )}
-
-                                    {/* Answer input based on type */}
-                                    <div className="answer-section">
-                                        {/* Yes/No */}
-                                        {(currentQuestion.answerType || currentQuestion.answer_type) === 'yes_no' && (
-                                            <div className="yes-no-buttons">
-                                                <Button
-                                                    variant={currentAnswer?.value === 'yes' ? 'success' : 'secondary'}
-                                                    size="lg"
-                                                    onClick={() => handleYesNo('yes')}
-                                                >
-                                                    {t.common.yes}
-                                                </Button>
-                                                <Button
-                                                    variant={currentAnswer?.value === 'no' ? 'danger' : 'secondary'}
-                                                    size="lg"
-                                                    onClick={() => handleYesNo('no')}
-                                                >
-                                                    {t.common.no}
+                                        <h2 className="question-text">
+                                            {currentQuestion.questionText || currentQuestion.question_text}
+                                            {(currentQuestion.isRequired || currentQuestion.is_required) && (
+                                                <span style={{ color: 'var(--error)' }}> *</span>
+                                            )}
+                                        </h2>
+                                        {currentQuestion.clinical_measure && currentQuestion.clinical_measure !== 'none' && (
+                                            <p style={{ color: 'var(--text-secondary)', fontSize: '0.875rem', marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                                                Mesure : {CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure]?.label || currentQuestion.clinical_measure}
+                                            </p>
+                                        )}
+                                        {canShowCurve && (
+                                            <div style={{ marginTop: '-0.5rem', marginBottom: '1rem' }}>
+                                                <Button variant="secondary" size="sm" onClick={openCurveModal}>
+                                                    Voir la courbe
                                                 </Button>
                                             </div>
                                         )}
 
-                                        {/* Choices */}
-                                        {(currentQuestion.answerType || currentQuestion.answer_type) === 'choices' && currentQuestion.choices && (
-                                            <div className="choices-list">
-                                                {currentQuestion.choices.map((choice, idx) => {
-                                                    const isSelected = currentAnswer?.value &&
-                                                        String(currentAnswer.value).trim().toLowerCase() === String(choice).trim().toLowerCase();
+                                        <div className="answer-section">
+                                            {currentAnswerType === 'yes_no' && (
+                                                <div className="yes-no-buttons">
+                                                    <Button
+                                                        variant={currentAnswer?.value === 'yes' ? 'success' : 'secondary'}
+                                                        size="lg"
+                                                        onClick={() => handleYesNo('yes')}
+                                                    >
+                                                        {t.common.yes}
+                                                    </Button>
+                                                    <Button
+                                                        variant={currentAnswer?.value === 'no' ? 'danger' : 'secondary'}
+                                                        size="lg"
+                                                        onClick={() => handleYesNo('no')}
+                                                    >
+                                                        {t.common.no}
+                                                    </Button>
+                                                </div>
+                                            )}
 
-                                                    return (
-                                                        <button
-                                                            key={idx}
-                                                            className={`choice-btn ${isSelected ? 'selected' : ''}`}
-                                                            onClick={() => handleChoice(choice)}
-                                                        >
-                                                            {choice}
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        )}
+                                            {currentAnswerType === 'choices' && currentQuestion.choices && (
+                                                <div className="choices-list">
+                                                    {currentQuestion.choices.map((choice, idx) => {
+                                                        const isSelected = currentAnswer?.value &&
+                                                            String(currentAnswer.value).trim().toLowerCase() === String(choice).trim().toLowerCase();
 
-                                        {/* Text Short */}
-                                        {(currentQuestion.answerType || currentQuestion.answer_type) === 'text_short' && (
-                                            <div className="text-answer">
-                                                <input
-                                                    type="text"
-                                                    className="form-input"
-                                                    style={{ width: '100%', padding: '12px', fontSize: '1.1rem' }}
-                                                    value={currentAnswer?.value || ''}
-                                                    onChange={(e) => handleTextChange(e.target.value, 'text_short')}
-                                                    placeholder="Votre réponse..."
-                                                />
-                                            </div>
-                                        )}
+                                                        return (
+                                                            <button
+                                                                key={idx}
+                                                                className={`choice-btn ${isSelected ? 'selected' : ''}`}
+                                                                onClick={() => handleChoice(choice)}
+                                                            >
+                                                                {choice}
+                                                            </button>
+                                                        );
+                                                    })}
+                                                </div>
+                                            )}
 
-                                        {/* Text Long */}
-                                        {(currentQuestion.answerType || currentQuestion.answer_type) === 'text_long' && (
-                                            <div className="text-answer">
-                                                <textarea
-                                                    className="form-input"
-                                                    style={{ width: '100%', padding: '12px', fontSize: '1.1rem', minHeight: '120px' }}
-                                                    value={currentAnswer?.value || ''}
-                                                    onChange={(e) => handleTextChange(e.target.value, 'text_long')}
-                                                    placeholder="Votre réponse détaillée..."
-                                                />
-                                            </div>
-                                        )}
-
-                                        {/* Number */}
-                                        {(currentQuestion.answerType || currentQuestion.answer_type) === 'number' && (
-                                            <div className="text-answer flex items-center gap-sm">
-                                                {currentQuestion.clinical_measure === 'blood_pressure' ? (
+                                            {currentAnswerType === 'text_short' && (
+                                                <div className="text-answer">
                                                     <input
                                                         type="text"
                                                         className="form-input"
-                                                        style={{ width: '180px', padding: '12px', fontSize: '1.1rem' }}
+                                                        style={{ width: '100%', padding: '12px', fontSize: '1.1rem' }}
                                                         value={currentAnswer?.value || ''}
-                                                        onChange={(e) => handleTextChange(e.target.value, 'number')}
-                                                        placeholder="120/80"
+                                                        onChange={(e) => handleTextChange(e.target.value, 'text_short')}
+                                                        placeholder="Votre réponse..."
                                                     />
-                                                ) : (
-                                                    <input
-                                                        type="number"
-                                                        step="any"
+                                                </div>
+                                            )}
+
+                                            {currentAnswerType === 'text_long' && (
+                                                <div className="text-answer">
+                                                    <textarea
                                                         className="form-input"
-                                                        style={{ width: '150px', padding: '12px', fontSize: '1.1rem' }}
+                                                        style={{ width: '100%', padding: '12px', fontSize: '1.1rem', minHeight: '120px' }}
                                                         value={currentAnswer?.value || ''}
-                                                        onChange={(e) => handleTextChange(e.target.value, 'number')}
-                                                        placeholder="0"
+                                                        onChange={(e) => handleTextChange(e.target.value, 'text_long')}
+                                                        placeholder="Votre réponse détaillée..."
                                                     />
-                                                )}
-                                                {currentQuestion.clinical_measure && currentQuestion.clinical_measure !== 'none' && CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure]?.unit && (
-                                                    <span style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
-                                                        {CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure].unit}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        )}
+                                                </div>
+                                            )}
 
-                                        {/* Voice recording */}
-                                        {(currentQuestion.answerType || currentQuestion.answer_type) === 'voice' && (
-                                            <div className="voice-recorder">
-                                                {!isRecording && !currentAudioBlob && !currentAnswer?.audioUrl && (
-                                                    <Button variant="primary" size="lg" onClick={startRecording}>
-                                                        <MicIcon /> {t.questionnaire.startRecording}
-                                                    </Button>
-                                                )}
+                                            {currentAnswerType === 'number' && (
+                                                <div className="text-answer flex items-center gap-sm">
+                                                    {currentQuestion.clinical_measure === 'blood_pressure' ? (
+                                                        <input
+                                                            type="text"
+                                                            className="form-input"
+                                                            style={{ width: '180px', padding: '12px', fontSize: '1.1rem' }}
+                                                            value={currentAnswer?.value || ''}
+                                                            onChange={(e) => handleTextChange(e.target.value, 'number')}
+                                                            placeholder="120/80"
+                                                        />
+                                                    ) : (
+                                                        <input
+                                                            type="number"
+                                                            step="any"
+                                                            className="form-input"
+                                                            style={{ width: '150px', padding: '12px', fontSize: '1.1rem' }}
+                                                            value={currentAnswer?.value || ''}
+                                                            onChange={(e) => handleTextChange(e.target.value, 'number')}
+                                                            placeholder="0"
+                                                        />
+                                                    )}
+                                                    {currentQuestion.clinical_measure && currentQuestion.clinical_measure !== 'none' && CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure]?.unit && (
+                                                        <span style={{ fontSize: '1.1rem', color: 'var(--text-secondary)' }}>
+                                                            {CLINICAL_MEASURE_LABELS[currentQuestion.clinical_measure].unit}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            )}
 
-                                                {isRecording && (
-                                                    <div className="recording-active">
-                                                        <div className="recording-indicator">
-                                                            <span className="recording-dot"></span>
-                                                            {t.questionnaire.recording}
-                                                        </div>
-                                                        <Button variant="danger" onClick={stopRecording}>
-                                                            <StopIcon /> {t.questionnaire.stopRecording}
+                                            {currentAnswerType === 'voice' && (
+                                                <div className="voice-recorder">
+                                                    {!isRecording && !currentAudioBlob && !currentAnswer?.audioUrl && (
+                                                        <Button variant="primary" size="lg" onClick={startRecording}>
+                                                            <MicIcon /> {t.questionnaire.startRecording}
                                                         </Button>
-                                                    </div>
-                                                )}
+                                                    )}
 
-                                                {(currentAudioBlob || currentAnswer?.audioUrl) && !isRecording && (
-                                                    <div className="recording-complete">
-                                                        <div className="recording-saved">
-                                                            <CheckCircleIcon color="success" /> Enregistrement sauvegardé
+                                                    {isRecording && (
+                                                        <div className="recording-active">
+                                                            <div className="recording-indicator">
+                                                                <span className="recording-dot"></span>
+                                                                {t.questionnaire.recording}
+                                                            </div>
+                                                            <Button variant="danger" onClick={stopRecording}>
+                                                                <StopIcon /> {t.questionnaire.stopRecording}
+                                                            </Button>
                                                         </div>
-                                                        <audio controls src={currentAnswer?.audioUrl} />
-                                                        <Button variant="secondary" onClick={clearRecording}>
-                                                            {t.questionnaire.reRecord}
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )}
+                                                    )}
+
+                                                    {(currentAudioBlob || currentAnswer?.audioUrl) && !isRecording && (
+                                                        <div className="recording-complete">
+                                                            <div className="recording-saved">
+                                                                <CheckCircleIcon color="success" /> Enregistrement sauvegardé
+                                                            </div>
+                                                            <audio controls src={currentAnswer?.audioUrl} />
+                                                            <Button variant="secondary" onClick={clearRecording}>
+                                                                {t.questionnaire.reRecord}
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
                                 </div>
-                            </div>
 
-                            {/* Navigation */}
-                            <div className="questionnaire-nav">
-                                <Button
-                                    variant="secondary"
-                                    onClick={goPrevious}
-                                    disabled={currentIndex === 0}
-                                    style={{ gap: '0.5rem' }}
-                                >
-                                    <ArrowBackIcon /> {t.questionnaire.previousQuestion}
-                                </Button>
-
-                                {currentIndex < questions.length - 1 ? (
-                                    <Button variant="primary" onClick={goNext} style={{ gap: '0.5rem' }}>
-                                        {t.questionnaire.nextQuestion} <ArrowForwardIcon />
-                                    </Button>
-                                ) : (
+                                <div className="questionnaire-nav">
                                     <Button
-                                        variant="success"
-                                        onClick={finishQuestionnaire}
-                                        loading={submitting}
+                                        variant="secondary"
+                                        onClick={goPrevious}
+                                        disabled={currentIndex === 0}
                                         style={{ gap: '0.5rem' }}
                                     >
-                                        {t.questionnaire.finish} <CheckIcon />
+                                        <ArrowBackIcon /> {t.questionnaire.previousQuestion}
                                     </Button>
-                                )}
-                            </div>
 
-                            {/* Answer status indicators */}
-                            <div className="answer-indicators">
-                                {questions.map((q, idx) => (
-                                    <button
-                                        key={q.id}
-                                        className={`indicator ${answers[q.id] ? 'answered' : ''} ${idx === currentIndex ? 'current' : ''}`}
-                                        onClick={() => setCurrentIndex(idx)}
-                                        title={`Question ${idx + 1}`}
-                                    >
-                                        {idx + 1}
-                                    </button>
-                                ))}
-                            </div>
+                                    {currentIndex < questions.length - 1 ? (
+                                        <Button variant="primary" onClick={goNext} style={{ gap: '0.5rem' }}>
+                                            {t.questionnaire.nextQuestion} <ArrowForwardIcon />
+                                        </Button>
+                                    ) : (
+                                        <Button
+                                            variant="success"
+                                            onClick={finishQuestionnaire}
+                                            loading={submitting}
+                                            style={{ gap: '0.5rem' }}
+                                        >
+                                            {t.questionnaire.finish} <CheckIcon />
+                                        </Button>
+                                    )}
+                                </div>
+                            </section>
+
+                            <aside className="card questionnaire-preview">
+                                <div className="card-header">
+                                    <h2 className="card-title">Aperçu du dossier</h2>
+                                </div>
+                                <div className="card-body">
+                                    <div className="questionnaire-preview-list">
+                                        <div className="questionnaire-preview-stat">
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: 4 }}>Patient</div>
+                                            <div style={{ color: 'var(--text-primary)', fontWeight: 750 }}>{patientName || 'Patient'}</div>
+                                            <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', marginTop: 4 }}>{patientGender}</div>
+                                        </div>
+                                        <div className="questionnaire-preview-stat">
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: 4 }}>Catalogue</div>
+                                            <div style={{ color: 'var(--text-primary)', fontWeight: 650 }}>{catalogueName || 'Catalogue actif'}</div>
+                                        </div>
+                                        <div className="questionnaire-preview-stat">
+                                            <div style={{ color: 'var(--text-muted)', fontSize: '0.75rem', marginBottom: 4 }}>Question actuelle</div>
+                                            <div style={{ color: 'var(--text-primary)', fontWeight: 650 }}>Q{currentIndex + 1} · {currentAnswerTypeLabel}</div>
+                                            <div style={{ color: currentAnswer ? 'var(--success)' : 'var(--text-secondary)', fontSize: '0.85rem', marginTop: 4 }}>
+                                                {currentAnswer ? 'Réponse enregistrée localement' : 'En attente de réponse'}
+                                            </div>
+                                        </div>
+                                        <Button
+                                            variant="success"
+                                            onClick={finishQuestionnaire}
+                                            loading={submitting}
+                                            disabled={answeredCount === 0}
+                                            style={{ width: '100%' }}
+                                        >
+                                            Valider le récapitulatif
+                                        </Button>
+                                    </div>
+                                </div>
+                            </aside>
                         </div>
                     )}
                 </div>

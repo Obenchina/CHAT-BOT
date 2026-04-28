@@ -1387,3 +1387,199 @@ textarea.form-input {
     min-height: 0;
     padding: 0;
 }
+
+/* ======================
+   CLINICAL COMPONENT OVERRIDES
+   ====================== */
+.btn,
+.MuiButton-root {
+    border-radius: var(--radius-button) !important;
+    box-shadow: none !important;
+    letter-spacing: 0 !important;
+}
+
+.btn-primary,
+.MuiButton-containedPrimary {
+    background: var(--color-brand-500) !important;
+    color: var(--color-text-on-brand) !important;
+    border-color: var(--color-brand-500) !important;
+}
+
+.btn-primary:hover:not(:disabled),
+.MuiButton-containedPrimary:hover {
+    background: var(--color-brand-600) !important;
+}
+
+.btn-secondary,
+.MuiButton-outlinedPrimary {
+    background: var(--color-surface) !important;
+    color: var(--color-text-primary) !important;
+    border: 1px solid var(--color-border) !important;
+}
+
+.btn-secondary:hover:not(:disabled),
+.MuiButton-outlinedPrimary:hover {
+    background: var(--color-surface-2) !important;
+    border-color: var(--color-border-strong) !important;
+}
+
+.btn-ghost,
+.MuiButton-textInherit {
+    color: var(--color-text-secondary) !important;
+}
+
+.btn-ghost:hover:not(:disabled),
+.MuiButton-textInherit:hover {
+    background: var(--color-surface-2) !important;
+    color: var(--color-text-primary) !important;
+}
+
+.btn-danger,
+.MuiButton-containedError {
+    background: var(--color-danger-500) !important;
+    color: #fff !important;
+}
+
+.btn-success,
+.MuiButton-containedSuccess {
+    background: var(--color-success-500) !important;
+    color: #fff !important;
+}
+
+.card,
+.stat-card,
+.profile-section-card,
+.profile-header-card,
+.skeleton-card-container {
+    border-radius: var(--radius-card);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-sm);
+}
+
+.card-header,
+.card-footer,
+.modal-header,
+.modal-footer {
+    border-color: var(--color-divider);
+}
+
+.card-header,
+.card-body,
+.card-footer {
+    padding-left: var(--space-6);
+    padding-right: var(--space-6);
+}
+
+.card-title {
+    color: var(--color-text-primary);
+    font-size: 1rem;
+    font-weight: 700;
+}
+
+.form-label,
+.input-group label {
+    color: var(--color-text-secondary);
+    font-size: 0.8125rem;
+    font-weight: 650;
+}
+
+.form-input,
+.input-field,
+select.input-field,
+textarea.input-field {
+    background: var(--color-surface);
+    color: var(--color-text-primary);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-input);
+}
+
+.form-input:focus,
+.input-field:focus,
+select.input-field:focus,
+textarea.input-field:focus {
+    border-color: var(--color-brand-500);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-brand-500) 18%, transparent);
+}
+
+.table th {
+    background: var(--color-surface-2);
+    color: var(--color-text-tertiary);
+    border-color: var(--color-divider);
+    letter-spacing: 0;
+}
+
+.table td {
+    border-color: var(--color-divider);
+}
+
+.table tbody tr:hover {
+    background: color-mix(in srgb, var(--color-brand-50) 66%, var(--color-surface));
+}
+
+.badge {
+    border: 1px solid transparent;
+    letter-spacing: 0;
+}
+
+.badge-success {
+    background: var(--color-success-50);
+    color: var(--color-success-700);
+    border-color: color-mix(in srgb, var(--color-success-500) 28%, transparent);
+}
+
+.badge-warning {
+    background: var(--color-warning-50);
+    color: var(--color-warning-700);
+    border-color: color-mix(in srgb, var(--color-warning-500) 28%, transparent);
+}
+
+.badge-error {
+    background: var(--color-danger-50);
+    color: var(--color-danger-700);
+    border-color: color-mix(in srgb, var(--color-danger-500) 28%, transparent);
+}
+
+.badge-info {
+    background: var(--color-info-50);
+    color: var(--color-info-700);
+    border-color: color-mix(in srgb, var(--color-info-500) 28%, transparent);
+}
+
+.badge-gray {
+    background: var(--color-surface-2);
+    color: var(--color-text-secondary);
+    border-color: var(--color-border);
+}
+
+.modal-overlay {
+    background: rgb(14 26 43 / 0.52);
+    backdrop-filter: blur(6px);
+}
+
+.modal {
+    border-radius: var(--radius-md);
+    background: var(--color-surface);
+    border-color: var(--color-border);
+}
+
+.modal-footer {
+    background: var(--color-surface-2);
+    border-radius: 0 0 var(--radius-md) var(--radius-md);
+}
+
+.segmented-group {
+    background: var(--color-surface-2);
+    border-color: var(--color-border);
+    border-radius: var(--radius-md);
+}
+
+.segmented-group .seg-btn {
+    border-radius: var(--radius-sm);
+    letter-spacing: 0;
+}
+
+.segmented-group .seg-btn.seg-active {
+    background: var(--color-brand-500);
+    color: var(--color-text-on-brand);
+}

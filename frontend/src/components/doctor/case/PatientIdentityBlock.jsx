@@ -17,7 +17,7 @@ function PatientIdentityBlock({ patient }) {
     return (
         <div className="card mb-6">
             <div className="card-header border-b" style={{ paddingBottom: 'var(--space-sm)' }}>
-                <h2 className="card-title">👤 Identité Patient</h2>
+                <h2 className="card-title">Identité patient</h2>
             </div>
             <div className="card-body">
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: 'var(--space-md)' }}>

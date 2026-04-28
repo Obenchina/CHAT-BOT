@@ -12,7 +12,7 @@ const ThemeContext = createContext();
 export function ThemeProvider({ children }) {
     // Initialize theme from localStorage or system preference
     const [mode, setMode] = useState(() => {
-        const saved = localStorage.getItem('theme');
+        const saved = localStorage.getItem('mc.theme') || localStorage.getItem('theme');
         if (saved) return saved;
         return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
     });
@@ -20,14 +20,14 @@ export function ThemeProvider({ children }) {
     // Update effect
     useEffect(() => {
         // 1. Save to local storage
+        localStorage.setItem('mc.theme', mode);
         localStorage.setItem('theme', mode);
 
         // 2. Update HTML attribute for CSS variables
         document.documentElement.setAttribute('data-theme', mode);
 
-        // 3. Update background color immediately for smooth transition
-        document.body.style.backgroundColor = mode === 'dark' ? '#1d1d1d' : '#f8fafc';
-        document.body.style.color = mode === 'dark' ? '#e8eaed' : '#1e293b';
+        document.body.style.backgroundColor = '';
+        document.body.style.color = '';
     }, [mode]);
 
     const toggleTheme = () => {

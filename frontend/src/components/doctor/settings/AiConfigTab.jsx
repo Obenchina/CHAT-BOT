@@ -29,7 +29,7 @@ function AiConfigTab() {
         {
             id: 'gemini',
             name: 'Google Gemini',
-            icon: '✨',
+            icon: 'G',
             description: 'Google AI',
             models: [
                 { value: 'gemini-3.1-flash-lite-preview', label: 'Gemini 3.1 Flash Lite' },
@@ -41,7 +41,7 @@ function AiConfigTab() {
         {
             id: 'openai',
             name: 'OpenAI ChatGPT',
-            icon: '🤖',
+            icon: 'AI',
             description: 'OpenAI',
             models: [
                 { value: 'gpt-5.4', label: 'GPT-5.4' },

@@ -119,8 +119,8 @@ function ProfileTab() {
                 <div className="profile-content-grid">
                     <div className="profile-section-card">
                         <div className="section-header">
-                            <div className="section-title"><span>👤</span> Informations Personnelles</div>
-                            {!isEditing && <button className="btn-edit" onClick={() => setIsEditing(true)}>✏️ Modifier</button>}
+                            <div className="section-title">Informations personnelles</div>
+                            {!isEditing && <button className="btn-edit" onClick={() => setIsEditing(true)}>Modifier</button>}
                         </div>
 
                         {message.text && <div className={`alert alert-${message.type} mb-4`}>{message.text}</div>}
@@ -183,11 +183,11 @@ function ProfileTab() {
 
                     <div className="profile-section-card">
                         <div className="section-header">
-                            <div className="section-title"><span>🔒</span> Sécurité</div>
+                            <div className="section-title">Sécurité</div>
                         </div>
                         <div className="space-y-4">
                             <p className="text-gray-500 text-sm">Gérez votre mot de passe et la sécurité de votre compte.</p>
-                            <button className="btn-password" onClick={() => setShowPasswordModal(true)}>🔑 Changer le mot de passe</button>
+                            <button className="btn-password" onClick={() => setShowPasswordModal(true)}>Changer le mot de passe</button>
                         </div>
                     </div>
                 </div>

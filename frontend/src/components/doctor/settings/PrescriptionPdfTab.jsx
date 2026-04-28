@@ -191,10 +191,10 @@ function PrescriptionPdfTab() {
                 {/* Horizontal Tab Selector */}
                 <div style={{ display: 'flex', gap: '0', borderRadius: 'var(--radius-md)', overflow: 'hidden', border: '1px solid var(--border-color)', width: 'fit-content', marginBottom: 'var(--space-lg)' }}>
                     {[
-                        { key: 'ordonnance', icon: '🎨', label: 'En-t\u00eate & Couleurs' },
-                        { key: 'analyses', icon: '🔬', label: 'Analyses' },
-                        { key: 'lettre', icon: '✉️', label: 'Lettre' },
-                        { key: 'curves', icon: '📈', label: 'Courbes OMS' }
+                        { key: 'ordonnance', label: 'En-t\u00eate & Couleurs' },
+                        { key: 'analyses', label: 'Analyses' },
+                        { key: 'lettre', label: 'Lettre' },
+                        { key: 'curves', label: 'Courbes OMS' }
                     ].map(tab => (
                         <button
                             key={tab.key}
@@ -214,7 +214,7 @@ function PrescriptionPdfTab() {
                                 gap: '6px'
                             }}
                         >
-                            <span>{tab.icon}</span> {tab.label}
+                            {tab.label}
                         </button>
                     ))}
                 </div>
@@ -223,7 +223,7 @@ function PrescriptionPdfTab() {
                     <div className="profile-section-card">
                         <div className="section-header">
                             <div className="section-title">
-                                <span>🎨</span> Configuration de l'ordonnance
+                                Configuration de l'ordonnance
                             </div>
                         </div>
 
@@ -341,7 +341,7 @@ function PrescriptionPdfTab() {
                     <div className="profile-section-card">
                         <div className="section-header">
                             <div className="section-title">
-                                <span>🔬</span> Personnalisation PDF des analyses
+                                Personnalisation PDF des analyses
                             </div>
                         </div>
 

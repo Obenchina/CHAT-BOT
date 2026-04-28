@@ -163,14 +163,14 @@ function AssistantProfile() {
                                 <div className="profile-section-card">
                                     <div className="section-header">
                                         <div className="section-title">
-                                            <span>👤</span> Informations Personnelles
+                                            Informations personnelles
                                         </div>
                                         {!isEditing && (
                                             <button
                                                 className="btn-edit"
                                                 onClick={() => setIsEditing(true)}
                                             >
-                                                ✏️ Modifier
+                                                Modifier
                                             </button>
                                         )}
                                     </div>
@@ -265,7 +265,7 @@ function AssistantProfile() {
                                 <div className="profile-section-card">
                                     <div className="section-header">
                                         <div className="section-title">
-                                            <span>🔒</span> Sécurité
+                                            Sécurité
                                         </div>
                                     </div>
 
@@ -277,7 +277,7 @@ function AssistantProfile() {
                                             className="btn-password"
                                             onClick={() => setShowPasswordModal(true)}
                                         >
-                                            🔑 Changer le mot de passe
+                                            Changer le mot de passe
                                         </button>
                                     </div>
                                 </div>

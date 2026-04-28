@@ -16,49 +16,47 @@ export const getTheme = (mode) => createTheme({
     mode,
     ...(mode === 'light'
       ? {
-        // Light Mode
         primary: {
-          main: '#3b82f6', // var(--primary-500)
-          light: '#93c5fd', // var(--primary-300)
-          dark: '#1d4ed8', // var(--primary-700)
+          main: '#1E88E5',
+          light: '#7CC0FF',
+          dark: '#0D47A1',
           contrastText: '#ffffff',
         },
         secondary: {
-          main: '#14b8a6', // var(--secondary-500)
-          light: '#5eead4', // var(--secondary-300)
-          dark: '#0f766e', // var(--secondary-700)
+          main: '#14A37D',
+          light: '#5DD3B8',
+          dark: '#0A6450',
           contrastText: '#ffffff',
         },
         background: {
-          default: '#f8fafc', // var(--gray-50)
+          default: '#F7F9FC',
           paper: '#ffffff',
         },
         text: {
-          primary: '#0f172a', // var(--gray-900)
-          secondary: '#64748b', // var(--gray-500)
+          primary: '#0E1A2B',
+          secondary: '#38465A',
         },
       }
       : {
-        // Dark Mode
         primary: {
-          main: '#3b82f6', // var(--primary-500)
-          light: '#60a5fa',
-          dark: '#1d4ed8',
-          contrastText: '#ffffff',
+          main: '#6BA7E8',
+          light: '#8BBFF0',
+          dark: '#2D6AB0',
+          contrastText: '#071122',
         },
         secondary: {
-          main: '#2dd4bf', // var(--secondary-400)
-          light: '#5eead4',
-          dark: '#0f766e',
-          contrastText: '#0f172a',
+          main: '#5DD3B8',
+          light: '#8FE6D2',
+          dark: '#14A37D',
+          contrastText: '#071122',
         },
         background: {
-          default: '#0f172a', // var(--gray-50 dark)
-          paper: '#1e293b', // var(--gray-100 dark)
+          default: '#0B1424',
+          paper: '#111E33',
         },
         text: {
-          primary: '#f8fafc', // var(--gray-900 dark)
-          secondary: '#94a3b8', // var(--gray-500 dark)
+          primary: '#F2F6FC',
+          secondary: '#BFCBE0',
         },
         error: {
           main: '#f87171',
@@ -88,11 +86,11 @@ export const getTheme = (mode) => createTheme({
     MuiButton: {
       styleOverrides: {
         root: {
-          borderRadius: '8px', // Match CSS variables
+          borderRadius: '8px',
           padding: '8px 16px',
           boxShadow: 'none',
           '&:hover': {
-            boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)',
+            boxShadow: 'none',
           }
         },
       },
@@ -102,10 +100,10 @@ export const getTheme = (mode) => createTheme({
         root: {
           borderRadius: '12px',
           boxShadow: mode === 'dark'
-            ? '0 1px 3px 0 rgb(0 0 0 / 0.5), 0 1px 2px -1px rgb(0 0 0 / 0.5)'
-            : '0 1px 3px 0 rgb(0 0 0 / 0.05), 0 1px 2px -1px rgb(0 0 0 / 0.05)',
-          backgroundImage: 'none', // Remove default MUI dark mode overlay
-          border: mode === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
+            ? '0 1px 3px rgb(0 0 0 / 0.28)'
+            : '0 1px 3px rgb(14 26 43 / 0.08)',
+          backgroundImage: 'none',
+          border: mode === 'dark' ? '1px solid #233857' : '1px solid #D9E0EA',
         },
       },
     },
@@ -121,13 +119,13 @@ export const getTheme = (mode) => createTheme({
       styleOverrides: {
         root: {
           '& .MuiTableCell-head': {
-            backgroundColor: mode === 'dark' ? '#1e293b' : '#f8fafc',
-            color: mode === 'dark' ? '#94a3b8' : '#64748b',
+            backgroundColor: mode === 'dark' ? '#16263F' : '#F1F4F8',
+            color: mode === 'dark' ? '#8595B0' : '#6A788D',
             fontWeight: 600,
             textTransform: 'uppercase',
             fontSize: '0.75rem',
-            letterSpacing: '0.05em',
-            borderBottom: mode === 'dark' ? '1px solid #334155' : '1px solid #e2e8f0',
+            letterSpacing: 0,
+            borderBottom: mode === 'dark' ? '1px solid #233857' : '1px solid #D9E0EA',
           }
         }
       }
@@ -135,7 +133,7 @@ export const getTheme = (mode) => createTheme({
     MuiTableCell: {
       styleOverrides: {
         root: {
-          borderBottom: mode === 'dark' ? '1px solid #334155' : '1px solid #f1f5f9',
+          borderBottom: mode === 'dark' ? '1px solid #1B2C46' : '1px solid #ECEFF4',
           padding: '16px',
         }
       }
