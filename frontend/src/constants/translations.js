@@ -147,7 +147,6 @@ const translations = {
         required: 'Champ obligatoire',
         active: 'Question active',
         publish: 'Publier le référentiel',
-        version: 'Version',
         noQuestions: 'Le catalogue est actuellement vide',
         reorder: 'Réorganiser',
         published: 'Référentiel publié avec succès'

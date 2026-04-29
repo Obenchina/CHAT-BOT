@@ -91,7 +91,6 @@ CREATE TABLE IF NOT EXISTS catalogues (
     id INT PRIMARY KEY AUTO_INCREMENT,
     doctor_id INT NOT NULL,
     name VARCHAR(150) NOT NULL,
-    version INT NOT NULL DEFAULT 1,
     is_active BOOLEAN DEFAULT TRUE,
     is_published BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -156,7 +155,6 @@ CREATE TABLE IF NOT EXISTS case_answers (
     case_id INT NOT NULL,
     question_id INT NOT NULL,
     audio_path VARCHAR(500),
-    transcribed_text TEXT,
     text_answer TEXT,
     question_text_snapshot TEXT,
     answer_type_snapshot ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NULL,
@@ -277,11 +275,9 @@ CREATE TABLE IF NOT EXISTS doctor_medications (
     id INT PRIMARY KEY AUTO_INCREMENT,
     doctor_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
-    dosage_form VARCHAR(100),
     default_dosage VARCHAR(100),
     default_frequency VARCHAR(100),
     default_duration VARCHAR(100),
-    notes TEXT,
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     INDEX idx_doctor_name (doctor_id, name)
 ) ENGINE=InnoDB;

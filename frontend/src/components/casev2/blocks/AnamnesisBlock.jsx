@@ -13,7 +13,7 @@ function groupBySection(answers = []) {
 
 function renderAnswer(a) {
   const type = a.answer_type_snapshot || a.answer_type || a.answerType;
-  const text = a.text_answer ?? a.transcribed_text ?? a.textAnswer ?? a.transcribedText ?? '';
+  const text = a.text_answer ?? a.textAnswer ?? '';
 
   if (type === 'yes_no') {
     const v = String(text).toLowerCase();

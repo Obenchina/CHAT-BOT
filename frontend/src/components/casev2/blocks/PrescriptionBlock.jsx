@@ -14,7 +14,6 @@ const empty = (overrides = {}) => ({
   dosage: '',
   frequency: '',
   duration: '',
-  notes: '',
   ...overrides,
 });
 
@@ -24,7 +23,6 @@ function mapMedication(med = {}) {
     dosage: med.dosage || med.default_dosage || '',
     frequency: med.frequency || med.default_frequency || '',
     duration: med.duration || med.default_duration || '',
-    notes: med.notes || '',
   });
 }
 
@@ -245,13 +243,6 @@ export default function PrescriptionBlock({
                           placeholder="Durée (ex. 5 jours)"
                         />
                       </div>
-                      <input
-                        className="rx__notes"
-                        type="text"
-                        value={m.notes || ''}
-                        onChange={(e) => update(idx, 'notes', e.target.value)}
-                        placeholder="Notes (facultatif)"
-                      />
                     </div>
                     <button className="rx__remove" onClick={() => remove(idx)} aria-label="Supprimer">×</button>
                   </Motion.div>

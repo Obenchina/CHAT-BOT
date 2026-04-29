@@ -46,26 +46,19 @@ const Catalogue = {
     async create(catalogueData) {
         const { doctorId, name, isActive = true } = catalogueData;
 
-        const [versions] = await pool.execute(
-            'SELECT MAX(version) as maxVersion FROM catalogues WHERE doctor_id = ?',
-            [doctorId]
-        );
-
-        const newVersion = (versions[0].maxVersion || 0) + 1;
-        const trimmedName = String(name || '').trim() || `Catalogue ${newVersion}`;
+        const trimmedName = String(name || '').trim() || 'Nouveau Catalogue';
         const activeValue = Boolean(isActive);
 
         const [result] = await pool.execute(
-            `INSERT INTO catalogues (doctor_id, name, version, is_active, is_published, created_at)
-             VALUES (?, ?, ?, ?, ?, NOW())`,
-            [doctorId, trimmedName, newVersion, activeValue, activeValue]
+            `INSERT INTO catalogues (doctor_id, name, is_active, is_published, created_at)
+             VALUES (?, ?, ?, ?, NOW())`,
+            [doctorId, trimmedName, activeValue, activeValue]
         );
 
         return {
             id: result.insertId,
             doctor_id: doctorId,
             name: trimmedName,
-            version: newVersion,
             is_active: activeValue,
             is_published: activeValue
         };

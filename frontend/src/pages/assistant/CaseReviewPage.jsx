@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Case Review Page (Assistant)
  * Review and submit case before sending to doctor
  */
@@ -240,7 +240,7 @@ function CaseReviewPage() {
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                                             {caseData.answers.map((answer, idx) => {
                                                 const questionText = answer.question_text || answer.question?.question_text || `Question ${idx + 1}`;
-                                                const answerText = answer.text_answer || answer.textAnswer || answer.transcribed_text || '';
+                                                const answerText = answer.text_answer || answer.textAnswer || '';
                                                 const answerDirection = getTextDirection(answerText || questionText);
                                                 const questionIsRtl = isRtlText(questionText);
 

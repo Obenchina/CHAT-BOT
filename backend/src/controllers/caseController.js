@@ -312,8 +312,8 @@ async function getById(req, res) {
                     clinical_measure: a.clinical_measure,
                     audioPath: a.audio_path,
                     audio_path: a.audio_path,
-                    transcribedText: a.transcribed_text,
-                    transcribed_text: a.transcribed_text,
+                    textAnswer: a.text_answer,
+                    text_answer: a.text_answer,
                     textAnswer: a.text_answer,
                     text_answer: a.text_answer,
                     createdAt: a.created_at,
@@ -694,19 +694,14 @@ async function submit(req, res) {
             }
 
             // Check if transcription exists
-            if (!answer.transcribed_text) {
-                console.log(`Missing transcription for answer ${answer.id}, attempting local transcription...`);
-
+            if (!answer.text_answer) {
                 try {
-                    // Attempt local transcription as last resort (should have happened at upload)
+                    console.log('🎤 Transcription needed for answer:', answer.id);
                     const transcribedText = await aiService.transcribeAudio(answer.audio_path);
-
                     if (transcribedText) {
-                        await Case.updateAnswer(answer.id, { transcribedText });
+                        answer.text_answer = transcribedText;
+                        await Case.updateAnswer(answer.id, { textAnswer: transcribedText });
                         transcriptionCount++;
-                        console.log(`Recovered transcription for answer ${answer.id}`);
-                        // Update local object to reflect change for analysis step
-                        answer.transcribed_text = transcribedText;
                     } else {
                         console.error(`Failed to transcribe answer ${answer.id} locally.`);
                         missingTranscriptions.push(answer.question_text);
@@ -1123,7 +1118,7 @@ async function retranscribeCase(req, res) {
 
         for (const answer of answers) {
             // Skip if no audio or already has transcription
-            if (!answer.audio_path || answer.transcribed_text) {
+            if (!answer.audio_path || answer.text_answer) {
                 console.log(`Skipping answer ${answer.id}: no audio or already transcribed`);
                 continue;
             }
@@ -1170,7 +1165,7 @@ async function reanalyzeCase(req, res) {
         }
 
         // Check if any answers have transcriptions
-        const answersWithText = (caseData.answers || []).filter(a => a.transcribed_text);
+        const answersWithText = (caseData.answers || []).filter(a => a.text_answer);
         if (answersWithText.length === 0) {
             return res.status(400).json({
                 success: false,

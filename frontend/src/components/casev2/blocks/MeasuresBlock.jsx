@@ -57,7 +57,7 @@ export default function MeasuresBlock({ caseData }) {
       })
       .map(a => {
         const measure = a.clinical_measure || a.clinicalMeasure;
-        const value = a.text_answer ?? a.transcribed_text ?? '';
+        const value = a.text_answer ?? '';
         return {
           id: a.id,
           measure,

@@ -231,7 +231,7 @@ function buildAnalysisPrompt(caseData, responseLanguage = 'ar') {
 
     // Add questionnaire answers
     answers.forEach((answer, index) => {
-        const answerText = answer.text_answer || answer.textAnswer || answer.transcribed_text || 'لم يتم تقديم إجابة';
+        const answerText = answer.text_answer || answer.textAnswer || 'لم يتم تقديم إجابة';
         prompt += `\n\n${index + 1}. السؤال: ${answer.question_text}`;
         prompt += `\n   الإجابة: ${answerText}`;
     });
@@ -843,7 +843,7 @@ Conserve les termes du patient en darija algerienne uniquement lorsqu'ils sont c
 
     if (answers && answers.length > 0) {
         answers.forEach((answer, index) => {
-            const answerText = answer.text_answer || answer.textAnswer || answer.transcribed_text || 'لم يتم تقديم إجابة';
+            const answerText = answer.text_answer || answer.textAnswer || 'لم يتم تقديم إجابة';
             context += `\n${index + 1}. ${answer.question_text}: ${answerText}`;
         });
     }
@@ -976,27 +976,27 @@ async function suggestMedications(caseData, aiConfig = null) {
 
     const aiAnalysis = caseData.ai_analysis || caseData.aiAnalysis;
     
-    const prompt = `أنت صيدلي سريري خبير (Expert Clinical Pharmacist).
-بناءً على المعلومات التالية، اقترح الأدوية المناسبة.
+    const prompt = `Tu es un pharmacien clinicien expert.
+Basé sur les informations suivantes, suggère les médicaments appropriés.
 
-المريض:
-- الجنس: ${patient.gender === 'male' ? 'ذكر' : 'أنثى'}
-- العمر: ${patientAge || 'غير محدد'} سنة
+Patient:
+- Genre: ${patient.gender === 'male' ? 'Homme' : 'Femme'}
+- Âge: ${patientAge || 'Indéterminé'} ans
 
-${aiAnalysis?.summary ? `ملخص الحالة: ${aiAnalysis.summary}` : ''}
-${aiAnalysis?.diagnoses ? `التشخيصات: ${aiAnalysis.diagnoses.map(d => d.name).join(', ')}` : ''}
+${aiAnalysis?.summary ? `Résumé: ${aiAnalysis.summary}` : ''}
+${aiAnalysis?.diagnoses ? `Diagnostics: ${aiAnalysis.diagnoses.map(d => d.name).join(', ')}` : ''}
 
-أجب بصيغة JSON فقط:
+Réponds UNIQUEMENT en JSON avec la structure suivante.
+IMPORTANT: Les valeurs (nom, dosage, fréquence, durée) doivent être en FRANÇAIS. Ne jamais utiliser l'arabe dans le JSON.
+
 [
   {
-    "name": "اسم الدواء (DCI بالفرنسية)",
-    "dosage": "الجرعة",
-    "frequency": "عدد المرات يومياً",
-    "duration": "المدة"
+    "name": "Nom du médicament (DCI)",
+    "dosage": "Posologie (ex: 500mg)",
+    "frequency": "Fréquence (ex: 3x/jour)",
+    "duration": "Durée (ex: 7 jours)"
   }
-]
-
-ملاحظة: هذا اقتراح فقط. الطبيب هو من يقرر الوصفة النهائية.`;
+]`;
 
     let responseText;
     if (cfg.provider === 'openai') {

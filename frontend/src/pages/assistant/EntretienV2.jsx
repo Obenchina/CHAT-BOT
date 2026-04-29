@@ -314,7 +314,7 @@ export default function EntretienV2() {
                   const qId = a.questionId || a.question_id;
                   const audioPath = a.audioPath || a.audio_path;
                   const at = a.answerType || a.answer_type;
-                  const txt = a.textAnswer || a.text_answer || a.transcribedText || a.transcribed_text;
+                  const txt = a.textAnswer || a.text_answer || '';
                   if (qId) {
                     existing[qId] = {
                       type: at,

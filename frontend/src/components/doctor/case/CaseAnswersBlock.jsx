@@ -25,7 +25,7 @@ function getAnswerMeasure(answer) {
 function getAnswerText(answer) {
     if (answer.text_answer !== null && answer.text_answer !== undefined) return answer.text_answer;
     if (answer.textAnswer !== null && answer.textAnswer !== undefined) return answer.textAnswer;
-    return answer.transcribed_text || answer.transcribedText || '';
+    return answer.text_answer || answer.textAnswer || '';
 }
 
 function CaseAnswersBlock({ answers, patient }) {

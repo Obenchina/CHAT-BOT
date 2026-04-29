@@ -149,7 +149,7 @@ async function sendWithFullHistory(req, res) {
                 fullHistoryContext += `\n--- زيارة ${new Date(historicCase.created_at).toLocaleDateString()} ---\n`;
                 if (fullCase.answers) {
                     fullCase.answers.forEach(a => {
-                        fullHistoryContext += `${a.question_text}: ${a.text_answer || a.transcribed_text || 'N/A'}\n`;
+                        fullHistoryContext += `${a.question_text}: ${a.text_answer || 'N/A'}\n`;
                     });
                 }
                 const analysis = fullCase.ai_analysis;

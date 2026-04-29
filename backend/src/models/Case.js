@@ -250,7 +250,7 @@ const Case = {
             caseId,
             questionId,
             audioPath,
-            transcribedText,
+            textAnswer,
             questionTextSnapshot,
             answerTypeSnapshot,
             orderIndexSnapshot
@@ -261,19 +261,17 @@ const Case = {
                 case_id,
                 question_id,
                 audio_path,
-                transcribed_text,
                 text_answer,
                 question_text_snapshot,
                 answer_type_snapshot,
                 order_index_snapshot
             )
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
             [
                 caseId,
                 questionId,
                 audioPath,
-                transcribedText,
-                answerData.textAnswer || null,
+                textAnswer || null,
                 questionTextSnapshot || null,
                 answerTypeSnapshot || null,
                 orderIndexSnapshot ?? null
@@ -295,7 +293,6 @@ const Case = {
     async updateAnswer(id, updateData) {
         const {
             audioPath,
-            transcribedText,
             textAnswer,
             questionTextSnapshot,
             answerTypeSnapshot,
@@ -308,11 +305,6 @@ const Case = {
         if (audioPath !== undefined) {
             updates.push('audio_path = ?');
             params.push(audioPath);
-        }
-
-        if (transcribedText !== undefined) {
-            updates.push('transcribed_text = ?');
-            params.push(transcribedText);
         }
 
         if (textAnswer !== undefined) {

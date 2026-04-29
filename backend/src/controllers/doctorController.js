@@ -540,9 +540,6 @@ async function uploadMedicationCSV(req, res) {
             (h) => h === 'nom' || h.includes('nom'),
             (h) => h.includes('medicament') || h.includes('medicament') || h.includes('medic')
         ]);
-        const dosageFormKey = keyBy([
-            (h) => h.includes('dosage form') || h.includes('forme') || h.includes('form')
-        ]);
         const defaultDosageKey = keyBy([
             (h) => h.includes('default dosage') || h === 'dosage' || h.includes('dosage') || h.includes('dose')
         ]);
@@ -551,9 +548,6 @@ async function uploadMedicationCSV(req, res) {
         ]);
         const defaultDurationKey = keyBy([
             (h) => h.includes('default duration') || h.includes('duration') || h.includes('duree')
-        ]);
-        const notesKey = keyBy([
-            (h) => h === 'notes' || h.includes('note') || h.includes('remarque') || h.includes('comment')
         ]);
 
         if (!nameKey) {
@@ -581,23 +575,20 @@ async function uploadMedicationCSV(req, res) {
                 continue;
             }
 
-            const dosage_form = dosageFormKey ? normalizeOptionalText(row[dosageFormKey], 100) : '';
-            const default_dosage = defaultDosageKey ? normalizeOptionalText(row[defaultDosageKey], 100) : '';
-            const default_frequency = defaultFrequencyKey ? normalizeOptionalText(row[defaultFrequencyKey], 100) : '';
-            const default_duration = defaultDurationKey ? normalizeOptionalText(row[defaultDurationKey], 100) : '';
-            const notes = notesKey ? normalizeOptionalText(row[notesKey], 2000) : '';
+            // const dosage_form = ... (removed)
+            const defaultDosage = defaultDosageKey ? normalizeOptionalText(row[defaultDosageKey], 100) : '';
+            const defaultFrequency = defaultFrequencyKey ? normalizeOptionalText(row[defaultFrequencyKey], 100) : '';
+            const defaultDuration = defaultDurationKey ? normalizeOptionalText(row[defaultDurationKey], 100) : '';
 
             try {
                 await pool.execute(
-                    'INSERT INTO doctor_medications (doctor_id, name, dosage_form, default_dosage, default_frequency, default_duration, notes) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                    'INSERT INTO doctor_medications (doctor_id, name, default_dosage, default_frequency, default_duration) VALUES (?, ?, ?, ?, ?)',
                     [
                         doctor.id,
                         name,
-                        dosage_form || null,
-                        default_dosage || null,
-                        default_frequency || null,
-                        default_duration || null,
-                        notes || null
+                        defaultDosage || null,
+                        defaultFrequency || null,
+                        defaultDuration || null
                     ]
                 );
                 inserted++;

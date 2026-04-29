@@ -277,11 +277,9 @@ async function runMigrations(pool) {
             id INT PRIMARY KEY AUTO_INCREMENT,
             doctor_id INT NOT NULL,
             name VARCHAR(255) NOT NULL,
-            dosage_form VARCHAR(100),
             default_dosage VARCHAR(100),
             default_frequency VARCHAR(100),
             default_duration VARCHAR(100),
-            notes TEXT,
             FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
             INDEX idx_doctor_name (doctor_id, name)
         ) ENGINE=InnoDB;
@@ -309,10 +307,7 @@ async function runMigrations(pool) {
     await pool.execute(`
         UPDATE catalogues
         SET
-            name = CASE
-                WHEN name IS NULL OR TRIM(name) = '' OR name = 'Catalogue' THEN CONCAT('Catalogue ', version)
-                ELSE name
-            END,
+            name = COALESCE(NULLIF(TRIM(name), ''), 'Catalogue'),
             is_active = COALESCE(is_active, is_published, TRUE),
             is_published = COALESCE(is_active, is_published, TRUE)
     `);
@@ -330,14 +325,7 @@ async function runMigrations(pool) {
             OR ca.order_index_snapshot IS NULL
     `);
 
-    // Migrate text responses to text_answer column
-    await pool.execute(`
-        UPDATE case_answers 
-        SET text_answer = transcribed_text 
-        WHERE answer_type_snapshot != 'voice' 
-        AND text_answer IS NULL 
-        AND transcribed_text IS NOT NULL
-    `);
+    // Migrations completed
 
     // Growth curves: add template_config column and migrate old calibration data
     await pool.execute(`
