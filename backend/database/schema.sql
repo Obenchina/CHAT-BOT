@@ -109,8 +109,6 @@ CREATE TABLE IF NOT EXISTS catalogues (
 CREATE TABLE IF NOT EXISTS questions (
     id INT PRIMARY KEY AUTO_INCREMENT,
     catalogue_id INT NOT NULL,
-    section_name VARCHAR(150) NULL DEFAULT NULL,
-    section_order INT DEFAULT 0,
     question_text TEXT NOT NULL,
     answer_type ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NOT NULL,
     clinical_measure ENUM('none', 'temperature', 'weight', 'height', 'head_circumference', 'blood_pressure') NOT NULL DEFAULT 'none',
@@ -120,7 +118,7 @@ CREATE TABLE IF NOT EXISTS questions (
     order_index INT NOT NULL DEFAULT 0,
     FOREIGN KEY (catalogue_id) REFERENCES catalogues(id) ON DELETE CASCADE,
     INDEX idx_catalogue_id (catalogue_id),
-    INDEX idx_order (catalogue_id, section_order, order_index)
+    INDEX idx_order (catalogue_id, order_index)
 ) ENGINE=InnoDB;
 
 -- ======================

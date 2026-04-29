@@ -1,16 +1,12 @@
 import { useState, useRef, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import MicIcon from '@mui/icons-material/Mic';
+import StopIcon from '@mui/icons-material/Stop';
 import aiChatService from '../../services/aiChatService';
+import useVoiceTranscription from '../../hooks/useVoiceTranscription';
 import { showError, showSuccess } from '../../utils/toast';
-
-const QUICK_PROMPTS = [
-  'Synthèse en 5 lignes',
-  'Diagnostics différentiels probables ?',
-  'Examens complémentaires à demander',
-  'Posologie pédiatrique pour ce cas',
-];
 
 /**
  * Robustly extract the message text & role from any backend shape.
@@ -49,7 +45,7 @@ function isDoctorRole(role) {
 function MessageBubble({ msg, onPin }) {
   const isUser = isDoctorRole(msg.role);
   return (
-    <motion.div
+    <Motion.div
       initial={{ opacity: 0, y: 8 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
@@ -58,7 +54,7 @@ function MessageBubble({ msg, onPin }) {
       {!isUser && (
         <div className="copilot__bubble-meta">
           <span aria-hidden>🤖</span>
-          <span>Copilot</span>
+          <span>IA médicale</span>
         </div>
       )}
       {isUser ? (
@@ -85,7 +81,7 @@ function MessageBubble({ msg, onPin }) {
           </button>
         </div>
       )}
-    </motion.div>
+    </Motion.div>
   );
 }
 
@@ -97,6 +93,33 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
   const [withDossier, setWithDossier] = useState(true);
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+
+  const insertDictation = (text) => {
+    setInput((prev) => {
+      const textarea = textareaRef.current;
+      if (!textarea) {
+        return prev ? `${prev}\n${text}` : text;
+      }
+
+      const start = textarea.selectionStart ?? prev.length;
+      const end = textarea.selectionEnd ?? start;
+      const before = prev.slice(0, start);
+      const after = prev.slice(end);
+      const spacerBefore = before && !/\s$/.test(before) ? ' ' : '';
+      const spacerAfter = after && !/^\s/.test(after) ? ' ' : '';
+      const next = `${before}${spacerBefore}${text}${spacerAfter}${after}`;
+      const cursor = (before + spacerBefore + text).length;
+
+      requestAnimationFrame(() => {
+        textarea.focus();
+        textarea.setSelectionRange(cursor, cursor);
+      });
+
+      return next;
+    });
+  };
+
+  const voice = useVoiceTranscription({ onText: insertDictation });
 
   useEffect(() => {
     if (!caseId) return;
@@ -180,24 +203,24 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
   const isEmpty = !loading && messages.length === 0;
 
   return (
-    <aside className={`copilot${expanded ? ' copilot--expanded' : ''}`} aria-label="Copilot IA">
+    <aside className={`copilot${expanded ? ' copilot--expanded' : ''}`} aria-label="Chat médical IA">
       <div className="copilot__header">
         <h3 className="copilot__title">
           <span aria-hidden>🤖</span>
-          Copilot IA
+          Chat médical IA
         </h3>
         <div className="copilot__actions">
           {onExpand && (
             <button
               className="copilot__action-btn"
-              title={expanded ? 'Réduire' : 'Agrandir le copilot'}
+              title={expanded ? 'Réduire' : 'Agrandir le chat'}
               onClick={onExpand}
               aria-label={expanded ? 'Réduire' : 'Agrandir'}
             >
               {expanded ? '⤡' : '⤢'}
             </button>
           )}
-          <button className="copilot__action-btn" title="Fermer" onClick={onCollapse} aria-label="Fermer">›</button>
+          <button className="copilot__action-btn" title="Fermer le chat" onClick={onCollapse} aria-label="Fermer">›</button>
         </div>
       </div>
 
@@ -212,20 +235,7 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
           <div className="copilot__empty">
             <div className="copilot__empty-icon" aria-hidden>🤖</div>
             <h4 className="copilot__empty-title">Posez une question</h4>
-            <p className="copilot__empty-desc">Le Copilot a accès au dossier complet du patient.</p>
-            <div className="copilot__suggestions">
-              {QUICK_PROMPTS.map((p, i) => (
-                <motion.button
-                  key={i}
-                  className="copilot__suggestion"
-                  onClick={() => send(p)}
-                  whileHover={{ x: 2 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {p}
-                </motion.button>
-              ))}
-            </div>
+            <p className="copilot__empty-desc">L'assistant médical IA a accès au dossier complet du patient.</p>
           </div>
         )}
 
@@ -236,21 +246,21 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
         </AnimatePresence>
 
         {sending && (
-          <motion.div
+          <Motion.div
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="copilot__bubble copilot__bubble--ai"
             style={{ display: 'flex', gap: 6, alignItems: 'center' }}
           >
             {[0, 1, 2].map((i) => (
-              <motion.span
+              <Motion.span
                 key={i}
                 style={{ width: 6, height: 6, borderRadius: '50%', background: 'var(--color-text-muted)', display: 'inline-block' }}
                 animate={{ y: [0, -4, 0] }}
                 transition={{ repeat: Infinity, duration: 0.9, delay: i * 0.15, ease: 'easeInOut' }}
               />
             ))}
-          </motion.div>
+          </Motion.div>
         )}
 
         <div ref={messagesEndRef} />
@@ -278,6 +288,16 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
             disabled={sending}
           />
           <button
+            type="button"
+            className={`copilot__voice${voice.recording ? ' copilot__voice--recording' : ''}`}
+            onClick={voice.toggle}
+            disabled={sending || voice.transcribing}
+            aria-label={voice.recording ? 'Arrêter la dictée' : 'Dicter vocalement'}
+            title={voice.recording ? 'Arrêter la dictée' : 'Dicter vocalement'}
+          >
+            {voice.recording ? <StopIcon fontSize="small" /> : <MicIcon fontSize="small" />}
+          </button>
+          <button
             className="copilot__send"
             onClick={() => send()}
             disabled={!input.trim() || sending}
@@ -288,7 +308,9 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
           </button>
         </div>
 
-        <div className="copilot__hint">Entrée pour envoyer · Maj+Entrée saut de ligne</div>
+        <div className="copilot__hint">
+          {voice.recording ? 'Enregistrement en cours…' : voice.transcribing ? 'Transcription…' : 'Entrée pour envoyer · Maj+Entrée saut de ligne'}
+        </div>
       </div>
     </aside>
   );

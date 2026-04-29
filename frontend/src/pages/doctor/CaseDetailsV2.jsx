@@ -6,7 +6,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Panel, PanelGroup, PanelResizeHandle } from 'react-resizable-panels';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 
 import Sidebar from '../../components/common/Sidebar';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -22,11 +22,11 @@ import MeasuresBlock from '../../components/casev2/blocks/MeasuresBlock';
 import ChartsBlock from '../../components/casev2/blocks/ChartsBlock';
 import DocumentsBlock from '../../components/casev2/blocks/DocumentsBlock';
 import PrescriptionBlock from '../../components/casev2/blocks/PrescriptionBlock';
-import GeneratedDocsBlock from '../../components/casev2/blocks/GeneratedDocsBlock';
 import DiagnosticBlock from '../../components/casev2/blocks/DiagnosticBlock';
 
 import api from '../../services/api';
 import caseService from '../../services/caseService';
+import doctorService from '../../services/doctorService';
 import { showError, showSuccess } from '../../utils/toast';
 
 import '../../styles/case-details.css';
@@ -50,6 +50,10 @@ export default function CaseDetailsV2() {
   const [suggestingAi, setSuggestingAi] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
+  const [documentType, setDocumentType] = useState('ordonnance');
+  const [allAnalyses, setAllAnalyses] = useState([]);
+  const [selectedAnalyses, setSelectedAnalyses] = useState([]);
+  const [letterContent, setLetterContent] = useState('');
   const [activeBlock, setActiveBlock] = useState('ai-summary');
   const [copilotOpen, setCopilotOpen] = useState(() => {
     try { return JSON.parse(localStorage.getItem(LS_KEY_COPILOT) ?? 'true'); }
@@ -104,6 +108,35 @@ export default function CaseDetailsV2() {
     return () => { cancelled = true; };
   }, [id]);
 
+  // ---- Load PDF document settings (analyses list + letter template) ----
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const [analysesRes, letterRes] = await Promise.all([
+          doctorService.getAnalysesConfig(),
+          doctorService.getLetterConfig(),
+        ]);
+
+        if (!cancelled && analysesRes?.success) {
+          const list = String(analysesRes.data?.analysesList || '')
+            .split('\n')
+            .map((item) => item.trim())
+            .filter(Boolean);
+          setAllAnalyses(list);
+        }
+
+        if (!cancelled && letterRes?.success) {
+          setLetterContent(letterRes.data?.letterTemplate || '');
+        }
+      } catch (err) {
+        console.error('Load document configs error:', err);
+      }
+    })();
+
+    return () => { cancelled = true; };
+  }, []);
+
   // ---- Auto-save (diagnosis + medications, debounced) ----
   useEffect(() => {
     if (loading) return;
@@ -152,17 +185,20 @@ export default function CaseDetailsV2() {
   // ---- Counts for navigator ----
   const counts = useMemo(() => {
     const ans = caseData?.answers || [];
+    let analysis = caseData?.ai_analysis || caseData?.aiAnalysis;
+    if (typeof analysis === 'string') {
+      try { analysis = JSON.parse(analysis); } catch { analysis = null; }
+    }
     const measureCount = ans.filter(a => {
       const cm = a.clinical_measure || a.clinicalMeasure;
       return cm && cm !== 'none';
     }).length;
     return {
-      'ai-summary':      caseData?.ai_summary || caseData?.aiSummary ? 1 : 0,
+      'ai-summary':      caseData?.ai_summary || caseData?.aiSummary || analysis?.summary ? 1 : 0,
       'anamnesis':       ans.length - measureCount,
       'measures':        measureCount,
       'documents':       (caseData?.documents || []).length,
       'prescription':    medications.length,
-      'generated-docs':  3,
     };
   }, [caseData, medications]);
 
@@ -183,7 +219,7 @@ export default function CaseDetailsV2() {
   useEffect(() => {
     const root = dossierRef.current;
     if (!root) return;
-    const ids = ['ai-summary', 'anamnesis', 'measures', 'charts', 'documents', 'prescription', 'generated-docs', 'diagnostic'];
+    const ids = ['ai-summary', 'anamnesis', 'measures', 'charts', 'documents', 'prescription', 'diagnostic'];
     const onScroll = () => {
       const top = root.scrollTop + 80;
       let current = ids[0];
@@ -269,24 +305,67 @@ export default function CaseDetailsV2() {
     }
   };
 
-  // ---- Download PDF ----
-  const handleDownloadPdf = async () => {
+  const downloadBlob = (blob, filename) => {
+    const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const toggleAnalysis = (analysis) => {
+    setSelectedAnalyses((prev) =>
+      prev.includes(analysis)
+        ? prev.filter((item) => item !== analysis)
+        : [...prev, analysis]
+    );
+  };
+
+  // ---- Download active document PDF ----
+  const handleDownloadDocument = async (kind = documentType) => {
     setDownloadingPdf(true);
     try {
-      // ensure latest is saved
-      await caseService.saveReview(id, { diagnosis, prescription: JSON.stringify(medications) });
-      const blob = await api.get(`/cases/${id}/prescription/pdf`, { responseType: 'blob' });
-      const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ordonnance_${id}.pdf`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
+      if (kind === 'ordonnance') {
+        if (medications.length === 0) {
+          showError('Ajoutez au moins un médicament');
+          return;
+        }
+        await persistBeforeExport();
+        const blob = await api.get(`/cases/${id}/prescription/pdf`, { responseType: 'blob' });
+        downloadBlob(blob, `ordonnance_${id}.pdf`);
+        return;
+      }
+
+      if (kind === 'analyses') {
+        if (selectedAnalyses.length === 0) {
+          showError('Sélectionnez au moins une analyse');
+          return;
+        }
+        const blob = await api.get(`/cases/${id}/analyses/pdf`, {
+          params: { selected: selectedAnalyses.join(',') },
+          responseType: 'blob',
+        });
+        downloadBlob(blob, `bilan_biologique_${id}.pdf`);
+        return;
+      }
+
+      if (kind === 'lettre') {
+        if (!letterContent.trim()) {
+          showError('Veuillez remplir le contenu de la lettre');
+          return;
+        }
+        const blob = await api.get(`/cases/${id}/letter/pdf`, {
+          params: { content: letterContent },
+          responseType: 'blob',
+        });
+        downloadBlob(blob, `lettre_orientation_${id}.pdf`);
+      }
     } catch (err) {
       console.error('PDF error:', err);
-      showError('Erreur lors de la génération du PDF');
+      showError(err?.message || 'Erreur lors de la génération du PDF');
     } finally {
       setDownloadingPdf(false);
     }
@@ -314,30 +393,14 @@ export default function CaseDetailsV2() {
     return [14, 48, 38];
   })();
 
-  // helper: re-fetch case data (used after reanalyze / external changes)
-  const refreshCase = async () => {
-    try {
-      const r = await caseService.getById(id);
-      if (r?.success) {
-        setCaseData(r.data);
-      }
-    } catch (err) {
-      console.error('Refresh case error:', err);
-    }
-  };
-
   // helper: persist current diagnosis/prescription before generating any PDF
   const persistBeforeExport = async () => {
-    try {
-      await caseService.saveReview(id, {
-        diagnosis,
-        prescription: JSON.stringify(medications),
-      });
-      lastSavedRef.current = { diagnosis, medications };
-      setLastSavedAt(new Date());
-    } catch (err) {
-      console.error('Auto-save before export error:', err);
-    }
+    await caseService.saveReview(id, {
+      diagnosis,
+      prescription: JSON.stringify(medications),
+    });
+    lastSavedRef.current = { diagnosis, medications };
+    setLastSavedAt(new Date());
   };
 
   if (loading) {
@@ -388,7 +451,7 @@ export default function CaseDetailsV2() {
               className={`case-mobile-tabs__btn${mobileTab === 'copilot' ? ' case-mobile-tabs__btn--active' : ''}`}
               onClick={() => { setMobileTab('copilot'); setCopilotOpen(true); }}
             >
-              🤖 Copilot
+              🤖 Chat IA
             </button>
           </div>
         )}
@@ -409,7 +472,7 @@ export default function CaseDetailsV2() {
               <Panel defaultSize={initialLayout[1]} minSize={28} order={2}>
                 <div className="case-dossier" ref={dossierRef}>
                   <div className="case-dossier__inner">
-                    <ErrorBoundary><AiSummaryBlock caseData={caseData} onUpdate={refreshCase} /></ErrorBoundary>
+                    <ErrorBoundary><AiSummaryBlock caseData={caseData} /></ErrorBoundary>
                     <ErrorBoundary><AnamnesisBlock caseData={caseData} /></ErrorBoundary>
                     <ErrorBoundary><MeasuresBlock caseData={caseData} /></ErrorBoundary>
                     <ErrorBoundary><ChartsBlock caseData={caseData} /></ErrorBoundary>
@@ -422,16 +485,15 @@ export default function CaseDetailsV2() {
                         onChange={setMedications}
                         onSuggestAi={handleSuggestAi}
                         suggestingAi={suggestingAi}
-                        onDownloadPdf={handleDownloadPdf}
+                        onDownloadDocument={handleDownloadDocument}
                         downloading={downloadingPdf}
-                      />
-                    </ErrorBoundary>
-                    <ErrorBoundary>
-                      <GeneratedDocsBlock
-                        caseId={id}
-                        onPersist={persistBeforeExport}
-                        hasMedications={medications.length > 0}
-                        hasDiagnosis={Boolean((diagnosis || '').trim())}
+                        activeDocumentType={documentType}
+                        onDocumentTypeChange={setDocumentType}
+                        allAnalyses={allAnalyses}
+                        selectedAnalyses={selectedAnalyses}
+                        onToggleAnalysis={toggleAnalysis}
+                        letterContent={letterContent}
+                        onLetterContentChange={setLetterContent}
                       />
                     </ErrorBoundary>
                     <ErrorBoundary>
@@ -450,7 +512,7 @@ export default function CaseDetailsV2() {
                 </div>
               </Panel>
 
-              {/* Copilot (right) */}
+              {/* Chat IA (right) */}
               <AnimatePresence initial={false}>
                 {copilotOpen && (
                   <>
@@ -461,7 +523,7 @@ export default function CaseDetailsV2() {
                       maxSize={75}
                       order={3}
                     >
-                      <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur Copilot</div>}>
+                      <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur chat IA</div>}>
                         <CopilotPanel
                           caseId={id}
                           onPinToDiagnostic={handlePinToDiagnostic}
@@ -487,7 +549,7 @@ export default function CaseDetailsV2() {
                   </ErrorBoundary>
                   <div className="case-dossier" ref={dossierRef}>
                     <div className="case-dossier__inner">
-                      <ErrorBoundary><AiSummaryBlock caseData={caseData} onUpdate={refreshCase} /></ErrorBoundary>
+                      <ErrorBoundary><AiSummaryBlock caseData={caseData} /></ErrorBoundary>
                       <ErrorBoundary><AnamnesisBlock caseData={caseData} /></ErrorBoundary>
                       <ErrorBoundary><MeasuresBlock caseData={caseData} /></ErrorBoundary>
                       <ErrorBoundary><ChartsBlock caseData={caseData} /></ErrorBoundary>
@@ -500,16 +562,15 @@ export default function CaseDetailsV2() {
                           onChange={setMedications}
                           onSuggestAi={handleSuggestAi}
                           suggestingAi={suggestingAi}
-                          onDownloadPdf={handleDownloadPdf}
+                          onDownloadDocument={handleDownloadDocument}
                           downloading={downloadingPdf}
-                        />
-                      </ErrorBoundary>
-                      <ErrorBoundary>
-                        <GeneratedDocsBlock
-                          caseId={id}
-                          onPersist={persistBeforeExport}
-                          hasMedications={medications.length > 0}
-                          hasDiagnosis={Boolean((diagnosis || '').trim())}
+                          activeDocumentType={documentType}
+                          onDocumentTypeChange={setDocumentType}
+                          allAnalyses={allAnalyses}
+                          selectedAnalyses={selectedAnalyses}
+                          onToggleAnalysis={toggleAnalysis}
+                          letterContent={letterContent}
+                          onLetterContentChange={setLetterContent}
                         />
                       </ErrorBoundary>
                       <ErrorBoundary>
@@ -528,7 +589,7 @@ export default function CaseDetailsV2() {
                   </div>
                 </>
               ) : (
-                <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur Copilot</div>}>
+                <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur chat IA</div>}>
                   <CopilotPanel
                     caseId={id}
                     onPinToDiagnostic={handlePinToDiagnostic}
@@ -541,7 +602,7 @@ export default function CaseDetailsV2() {
 
           {/* Floating reopen button when copilot is hidden (desktop only) */}
           {!isMobile && !copilotOpen && (
-            <motion.button
+            <Motion.button
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}
               onClick={() => setCopilotOpen(true)}
@@ -560,11 +621,11 @@ export default function CaseDetailsV2() {
                 fontSize: 24,
                 zIndex: 50,
               }}
-              aria-label="Ouvrir le Copilot"
-              title="Copilot IA"
+              aria-label="Ouvrir le chat IA"
+              title="Chat médical IA"
             >
               🤖
-            </motion.button>
+            </Motion.button>
           )}
         </div>
 

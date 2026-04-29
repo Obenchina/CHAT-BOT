@@ -1,4 +1,4 @@
-import { motion } from 'framer-motion';
+import { motion as Motion } from 'framer-motion';
 
 const NAV_ITEMS = [
   { id: 'ai-summary',      icon: '🧠', label: 'Synthèse IA' },
@@ -7,7 +7,6 @@ const NAV_ITEMS = [
   { id: 'charts',          icon: '📈', label: 'Courbes' },
   { id: 'documents',       icon: '📎', label: 'Documents' },
   { id: 'prescription',    icon: '💊', label: 'Ordonnance' },
-  { id: 'generated-docs',  icon: '📑', label: 'PDF générés' },
   { id: 'diagnostic',      icon: '✍️', label: 'Diagnostic' },
 ];
 
@@ -19,7 +18,7 @@ export default function CaseNavigator({ activeId, counts = {}, onJump }) {
         const isActive = activeId === it.id;
         const count = counts[it.id];
         return (
-          <motion.button
+          <Motion.button
             key={it.id}
             className={`case-navigator__item${isActive ? ' case-navigator__item--active' : ''}`}
             onClick={() => onJump(it.id)}
@@ -32,7 +31,7 @@ export default function CaseNavigator({ activeId, counts = {}, onJump }) {
             {typeof count === 'number' && count > 0 && (
               <span className="case-navigator__count">{count}</span>
             )}
-          </motion.button>
+          </Motion.button>
         );
       })}
     </nav>

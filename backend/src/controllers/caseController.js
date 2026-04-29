@@ -269,6 +269,8 @@ async function getById(req, res) {
             });
         }
 
+        const aiSummary = caseData.ai_summary || caseData.aiAnalysis?.summary || null;
+
         res.json({
             success: true,
             data: {
@@ -324,8 +326,8 @@ async function getById(req, res) {
                     filePath: d.file_path,
                     uploadedAt: d.uploaded_at
                 })),
-                aiSummary: caseData.ai_summary || null,
-                ai_summary: caseData.ai_summary || null,
+                aiSummary,
+                ai_summary: aiSummary,
                 aiAnalysis: caseData.aiAnalysis,
                 ai_analysis: caseData.aiAnalysis,
                 doctorDiagnosis: caseData.doctor_diagnosis,
@@ -878,9 +880,9 @@ async function addTextAnswer(req, res) {
 async function saveReview(req, res) {
     try {
         const { id } = req.params;
-        const { diagnosis, prescription } = req.body;
+        const { diagnosis = '', prescription = '[]', markReviewed = false } = req.body;
 
-        if (!diagnosis) {
+        if (markReviewed && !String(diagnosis || '').trim()) {
             return res.status(400).json({
                 success: false,
                 message: 'Diagnosis is required'
@@ -898,15 +900,15 @@ async function saveReview(req, res) {
 
         // Update case with review
         await Case.updateReview(id, {
-            doctorDiagnosis: diagnosis,
-            doctorPrescription: prescription,
-            status: 'reviewed',
-            reviewedAt: new Date()
+            doctorDiagnosis: diagnosis || '',
+            doctorPrescription: prescription || '[]',
+            status: markReviewed ? 'reviewed' : caseData.status,
+            reviewedAt: markReviewed ? new Date() : (caseData.reviewed_at || null)
         });
 
         res.json({
             success: true,
-            message: 'Review saved successfully'
+            message: markReviewed ? 'Review submitted successfully' : 'Review draft saved successfully'
         });
     } catch (error) {
         console.error('Save review error:', error);
@@ -1051,6 +1053,17 @@ async function generatePrescriptionPdf(req, res) {
 
         // Generate PDF
         // Map data to expected format (Database uses snake_case, PDF service expects camelCase)
+        let parsedPrescription = [];
+        if (typeof caseData.doctor_prescription === 'string' && caseData.doctor_prescription.trim()) {
+            try {
+                parsedPrescription = JSON.parse(caseData.doctor_prescription);
+            } catch {
+                parsedPrescription = [];
+            }
+        } else if (Array.isArray(caseData.doctor_prescription)) {
+            parsedPrescription = caseData.doctor_prescription;
+        }
+
         const pdfData = {
             patient: buildPdfPatient(caseData.patient),
             doctor: {
@@ -1067,9 +1080,7 @@ async function generatePrescriptionPdf(req, res) {
                 prescriptionServicesText: doctor.prescription_services_text || ''
             },
             diagnosis: caseData.doctor_diagnosis,
-            prescription: typeof caseData.doctor_prescription === 'string'
-                ? JSON.parse(caseData.doctor_prescription)
-                : caseData.doctor_prescription,
+            prescription: parsedPrescription,
             date: caseData.reviewed_at || new Date()
         };
 
@@ -1218,7 +1229,9 @@ async function reanalyzeCase(req, res) {
 async function generateAnalysesPdf(req, res) {
     try {
         const { id } = req.params;
-        const selectedAnalyses = req.query.selected ? req.query.selected.split(',') : [];
+        const selectedAnalyses = req.query.selected
+            ? String(req.query.selected).split(',').map(item => item.trim()).filter(Boolean)
+            : [];
 
         if (selectedAnalyses.length === 0) {
             return res.status(400).json({
@@ -1231,13 +1244,6 @@ async function generateAnalysesPdf(req, res) {
         const caseData = await Case.getFullDetails(id);
         if (!caseData) {
             return res.status(404).json({ success: false, message: 'Case not found' });
-        }
-
-        if (caseData.status !== 'reviewed' && caseData.status !== 'closed') {
-            return res.status(400).json({
-                success: false,
-                message: 'Case must be reviewed before generating PDF'
-            });
         }
 
         const doctor = await Doctor.findByUserId(req.user.id);
@@ -1286,7 +1292,7 @@ async function generateAnalysesPdf(req, res) {
 async function generateLetterPdf(req, res) {
     try {
         const { id } = req.params;
-        const letterContent = req.query.content ? decodeURIComponent(req.query.content) : '';
+        const letterContent = req.query.content ? String(req.query.content) : '';
 
         if (!letterContent.trim()) {
             return res.status(400).json({
@@ -1298,13 +1304,6 @@ async function generateLetterPdf(req, res) {
         const caseData = await Case.getFullDetails(id);
         if (!caseData) {
             return res.status(404).json({ success: false, message: 'Case not found' });
-        }
-
-        if (caseData.status !== 'reviewed' && caseData.status !== 'closed') {
-            return res.status(400).json({
-                success: false,
-                message: 'Case must be reviewed before generating PDF'
-            });
         }
 
         const doctor = await Doctor.findByUserId(req.user.id);

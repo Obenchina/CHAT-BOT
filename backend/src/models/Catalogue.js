@@ -33,8 +33,6 @@ function normalizeQuestion(question) {
     return {
         ...question,
         choices: parseChoices(question.choices),
-        section_name: question.section_name || null,
-        section_order: question.section_order || 0,
         clinical_measure: question.clinical_measure || 'none'
     };
 }
@@ -225,15 +223,13 @@ const Catalogue = {
      * @returns {Promise<Object>} Created question
      */
     async addQuestion(questionData) {
-        const { catalogueId, questionText, answerType, choices, isRequired, orderIndex, sectionName, sectionOrder, clinicalMeasure } = questionData;
+        const { catalogueId, questionText, answerType, choices, isRequired, orderIndex, clinicalMeasure } = questionData;
 
         const [result] = await pool.execute(
-            `INSERT INTO questions (catalogue_id, section_name, section_order, question_text, answer_type, clinical_measure, choices, is_required, is_active, order_index)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, true, ?)`,
+            `INSERT INTO questions (catalogue_id, question_text, answer_type, clinical_measure, choices, is_required, is_active, order_index)
+             VALUES (?, ?, ?, ?, ?, ?, true, ?)`,
             [
                 catalogueId,
-                sectionName || null,
-                sectionOrder || 0,
                 questionText,
                 answerType,
                 clinicalMeasure || 'none',
@@ -246,8 +242,6 @@ const Catalogue = {
         return {
             id: result.insertId,
             catalogue_id: catalogueId,
-            section_name: sectionName || null,
-            section_order: sectionOrder || 0,
             question_text: questionText,
             answer_type: answerType,
             clinical_measure: clinicalMeasure || 'none',
@@ -265,7 +259,7 @@ const Catalogue = {
      * @returns {Promise<boolean>} Success status
      */
     async updateQuestion(id, updateData) {
-        const { questionText, answerType, choices, isRequired, isActive, orderIndex, sectionName, sectionOrder, clinicalMeasure } = updateData;
+        const { questionText, answerType, choices, isRequired, isActive, orderIndex, clinicalMeasure } = updateData;
 
         const [result] = await pool.execute(
             `UPDATE questions SET
@@ -275,9 +269,7 @@ const Catalogue = {
                  choices = COALESCE(?, choices),
                  is_required = COALESCE(?, is_required),
                  is_active = COALESCE(?, is_active),
-                 order_index = COALESCE(?, order_index),
-                 section_name = COALESCE(?, section_name),
-                 section_order = COALESCE(?, section_order)
+                 order_index = COALESCE(?, order_index)
              WHERE id = ?`,
             [
                 questionText !== undefined ? questionText : null,
@@ -287,8 +279,6 @@ const Catalogue = {
                 isRequired !== undefined ? isRequired : null,
                 isActive !== undefined ? isActive : null,
                 orderIndex !== undefined ? orderIndex : null,
-                sectionName !== undefined ? sectionName : null,
-                sectionOrder !== undefined ? sectionOrder : null,
                 id
             ]
         );
@@ -349,7 +339,7 @@ const Catalogue = {
      */
     async getQuestions(catalogueId) {
         const [questions] = await pool.execute(
-            'SELECT * FROM questions WHERE catalogue_id = ? ORDER BY (section_name IS NULL) ASC, section_order, order_index, id',
+            'SELECT * FROM questions WHERE catalogue_id = ? ORDER BY order_index, id',
             [catalogueId]
         );
 
@@ -357,166 +347,6 @@ const Catalogue = {
     },
 
     // ======================
-    // SECTION OPERATIONS
-    // ======================
-
-    async getSections(catalogueId) {
-        const [rows] = await pool.execute(
-            `SELECT s.id, s.name, s.section_order,
-                    (SELECT COUNT(*) FROM questions q WHERE q.catalogue_id = s.catalogue_id AND q.section_name = s.name) AS question_count
-             FROM catalogue_sections s
-             WHERE s.catalogue_id = ?
-             ORDER BY s.section_order ASC, s.id ASC`,
-            [catalogueId]
-        );
-        return rows;
-    },
-
-    async createSection(catalogueId, name) {
-        const trimmed = String(name || '').trim();
-        if (!trimmed) {
-            throw Object.assign(new Error('Section name is required'), { status: 400 });
-        }
-
-        const [[{ maxOrder }]] = await pool.execute(
-            'SELECT COALESCE(MAX(section_order), 0) AS maxOrder FROM catalogue_sections WHERE catalogue_id = ?',
-            [catalogueId]
-        );
-
-        const nextOrder = Number(maxOrder || 0) + 1;
-
-        const [result] = await pool.execute(
-            'INSERT INTO catalogue_sections (catalogue_id, name, section_order) VALUES (?, ?, ?)',
-            [catalogueId, trimmed, nextOrder]
-        );
-        return { id: result.insertId, catalogue_id: catalogueId, name: trimmed, section_order: nextOrder };
-    },
-
-    async getSectionById(catalogueId, sectionId) {
-        const [rows] = await pool.execute(
-            'SELECT * FROM catalogue_sections WHERE id = ? AND catalogue_id = ? LIMIT 1',
-            [sectionId, catalogueId]
-        );
-        return rows.length ? rows[0] : null;
-    },
-
-    async ensureSectionByName(catalogueId, name, sectionOrder = null) {
-        const trimmed = String(name || '').trim();
-        if (!trimmed) return null;
-
-        const [rows] = await pool.execute(
-            'SELECT * FROM catalogue_sections WHERE catalogue_id = ? AND name = ? LIMIT 1',
-            [catalogueId, trimmed]
-        );
-        if (rows.length) return rows[0];
-
-        const [[{ maxOrder }]] = await pool.execute(
-            'SELECT COALESCE(MAX(section_order), 0) AS maxOrder FROM catalogue_sections WHERE catalogue_id = ?',
-            [catalogueId]
-        );
-        const nextOrder = sectionOrder !== null && sectionOrder !== undefined
-            ? Number(sectionOrder) || 0
-            : (Number(maxOrder || 0) + 1);
-
-        const [result] = await pool.execute(
-            'INSERT INTO catalogue_sections (catalogue_id, name, section_order) VALUES (?, ?, ?)',
-            [catalogueId, trimmed, nextOrder]
-        );
-
-        return { id: result.insertId, catalogue_id: catalogueId, name: trimmed, section_order: nextOrder };
-    },
-
-    async renameSection(catalogueId, sectionId, newName) {
-        const trimmed = String(newName || '').trim();
-        if (!trimmed) {
-            throw Object.assign(new Error('Section name is required'), { status: 400 });
-        }
-
-        const [existing] = await pool.execute(
-            'SELECT * FROM catalogue_sections WHERE id = ? AND catalogue_id = ? LIMIT 1',
-            [sectionId, catalogueId]
-        );
-        if (!existing.length) return false;
-
-        const oldName = existing[0].name;
-
-        const connection = await pool.getConnection();
-        try {
-            await connection.beginTransaction();
-            await connection.execute(
-                'UPDATE catalogue_sections SET name = ? WHERE id = ? AND catalogue_id = ?',
-                [trimmed, sectionId, catalogueId]
-            );
-            await connection.execute(
-                'UPDATE questions SET section_name = ? WHERE catalogue_id = ? AND section_name = ?',
-                [trimmed, catalogueId, oldName]
-            );
-            await connection.commit();
-            return true;
-        } catch (err) {
-            await connection.rollback();
-            throw err;
-        } finally {
-            connection.release();
-        }
-    },
-
-    async reorderSections(catalogueId, orderData) {
-        const connection = await pool.getConnection();
-        try {
-            await connection.beginTransaction();
-            for (const item of orderData) {
-                await connection.execute(
-                    'UPDATE catalogue_sections SET section_order = ? WHERE id = ? AND catalogue_id = ?',
-                    [item.sectionOrder, item.id, catalogueId]
-                );
-            }
-            await connection.execute(
-                `UPDATE questions q
-                 JOIN catalogue_sections s ON s.catalogue_id = q.catalogue_id AND s.name = q.section_name
-                 SET q.section_order = s.section_order
-                 WHERE q.catalogue_id = ? AND q.section_name IS NOT NULL`,
-                [catalogueId]
-            );
-            await connection.commit();
-            return true;
-        } catch (err) {
-            await connection.rollback();
-            throw err;
-        } finally {
-            connection.release();
-        }
-    },
-
-    async deleteSection(catalogueId, sectionId) {
-        const [rows] = await pool.execute(
-            'SELECT * FROM catalogue_sections WHERE id = ? AND catalogue_id = ? LIMIT 1',
-            [sectionId, catalogueId]
-        );
-        if (!rows.length) return false;
-
-        const sectionName = rows[0].name;
-        const connection = await pool.getConnection();
-        try {
-            await connection.beginTransaction();
-            await connection.execute(
-                'UPDATE questions SET section_name = NULL, section_order = 9999 WHERE catalogue_id = ? AND section_name = ?',
-                [catalogueId, sectionName]
-            );
-            await connection.execute(
-                'DELETE FROM catalogue_sections WHERE id = ? AND catalogue_id = ?',
-                [sectionId, catalogueId]
-            );
-            await connection.commit();
-            return true;
-        } catch (err) {
-            await connection.rollback();
-            throw err;
-        } finally {
-            connection.release();
-        }
-    },
-
     /**
      * Reorder questions
      * @param {number} catalogueId - Catalogue ID
