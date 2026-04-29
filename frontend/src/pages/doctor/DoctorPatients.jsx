@@ -77,10 +77,13 @@ function DoctorPatients() {
         try {
             const response = await patientService.getAll();
             if (response.success) {
-                setPatients(response.data);
+                setPatients(Array.isArray(response.data) ? response.data : []);
+            } else {
+                setPatients([]);
             }
         } catch (error) {
             console.error('Load patients error:', error);
+            setPatients([]);
         } finally {
             setLoading(false);
         }
@@ -113,7 +116,7 @@ function DoctorPatients() {
 
     // Data Processing (Filter, Sort, Paginate)
     const processedPatients = useMemo(() => {
-        let result = [...patients];
+        let result = Array.isArray(patients) ? [...patients] : [];
 
         // 1. Filter
         if (genderFilter !== 'all') {

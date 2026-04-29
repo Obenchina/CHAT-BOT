@@ -1,0 +1,527 @@
+/**
+ * Premium Pages — Match CaseDetailsV2 EXACTLY.
+ *
+ * Reference style (from case-details.css):
+ *   - page background:  var(--color-surface-0)   (no gradients)
+ *   - card / block:     var(--color-surface-1) + 1px var(--color-border-subtle) + radius-xl
+ *   - topbar / sidebar: var(--color-surface-1) + 1px border
+ *   - no glass / no blur / no extra shell tokens
+ *
+ * This file is loaded LAST and overrides legacy stylesheets so every
+ * page inside .internal-shell renders with the case-details look.
+ */
+
+/* ============================================================
+   1) NEUTRALIZE legacy "internal-premium.css" glass shell
+   ============================================================ */
+.internal-shell {
+  /* erase old shell custom-props that produced glassy/blurry surfaces */
+  --shell-bg: var(--color-surface-0);
+  --shell-bg-soft: var(--color-surface-1);
+  --shell-surface: var(--color-surface-1);
+  --shell-surface-strong: var(--color-surface-1);
+  --shell-border: var(--color-border-subtle);
+  --shell-line: var(--color-border-subtle);
+  --shell-shadow: none;
+  --shell-shadow-soft: none;
+  --shell-text: var(--color-text-primary);
+  --shell-text-muted: var(--color-text-muted);
+  --shell-chip: var(--color-surface-2);
+  --shell-accent: var(--color-brand-500);
+  --shell-accent-soft: var(--color-brand-300);
+  --shell-success: var(--color-success-500);
+
+  background: var(--color-surface-0) !important;
+  color: var(--color-text-primary);
+}
+.internal-shell .main-content,
+.internal-shell .main-content::before {
+  background: transparent !important;
+}
+.internal-shell .main-content::before { content: none !important; }
+
+/* ============================================================
+   2) PAGE HEADER — flat surface-1 card, no glass, no blur
+   ============================================================ */
+.internal-shell .page-header {
+  margin: var(--space-5);
+  padding: var(--space-5) var(--space-6);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-1);
+  box-shadow: none;
+  backdrop-filter: none !important;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+.internal-shell .page-title {
+  font-size: var(--font-size-2xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: -0.01em;
+  color: var(--color-text-primary);
+  margin: 0;
+}
+.internal-shell .page-subtitle,
+.internal-shell .page-header p {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  margin: 4px 0 0;
+}
+.internal-shell .page-content {
+  margin: 0 var(--space-5) var(--space-6);
+  padding: 0;
+  background: transparent;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+
+/* ============================================================
+   3) CARD — same as .case-block
+   ============================================================ */
+.internal-shell .card {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: none;
+  backdrop-filter: none !important;
+  transition: border-color var(--duration-base) var(--ease-out-cubic);
+}
+.internal-shell .card:hover { border-color: var(--color-border-default, var(--color-border-subtle)); }
+.internal-shell .card-header {
+  padding: var(--space-5);
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: transparent;
+}
+.internal-shell .card-title {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  margin: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.internal-shell .card-body { padding: var(--space-5); }
+
+/* ============================================================
+   4) STAT CARDS — same surface-1 card, brand-50 icon chip
+   ============================================================ */
+.internal-shell .stats-grid {
+  grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-4);
+}
+.internal-shell .stat-card {
+  background: var(--color-surface-1);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-xl);
+  box-shadow: none;
+  backdrop-filter: none !important;
+  padding: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  transition: border-color var(--duration-base) var(--ease-out-cubic);
+}
+.internal-shell .stat-card:hover {
+  border-color: var(--color-brand-300);
+}
+.internal-shell .stat-card-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-brand-50);
+  color: var(--color-brand-600);
+}
+[data-theme="dark"] .internal-shell .stat-card-icon {
+  background: rgba(6, 182, 212, 0.12);
+  color: var(--color-brand-300);
+}
+.internal-shell .stat-card-value {
+  font-size: var(--font-size-3xl);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: 1;
+  letter-spacing: -0.02em;
+}
+.internal-shell .stat-card-label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  font-weight: var(--font-weight-medium);
+}
+
+/* ============================================================
+   5) SEGMENTED CONTROL — surface-2 pill (same as case nav style)
+   ============================================================ */
+.internal-shell .segmented-group {
+  display: inline-flex;
+  background: var(--color-surface-2);
+  border-radius: var(--radius-full);
+  padding: 4px;
+  gap: 2px;
+  border: 1px solid var(--color-border-subtle);
+}
+.internal-shell .seg-btn {
+  appearance: none;
+  border: none;
+  background: transparent;
+  color: var(--color-text-secondary);
+  padding: 6px 14px;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+.internal-shell .seg-btn:hover { color: var(--color-text-primary); }
+.internal-shell .seg-active,
+.internal-shell .seg-btn.seg-active {
+  background: var(--color-brand-500);
+  color: var(--color-text-inverse);
+}
+
+/* ============================================================
+   6) TABLES — clean rows, no glass
+   ============================================================ */
+.internal-shell .table-container {
+  border-radius: var(--radius-xl);
+  overflow: hidden;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-1);
+  box-shadow: none;
+  backdrop-filter: none !important;
+}
+.internal-shell table { width: 100%; border-collapse: collapse; }
+.internal-shell table thead {
+  background: var(--color-surface-2);
+}
+.internal-shell table th {
+  padding: 12px 16px;
+  text-align: left;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.internal-shell table td {
+  padding: 14px 16px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  border-bottom: 1px solid var(--color-border-subtle);
+}
+.internal-shell table tbody tr {
+  transition: background var(--duration-fast);
+}
+.internal-shell table tbody tr:hover {
+  background: var(--color-surface-2);
+}
+.internal-shell table tbody tr:last-child td { border-bottom: none; }
+
+/* ============================================================
+   7) BADGES — same as case-topbar__status
+   ============================================================ */
+.internal-shell .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: var(--radius-full);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.internal-shell .badge-success {
+  background: var(--color-success-100);
+  color: var(--color-success-700);
+}
+.internal-shell .badge-warning {
+  background: var(--color-warning-100);
+  color: var(--color-warning-700);
+}
+.internal-shell .badge-info {
+  background: var(--color-info-100);
+  color: var(--color-info-700);
+}
+.internal-shell .badge-gray {
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+}
+.internal-shell .badge-danger {
+  background: var(--color-danger-100, rgba(239,68,68,0.12));
+  color: var(--color-danger-700, #b91c1c);
+}
+
+[data-theme="dark"] .internal-shell .badge-success {
+  background: rgba(16, 185, 129, 0.16); color: #6ee7b7;
+}
+[data-theme="dark"] .internal-shell .badge-warning {
+  background: rgba(245, 158, 11, 0.16); color: #fcd34d;
+}
+[data-theme="dark"] .internal-shell .badge-info {
+  background: rgba(59, 130, 246, 0.16); color: #93c5fd;
+}
+[data-theme="dark"] .internal-shell .badge-danger {
+  background: rgba(239, 68, 68, 0.16); color: #fca5a5;
+}
+
+/* ============================================================
+   8) BUTTONS — match CaseDetailsV2 buttons
+   ============================================================ */
+.internal-shell .btn,
+.internal-shell button.btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 18px;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--duration-fast), color var(--duration-fast),
+              border-color var(--duration-fast), transform var(--duration-fast);
+}
+.internal-shell .btn:active:not(:disabled) { transform: translateY(1px); }
+.internal-shell .btn:disabled { opacity: 0.55; cursor: not-allowed; }
+
+.internal-shell .btn-primary,
+.internal-shell .btn--primary {
+  background: var(--color-brand-500);
+  color: var(--color-text-inverse);
+}
+.internal-shell .btn-primary:hover:not(:disabled),
+.internal-shell .btn--primary:hover:not(:disabled) {
+  background: var(--color-brand-600);
+}
+
+.internal-shell .btn-outline,
+.internal-shell .btn--outline {
+  background: transparent;
+  color: var(--color-text-primary);
+  border-color: var(--color-border-default, var(--color-border-subtle));
+}
+.internal-shell .btn-outline:hover:not(:disabled),
+.internal-shell .btn--outline:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  border-color: var(--color-brand-300);
+  color: var(--color-brand-600);
+}
+
+.internal-shell .btn-ghost,
+.internal-shell .btn--ghost {
+  background: transparent;
+  color: var(--color-text-secondary);
+  border-color: transparent;
+}
+.internal-shell .btn-ghost:hover:not(:disabled),
+.internal-shell .btn--ghost:hover:not(:disabled) {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+
+.internal-shell .btn-danger {
+  background: var(--color-danger-500);
+  color: var(--color-text-inverse);
+}
+.internal-shell .btn-danger:hover:not(:disabled) { background: var(--color-danger-600); }
+
+.internal-shell .btn--small,
+.internal-shell .btn-sm {
+  padding: 6px 12px;
+  font-size: var(--font-size-xs);
+  border-radius: var(--radius-sm);
+}
+
+/* ============================================================
+   9) FORMS — same as case-block inputs
+   ============================================================ */
+.internal-shell .form-input,
+.internal-shell .form-select,
+.internal-shell .form-textarea,
+.internal-shell .input,
+.internal-shell input.form-control,
+.internal-shell select.form-control,
+.internal-shell textarea.form-control {
+  width: 100%;
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-border-default, var(--color-border-subtle));
+  border-radius: var(--radius-md);
+  padding: 10px 12px;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-primary);
+  transition: border-color var(--duration-fast), box-shadow var(--duration-fast);
+}
+.internal-shell .form-input:focus,
+.internal-shell .form-select:focus,
+.internal-shell .form-textarea:focus,
+.internal-shell .input:focus,
+.internal-shell input.form-control:focus,
+.internal-shell select.form-control:focus,
+.internal-shell textarea.form-control:focus {
+  outline: none;
+  border-color: var(--color-brand-500);
+  box-shadow: 0 0 0 3px rgba(6, 182, 212, 0.15);
+}
+.internal-shell .form-label,
+.internal-shell label.label {
+  display: inline-block;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-secondary);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ============================================================
+   10) EMPTY STATE — same plain styling
+   ============================================================ */
+.internal-shell .empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-7) var(--space-5);
+  gap: var(--space-3);
+  color: var(--color-text-muted);
+  text-align: center;
+}
+.internal-shell .empty-state-icon {
+  font-size: 48px;
+  opacity: 0.5;
+}
+.internal-shell .empty-state-title {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+}
+
+/* ============================================================
+   11) PAGE-ENTER ANIMATION (subtle)
+   ============================================================ */
+@keyframes pageEnter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.internal-shell .page-content > * {
+  animation: pageEnter 320ms var(--ease-out-cubic) both;
+}
+.internal-shell .page-content > *:nth-child(2) { animation-delay: 50ms; }
+.internal-shell .page-content > *:nth-child(3) { animation-delay: 100ms; }
+.internal-shell .page-content > *:nth-child(4) { animation-delay: 150ms; }
+.internal-shell .page-content > *:nth-child(5) { animation-delay: 200ms; }
+@media (prefers-reduced-motion: reduce) {
+  .internal-shell .page-content > * { animation: none; }
+}
+
+/* ============================================================
+   12) RESPONSIVE
+   ============================================================ */
+@media (max-width: 1100px) {
+  .internal-shell .stats-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 720px) {
+  .internal-shell .page-header {
+    margin: 14px;
+    padding: 16px 18px;
+    border-radius: var(--radius-lg);
+  }
+  .internal-shell .page-content { margin: 0 14px 16px; gap: var(--space-4); }
+  .internal-shell .stats-grid { grid-template-columns: 1fr 1fr; gap: var(--space-3); }
+  .internal-shell .stat-card { padding: var(--space-4); }
+  .internal-shell .stat-card-value { font-size: var(--font-size-2xl); }
+  .internal-shell .page-title { font-size: var(--font-size-xl); }
+
+  .internal-shell .table-container { border: none; background: transparent; }
+  .internal-shell .table-container table { display: block; }
+  .internal-shell .table-container thead { display: none; }
+  .internal-shell .table-container tbody,
+  .internal-shell .table-container tr { display: block; }
+  .internal-shell .table-container tr {
+    background: var(--color-surface-1);
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-lg);
+    margin-bottom: 12px;
+    padding: 12px;
+  }
+  .internal-shell .table-container td {
+    display: flex; justify-content: space-between; gap: 12px;
+    padding: 6px 4px; border: none; font-size: var(--font-size-sm);
+  }
+  .internal-shell .table-container td::before {
+    content: attr(data-label);
+    font-weight: var(--font-weight-semibold);
+    color: var(--color-text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: var(--font-size-xs);
+  }
+}
+
+/* ============================================================
+   13) SIDEBAR — flat surface-1 (matches case-navigator style)
+   ============================================================ */
+.sidebar {
+  background: var(--color-surface-1) !important;
+  border-right: 1px solid var(--color-border-subtle) !important;
+  backdrop-filter: none !important;
+  box-shadow: none !important;
+}
+.sidebar .sidebar-header {
+  border-bottom: 1px solid var(--color-border-subtle);
+  background: transparent;
+}
+.sidebar .sidebar-footer {
+  border-top: 1px solid var(--color-border-subtle);
+  background: transparent;
+}
+.sidebar,
+.sidebar * { color: var(--color-text-primary); }
+.sidebar .nav-item,
+.sidebar a.nav-link {
+  color: var(--color-text-secondary) !important;
+  border-radius: var(--radius-md);
+  transition: background var(--duration-fast), color var(--duration-fast);
+}
+.sidebar .nav-item span,
+.sidebar a.nav-link span,
+.sidebar .nav-section-title,
+.sidebar .nav-section__label {
+  color: inherit !important;
+}
+.sidebar .nav-item:hover,
+.sidebar a.nav-link:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+.sidebar .nav-item.active,
+.sidebar a.nav-link.active,
+.sidebar .nav-item--active {
+  background: var(--color-brand-50);
+  color: var(--color-brand-700);
+}
+[data-theme="dark"] .sidebar .nav-item.active,
+[data-theme="dark"] .sidebar a.nav-link.active,
+[data-theme="dark"] .sidebar .nav-item--active {
+  background: rgba(6, 182, 212, 0.14);
+  color: var(--color-brand-200);
+}
+
+/* ============================================================
+   14) AUTH SHELL — flat surface, no oversized gradient
+   ============================================================ */
+.auth-shell {
+  background: var(--color-surface-0);
+  color: var(--color-text-primary);
+}

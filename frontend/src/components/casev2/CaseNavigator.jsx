@@ -1,13 +1,14 @@
 import { motion } from 'framer-motion';
 
 const NAV_ITEMS = [
-  { id: 'ai-summary',   icon: '🧠', label: 'Synthèse IA' },
-  { id: 'anamnesis',    icon: '📋', label: 'Anamnèse' },
-  { id: 'measures',     icon: '📊', label: 'Mesures' },
-  { id: 'charts',       icon: '📈', label: 'Courbes' },
-  { id: 'documents',    icon: '📎', label: 'Documents' },
-  { id: 'prescription', icon: '💊', label: 'Ordonnance' },
-  { id: 'diagnostic',   icon: '✍️', label: 'Diagnostic' },
+  { id: 'ai-summary',      icon: '🧠', label: 'Synthèse IA' },
+  { id: 'anamnesis',       icon: '📋', label: 'Anamnèse' },
+  { id: 'measures',        icon: '📊', label: 'Mesures' },
+  { id: 'charts',          icon: '📈', label: 'Courbes' },
+  { id: 'documents',       icon: '📎', label: 'Documents' },
+  { id: 'prescription',    icon: '💊', label: 'Ordonnance' },
+  { id: 'generated-docs',  icon: '📑', label: 'PDF générés' },
+  { id: 'diagnostic',      icon: '✍️', label: 'Diagnostic' },
 ];
 
 export default function CaseNavigator({ activeId, counts = {}, onJump }) {

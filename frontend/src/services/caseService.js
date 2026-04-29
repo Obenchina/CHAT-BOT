@@ -127,7 +127,14 @@ const caseService = {
      */
     async suggestMedications(caseId) {
         return api.post(`${ENDPOINTS.CASES}/${caseId}/suggest-medications`);
-    }
+    },
+
+    /**
+     * Re-run AI analysis for a case (regenerates summary + diagnostics).
+     */
+    async reanalyze(caseId) {
+        return api.post(`${ENDPOINTS.CASES}/${caseId}/reanalyze`);
+    },
 };
 
 export default caseService;

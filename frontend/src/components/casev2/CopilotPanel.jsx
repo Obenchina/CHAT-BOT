@@ -12,8 +12,42 @@ const QUICK_PROMPTS = [
   'Posologie pédiatrique pour ce cas',
 ];
 
+/**
+ * Robustly extract the message text & role from any backend shape.
+ * Backend stores rows as { role: 'doctor' | 'ai', content: '...' }
+ * Send response is { data: { doctorMessage, aiMessage } }
+ * We accept all of these and fall back gracefully.
+ */
+function normalizeMessage(raw, fallbackRole = null) {
+  if (!raw) return null;
+  if (typeof raw === 'string') {
+    return { id: `m-${Date.now()}-${Math.random()}`, role: fallbackRole || 'ai', content: raw };
+  }
+  const role =
+    raw.role ||
+    raw.sender ||
+    fallbackRole ||
+    'ai';
+  const content =
+    raw.content ??
+    raw.message ??
+    raw.text ??
+    raw.reply ??
+    '';
+  return {
+    id: raw.id ?? `m-${Date.now()}-${Math.random()}`,
+    role,
+    content: String(content ?? ''),
+    created_at: raw.created_at || raw.createdAt || null,
+  };
+}
+
+function isDoctorRole(role) {
+  return role === 'doctor' || role === 'user';
+}
+
 function MessageBubble({ msg, onPin }) {
-  const isUser = msg.role === 'user' || msg.sender === 'doctor';
+  const isUser = isDoctorRole(msg.role);
   return (
     <motion.div
       initial={{ opacity: 0, y: 8 }}
@@ -28,20 +62,24 @@ function MessageBubble({ msg, onPin }) {
         </div>
       )}
       {isUser ? (
-        <div>{msg.content || msg.message}</div>
-      ) : (
+        <div style={{ whiteSpace: 'pre-wrap' }}>{msg.content || '—'}</div>
+      ) : msg.content ? (
         <ReactMarkdown remarkPlugins={[remarkGfm]}>
-          {msg.content || msg.message || ''}
+          {msg.content}
         </ReactMarkdown>
+      ) : (
+        <div style={{ color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+          (Réponse vide — réessayez ou vérifiez la configuration IA)
+        </div>
       )}
-      {!isUser && onPin && (
+      {!isUser && msg.content && onPin && (
         <div className="copilot__bubble-actions">
-          <button className="copilot__bubble-action" onClick={() => onPin(msg.content || msg.message || '')}>
+          <button className="copilot__bubble-action" onClick={() => onPin(msg.content)}>
             📌 Épingler à Diagnostic
           </button>
           <button
             className="copilot__bubble-action"
-            onClick={() => navigator.clipboard?.writeText(msg.content || msg.message || '').then(() => showSuccess('Copié'))}
+            onClick={() => navigator.clipboard?.writeText(msg.content).then(() => showSuccess('Copié'))}
           >
             ⧉ Copier
           </button>
@@ -51,7 +89,7 @@ function MessageBubble({ msg, onPin }) {
   );
 }
 
-export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse }) {
+export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, onExpand, expanded = false }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
@@ -68,7 +106,8 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse }) 
       try {
         const res = await aiChatService.getMessages(caseId);
         if (!cancelled && res.success) {
-          setMessages(res.data || []);
+          const list = Array.isArray(res.data) ? res.data : [];
+          setMessages(list.map((m) => normalizeMessage(m)).filter(Boolean));
         }
       } catch (err) {
         console.error('Load messages error:', err);
@@ -81,24 +120,44 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse }) 
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [messages]);
+  }, [messages, sending]);
 
   const send = async (textOverride) => {
     const text = (textOverride ?? input).trim();
     if (!text || sending) return;
     setSending(true);
-    const tempUser = { id: `u-${Date.now()}`, role: 'user', content: text };
+    const tempUser = normalizeMessage({ id: `u-${Date.now()}`, role: 'doctor', content: text });
     setMessages((prev) => [...prev, tempUser]);
     setInput('');
     try {
       const fn = withDossier ? aiChatService.sendWithFullHistory : aiChatService.sendMessage;
       const res = await fn(caseId, text);
-      if (res.success) {
-        const aiMsg = res.data || res.message;
-        const content = typeof aiMsg === 'string' ? aiMsg : (aiMsg?.content || aiMsg?.message || '');
-        setMessages((prev) => [...prev, { id: `a-${Date.now()}`, role: 'assistant', content }]);
+
+      if (res?.success) {
+        // Backend shape: { data: { doctorMessage, aiMessage } }
+        // Older shape:   { data: '...' } or { data: { content/message/reply } }
+        const payload = res.data;
+        let aiNormalized = null;
+
+        if (payload && typeof payload === 'object' && payload.aiMessage) {
+          aiNormalized = normalizeMessage(payload.aiMessage, 'ai');
+        } else {
+          aiNormalized = normalizeMessage(payload, 'ai');
+        }
+
+        if (aiNormalized && aiNormalized.content) {
+          setMessages((prev) => [...prev, aiNormalized]);
+        } else {
+          // Last fallback — refetch full history so UI stays consistent
+          const refresh = await aiChatService.getMessages(caseId);
+          if (refresh?.success && Array.isArray(refresh.data)) {
+            setMessages(refresh.data.map((m) => normalizeMessage(m)).filter(Boolean));
+          } else {
+            showError('Réponse IA vide reçue');
+          }
+        }
       } else {
-        showError(res.message || 'Erreur lors de l\'envoi');
+        showError(res?.message || 'Erreur lors de l\'envoi');
         setInput(text);
       }
     } catch (err) {
@@ -121,14 +180,24 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse }) 
   const isEmpty = !loading && messages.length === 0;
 
   return (
-    <aside className="copilot" aria-label="Copilot IA">
+    <aside className={`copilot${expanded ? ' copilot--expanded' : ''}`} aria-label="Copilot IA">
       <div className="copilot__header">
         <h3 className="copilot__title">
           <span aria-hidden>🤖</span>
           Copilot IA
         </h3>
         <div className="copilot__actions">
-          <button className="copilot__action-btn" title="Réduire" onClick={onCollapse} aria-label="Réduire">›</button>
+          {onExpand && (
+            <button
+              className="copilot__action-btn"
+              title={expanded ? 'Réduire' : 'Agrandir le copilot'}
+              onClick={onExpand}
+              aria-label={expanded ? 'Réduire' : 'Agrandir'}
+            >
+              {expanded ? '⤡' : '⤢'}
+            </button>
+          )}
+          <button className="copilot__action-btn" title="Fermer" onClick={onCollapse} aria-label="Fermer">›</button>
         </div>
       </div>
 
@@ -171,7 +240,7 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse }) 
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             className="copilot__bubble copilot__bubble--ai"
-            style={{ display: 'flex', gap: 6 }}
+            style={{ display: 'flex', gap: 6, alignItems: 'center' }}
           >
             {[0, 1, 2].map((i) => (
               <motion.span
@@ -219,7 +288,7 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse }) 
           </button>
         </div>
 
-        <div className="copilot__hint">Cmd/Ctrl+K pour ouvrir · Entrée pour envoyer</div>
+        <div className="copilot__hint">Entrée pour envoyer · Maj+Entrée saut de ligne</div>
       </div>
     </aside>
   );

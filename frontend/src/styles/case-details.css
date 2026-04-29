@@ -252,6 +252,7 @@ body.sidebar-collapsed .case-page__main {
   font-size: var(--font-size-base);
   line-height: var(--line-height-loose);
   margin: 0 0 var(--space-5);
+  white-space: pre-wrap;
 }
 .ai-summary__diag-title {
   font-size: var(--font-size-xs);
@@ -713,4 +714,81 @@ body.sidebar-collapsed .case-page__main {
    ============================================================ */
 @media (max-width: 1024px) {
   .case-navigator { display: none; }
+}
+
+/* ============================================================
+   Mobile tabs (Dossier / Copilot switcher) — V2
+   ============================================================ */
+.case-mobile-tabs {
+  display: none;
+  gap: var(--space-2, 8px);
+  padding: var(--space-3, 12px);
+  background: var(--color-surface-1);
+  border-bottom: 1px solid var(--color-border-subtle);
+  position: sticky;
+  top: 0;
+  z-index: 5;
+}
+.case-mobile-tabs__btn {
+  flex: 1;
+  appearance: none;
+  background: var(--color-surface-2);
+  color: var(--color-text-secondary);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md, 10px);
+  padding: 10px 12px;
+  font-size: var(--font-size-sm, 13px);
+  font-weight: var(--font-weight-medium, 500);
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease, border-color .15s ease;
+}
+.case-mobile-tabs__btn--active {
+  background: var(--color-brand-500);
+  color: var(--color-text-inverse);
+  border-color: var(--color-brand-500);
+}
+
+.case-workspace--mobile {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.case-workspace--mobile .case-navigator {
+  display: flex;
+  flex-direction: row;
+  overflow-x: auto;
+  border-right: none;
+  border-bottom: 1px solid var(--color-border-subtle);
+  padding: var(--space-2, 8px);
+  gap: 6px;
+}
+.case-workspace--mobile .case-navigator__title { display: none; }
+.case-workspace--mobile .case-navigator__item {
+  flex: 0 0 auto;
+  padding: 6px 10px;
+  font-size: var(--font-size-xs, 12px);
+}
+.case-workspace--mobile .case-dossier { flex: 1 1 auto; min-height: 0; }
+
+@media (max-width: 960px) {
+  .case-mobile-tabs { display: flex; }
+  .case-workspace { padding: 0; }
+  .case-resize-handle { display: none; }
+}
+
+/* Copilot expanded mode (full-width feel) */
+.copilot--expanded .copilot__messages {
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
+  width: 100%;
+}
+.copilot--expanded .copilot__input {
+  max-width: 920px;
+  margin-left: auto;
+  margin-right: auto;
+}
+.copilot--expanded .copilot__bubble {
+  max-width: 720px;
 }

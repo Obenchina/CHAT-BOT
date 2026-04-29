@@ -22,6 +22,7 @@ import MeasuresBlock from '../../components/casev2/blocks/MeasuresBlock';
 import ChartsBlock from '../../components/casev2/blocks/ChartsBlock';
 import DocumentsBlock from '../../components/casev2/blocks/DocumentsBlock';
 import PrescriptionBlock from '../../components/casev2/blocks/PrescriptionBlock';
+import GeneratedDocsBlock from '../../components/casev2/blocks/GeneratedDocsBlock';
 import DiagnosticBlock from '../../components/casev2/blocks/DiagnosticBlock';
 
 import api from '../../services/api';
@@ -30,8 +31,10 @@ import { showError, showSuccess } from '../../utils/toast';
 
 import '../../styles/case-details.css';
 
-const LS_KEY_LAYOUT  = 'case-v2:layout';
-const LS_KEY_COPILOT = 'case-v2:copilotOpen';
+const LS_KEY_LAYOUT       = 'case-v2:layout';
+const LS_KEY_COPILOT      = 'case-v2:copilotOpen';
+const LS_KEY_COPILOT_EXP  = 'case-v2:copilotExpanded';
+const MOBILE_BREAKPOINT_PX = 960;
 
 export default function CaseDetailsV2() {
   const { id } = useParams();
@@ -52,6 +55,14 @@ export default function CaseDetailsV2() {
     try { return JSON.parse(localStorage.getItem(LS_KEY_COPILOT) ?? 'true'); }
     catch { return true; }
   });
+  const [copilotExpanded, setCopilotExpanded] = useState(() => {
+    try { return JSON.parse(localStorage.getItem(LS_KEY_COPILOT_EXP) ?? 'false'); }
+    catch { return false; }
+  });
+  const [isMobile, setIsMobile] = useState(
+    typeof window !== 'undefined' && window.innerWidth < MOBILE_BREAKPOINT_PX
+  );
+  const [mobileTab, setMobileTab] = useState('dossier'); // 'dossier' | 'copilot'
 
   const dossierRef = useRef(null);
   const autoSaveTimer = useRef(null);
@@ -126,6 +137,17 @@ export default function CaseDetailsV2() {
     try { localStorage.setItem(LS_KEY_COPILOT, JSON.stringify(copilotOpen)); }
     catch { /* ignore */ }
   }, [copilotOpen]);
+  useEffect(() => {
+    try { localStorage.setItem(LS_KEY_COPILOT_EXP, JSON.stringify(copilotExpanded)); }
+    catch { /* ignore */ }
+  }, [copilotExpanded]);
+
+  // ---- Track viewport for mobile layout ----
+  useEffect(() => {
+    const onResize = () => setIsMobile(window.innerWidth < MOBILE_BREAKPOINT_PX);
+    window.addEventListener('resize', onResize);
+    return () => window.removeEventListener('resize', onResize);
+  }, []);
 
   // ---- Counts for navigator ----
   const counts = useMemo(() => {
@@ -135,28 +157,33 @@ export default function CaseDetailsV2() {
       return cm && cm !== 'none';
     }).length;
     return {
-      'ai-summary':   caseData?.ai_summary || caseData?.aiSummary ? 1 : 0,
-      'anamnesis':    ans.length - measureCount,
-      'measures':     measureCount,
-      'documents':    (caseData?.documents || []).length,
-      'prescription': medications.length,
+      'ai-summary':      caseData?.ai_summary || caseData?.aiSummary ? 1 : 0,
+      'anamnesis':       ans.length - measureCount,
+      'measures':        measureCount,
+      'documents':       (caseData?.documents || []).length,
+      'prescription':    medications.length,
+      'generated-docs':  3,
     };
   }, [caseData, medications]);
 
   // ---- Jump to block ----
   const jumpTo = (id) => {
     setActiveBlock(id);
-    const el = document.getElementById(`block-${id}`);
-    if (el && dossierRef.current) {
-      dossierRef.current.scrollTo({ top: el.offsetTop - 16, behavior: 'smooth' });
-    }
+    if (isMobile) setMobileTab('dossier');
+    // wait a frame so the dossier panel is visible (mobile tab swap)
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`block-${id}`);
+      if (el && dossierRef.current) {
+        dossierRef.current.scrollTo({ top: el.offsetTop - 16, behavior: 'smooth' });
+      }
+    });
   };
 
   // ---- Track active block on scroll ----
   useEffect(() => {
     const root = dossierRef.current;
     if (!root) return;
-    const ids = ['ai-summary', 'anamnesis', 'measures', 'charts', 'documents', 'prescription', 'diagnostic'];
+    const ids = ['ai-summary', 'anamnesis', 'measures', 'charts', 'documents', 'prescription', 'generated-docs', 'diagnostic'];
     const onScroll = () => {
       const top = root.scrollTop + 80;
       let current = ids[0];
@@ -283,8 +310,35 @@ export default function CaseDetailsV2() {
       const v = JSON.parse(localStorage.getItem(LS_KEY_LAYOUT) || 'null');
       if (Array.isArray(v) && v.length === 3) return v;
     } catch { /* ignore */ }
-    return [16, 54, 30];
+    // wider copilot by default (was 30 → 38)
+    return [14, 48, 38];
   })();
+
+  // helper: re-fetch case data (used after reanalyze / external changes)
+  const refreshCase = async () => {
+    try {
+      const r = await caseService.getById(id);
+      if (r?.success) {
+        setCaseData(r.data);
+      }
+    } catch (err) {
+      console.error('Refresh case error:', err);
+    }
+  };
+
+  // helper: persist current diagnosis/prescription before generating any PDF
+  const persistBeforeExport = async () => {
+    try {
+      await caseService.saveReview(id, {
+        diagnosis,
+        prescription: JSON.stringify(medications),
+      });
+      lastSavedRef.current = { diagnosis, medications };
+      setLastSavedAt(new Date());
+    } catch (err) {
+      console.error('Auto-save before export error:', err);
+    }
+  };
 
   if (loading) {
     return (
@@ -317,73 +371,176 @@ export default function CaseDetailsV2() {
       <div className="case-page__main">
         <CaseTopBar caseData={caseData} autoSaving={autoSaving} onAutoSavedAt={lastSavedAt} />
 
+        {/* Mobile tab switcher (shown only below MOBILE_BREAKPOINT_PX) */}
+        {isMobile && (
+          <div className="case-mobile-tabs" role="tablist" aria-label="Vue mobile">
+            <button
+              role="tab"
+              aria-selected={mobileTab === 'dossier'}
+              className={`case-mobile-tabs__btn${mobileTab === 'dossier' ? ' case-mobile-tabs__btn--active' : ''}`}
+              onClick={() => setMobileTab('dossier')}
+            >
+              📋 Dossier
+            </button>
+            <button
+              role="tab"
+              aria-selected={mobileTab === 'copilot'}
+              className={`case-mobile-tabs__btn${mobileTab === 'copilot' ? ' case-mobile-tabs__btn--active' : ''}`}
+              onClick={() => { setMobileTab('copilot'); setCopilotOpen(true); }}
+            >
+              🤖 Copilot
+            </button>
+          </div>
+        )}
+
         <div className="case-workspace">
-          <PanelGroup direction="horizontal" autoSaveId="caseDetailsLayout" onLayout={onLayoutChange}>
-            {/* Navigator */}
-            <Panel defaultSize={initialLayout[0]} minSize={12} maxSize={24} order={1}>
-              <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur navigateur</div>}>
-                <CaseNavigator activeId={activeBlock} counts={counts} onJump={jumpTo} />
-              </ErrorBoundary>
-            </Panel>
-            <PanelResizeHandle className="case-resize-handle" />
+          {/* DESKTOP: 3 resizable panels */}
+          {!isMobile && (
+            <PanelGroup direction="horizontal" autoSaveId="caseDetailsLayout" onLayout={onLayoutChange}>
+              {/* Navigator */}
+              <Panel defaultSize={initialLayout[0]} minSize={10} maxSize={22} order={1}>
+                <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur navigateur</div>}>
+                  <CaseNavigator activeId={activeBlock} counts={counts} onJump={jumpTo} />
+                </ErrorBoundary>
+              </Panel>
+              <PanelResizeHandle className="case-resize-handle" />
 
-            {/* Dossier (center) */}
-            <Panel defaultSize={initialLayout[1]} minSize={36} order={2}>
-              <div className="case-dossier" ref={dossierRef}>
-                <div className="case-dossier__inner">
-                  <ErrorBoundary><AiSummaryBlock caseData={caseData} /></ErrorBoundary>
-                  <ErrorBoundary><AnamnesisBlock caseData={caseData} /></ErrorBoundary>
-                  <ErrorBoundary><MeasuresBlock caseData={caseData} /></ErrorBoundary>
-                  <ErrorBoundary><ChartsBlock /></ErrorBoundary>
-                  <ErrorBoundary>
-                    <DocumentsBlock caseData={caseData} onPreview={setPreviewDoc} />
-                  </ErrorBoundary>
-                  <ErrorBoundary>
-                    <PrescriptionBlock
-                      medications={medications}
-                      onChange={setMedications}
-                      onSuggestAi={handleSuggestAi}
-                      suggestingAi={suggestingAi}
-                      onDownloadPdf={handleDownloadPdf}
-                      downloading={downloadingPdf}
-                    />
-                  </ErrorBoundary>
-                  <ErrorBoundary>
-                    <DiagnosticBlock
-                      diagnosis={diagnosis}
-                      onChange={setDiagnosis}
-                      autoSaving={autoSaving}
-                      lastSavedAt={lastSavedAt}
-                      onSave={handleSave}
-                      onSubmitReview={handleSubmitReview}
-                      saving={saving}
-                    />
-                  </ErrorBoundary>
-                  <div style={{ height: 200 }} />
-                </div>
-              </div>
-            </Panel>
-
-            {/* Copilot (right) */}
-            <AnimatePresence initial={false}>
-              {copilotOpen && (
-                <>
-                  <PanelResizeHandle className="case-resize-handle" />
-                  <Panel defaultSize={initialLayout[2]} minSize={20} maxSize={60} order={3}>
-                    <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur Copilot</div>}>
-                      <CopilotPanel
-                        caseId={id}
-                        onPinToDiagnostic={handlePinToDiagnostic}
-                        onCollapse={() => setCopilotOpen(false)}
+              {/* Dossier (center) */}
+              <Panel defaultSize={initialLayout[1]} minSize={28} order={2}>
+                <div className="case-dossier" ref={dossierRef}>
+                  <div className="case-dossier__inner">
+                    <ErrorBoundary><AiSummaryBlock caseData={caseData} onUpdate={refreshCase} /></ErrorBoundary>
+                    <ErrorBoundary><AnamnesisBlock caseData={caseData} /></ErrorBoundary>
+                    <ErrorBoundary><MeasuresBlock caseData={caseData} /></ErrorBoundary>
+                    <ErrorBoundary><ChartsBlock caseData={caseData} /></ErrorBoundary>
+                    <ErrorBoundary>
+                      <DocumentsBlock caseData={caseData} onPreview={setPreviewDoc} />
+                    </ErrorBoundary>
+                    <ErrorBoundary>
+                      <PrescriptionBlock
+                        medications={medications}
+                        onChange={setMedications}
+                        onSuggestAi={handleSuggestAi}
+                        suggestingAi={suggestingAi}
+                        onDownloadPdf={handleDownloadPdf}
+                        downloading={downloadingPdf}
                       />
                     </ErrorBoundary>
-                  </Panel>
-                </>
-              )}
-            </AnimatePresence>
-          </PanelGroup>
+                    <ErrorBoundary>
+                      <GeneratedDocsBlock
+                        caseId={id}
+                        onPersist={persistBeforeExport}
+                        hasMedications={medications.length > 0}
+                        hasDiagnosis={Boolean((diagnosis || '').trim())}
+                      />
+                    </ErrorBoundary>
+                    <ErrorBoundary>
+                      <DiagnosticBlock
+                        diagnosis={diagnosis}
+                        onChange={setDiagnosis}
+                        autoSaving={autoSaving}
+                        lastSavedAt={lastSavedAt}
+                        onSave={handleSave}
+                        onSubmitReview={handleSubmitReview}
+                        saving={saving}
+                      />
+                    </ErrorBoundary>
+                    <div style={{ height: 200 }} />
+                  </div>
+                </div>
+              </Panel>
 
-          {!copilotOpen && (
+              {/* Copilot (right) */}
+              <AnimatePresence initial={false}>
+                {copilotOpen && (
+                  <>
+                    <PanelResizeHandle className="case-resize-handle" />
+                    <Panel
+                      defaultSize={copilotExpanded ? 65 : initialLayout[2]}
+                      minSize={24}
+                      maxSize={75}
+                      order={3}
+                    >
+                      <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur Copilot</div>}>
+                        <CopilotPanel
+                          caseId={id}
+                          onPinToDiagnostic={handlePinToDiagnostic}
+                          onCollapse={() => setCopilotOpen(false)}
+                          onExpand={() => setCopilotExpanded((v) => !v)}
+                          expanded={copilotExpanded}
+                        />
+                      </ErrorBoundary>
+                    </Panel>
+                  </>
+                )}
+              </AnimatePresence>
+            </PanelGroup>
+          )}
+
+          {/* MOBILE: stack views, switched by tab */}
+          {isMobile && (
+            <div className="case-workspace--mobile">
+              {mobileTab === 'dossier' ? (
+                <>
+                  <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur navigateur</div>}>
+                    <CaseNavigator activeId={activeBlock} counts={counts} onJump={jumpTo} />
+                  </ErrorBoundary>
+                  <div className="case-dossier" ref={dossierRef}>
+                    <div className="case-dossier__inner">
+                      <ErrorBoundary><AiSummaryBlock caseData={caseData} onUpdate={refreshCase} /></ErrorBoundary>
+                      <ErrorBoundary><AnamnesisBlock caseData={caseData} /></ErrorBoundary>
+                      <ErrorBoundary><MeasuresBlock caseData={caseData} /></ErrorBoundary>
+                      <ErrorBoundary><ChartsBlock caseData={caseData} /></ErrorBoundary>
+                      <ErrorBoundary>
+                        <DocumentsBlock caseData={caseData} onPreview={setPreviewDoc} />
+                      </ErrorBoundary>
+                      <ErrorBoundary>
+                        <PrescriptionBlock
+                          medications={medications}
+                          onChange={setMedications}
+                          onSuggestAi={handleSuggestAi}
+                          suggestingAi={suggestingAi}
+                          onDownloadPdf={handleDownloadPdf}
+                          downloading={downloadingPdf}
+                        />
+                      </ErrorBoundary>
+                      <ErrorBoundary>
+                        <GeneratedDocsBlock
+                          caseId={id}
+                          onPersist={persistBeforeExport}
+                          hasMedications={medications.length > 0}
+                          hasDiagnosis={Boolean((diagnosis || '').trim())}
+                        />
+                      </ErrorBoundary>
+                      <ErrorBoundary>
+                        <DiagnosticBlock
+                          diagnosis={diagnosis}
+                          onChange={setDiagnosis}
+                          autoSaving={autoSaving}
+                          lastSavedAt={lastSavedAt}
+                          onSave={handleSave}
+                          onSubmitReview={handleSubmitReview}
+                          saving={saving}
+                        />
+                      </ErrorBoundary>
+                      <div style={{ height: 160 }} />
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur Copilot</div>}>
+                  <CopilotPanel
+                    caseId={id}
+                    onPinToDiagnostic={handlePinToDiagnostic}
+                    onCollapse={() => setMobileTab('dossier')}
+                  />
+                </ErrorBoundary>
+              )}
+            </div>
+          )}
+
+          {/* Floating reopen button when copilot is hidden (desktop only) */}
+          {!isMobile && !copilotOpen && (
             <motion.button
               initial={{ opacity: 0, x: 20 }}
               animate={{ opacity: 1, x: 0 }}

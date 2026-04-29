@@ -77,7 +77,7 @@ function CatalogueManagement() {
         try {
             const response = await catalogueService.getCatalogues();
             if (response.success) {
-                const nextCatalogues = response.data.catalogues || [];
+                const nextCatalogues = (response.data && response.data.catalogues) || [];
                 setCatalogues(nextCatalogues);
                 setSelectedCatalogueId((currentSelected) => {
                     const requestedId = preferredId ?? currentSelected;

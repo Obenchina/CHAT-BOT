@@ -638,3 +638,34 @@ body.sidebar-collapsed .entretien-page__main {
   border: 1px solid var(--color-border-subtle);
   margin-right: 4px;
 }
+
+/* =============================================================
+   MOBILE / TABLET — stacked layout for EntretienV2
+   ============================================================= */
+@media (max-width: 1100px) {
+  .entretien-plan { width: 200px; }
+  .entretien-recap { width: 280px; }
+}
+
+@media (max-width: 900px) {
+  .entretien-workspace { flex-direction: column; }
+  .entretien-plan,
+  .entretien-recap {
+    width: 100%;
+    max-height: 35vh;
+    border-right: none;
+    border-left: none;
+    border-bottom: 1px solid var(--color-border-subtle);
+  }
+  .entretien-plan { order: 0; }
+  .entretien-stage { order: 1; min-height: 50vh; }
+  .entretien-recap { order: 2; border-bottom: none; border-top: 1px solid var(--color-border-subtle); }
+  .entretien-stage__inner { padding: var(--space-4); }
+}
+
+@media (max-width: 600px) {
+  .entretien-topbar { flex-wrap: wrap; height: auto; padding: 8px 12px; gap: 8px; }
+  .entretien-topbar__patient { order: 1; flex: 1 1 100%; min-width: 0; }
+  .entretien-stage__inner { padding: var(--space-3); }
+  .entretien-stage__qmeta { flex-wrap: wrap; gap: 6px; }
+}

@@ -13,9 +13,24 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 
 // Import styles
+// Foundation
 import './styles/tokens.css';
 import './styles/global.css';
 import './styles/components.css';
+
+// Legacy page-specific styles (loaded BEFORE premium-pages.css so the
+// new flat surfaces win the cascade. Otherwise lazy routes inject these
+// later and shadow the redesign.)
+import './styles/internal-premium.css';
+import './styles/dashboard.css';
+import './styles/profile.css';
+import './styles/pages.css';
+import './styles/auth.css';
+import './styles/questionnaire.css';
+import './styles/entretien.css';
+
+// New unified design layer — must be LAST.
+import './styles/premium-pages.css';
 
 // Public Pages (loaded eagerly — small, always needed)
 import LandingPage from './pages/public/LandingPagePremium';
@@ -223,7 +238,48 @@ function App() {
         <CssBaseline />
         <ErrorBoundary>
           <AuthProvider>
-            <Toaster toastOptions={{ duration: 3000 }} />
+            <Toaster
+              position="top-right"
+              gutter={10}
+              toastOptions={{
+                duration: 3500,
+                style: {
+                  background: 'var(--color-surface-1)',
+                  color: 'var(--color-text-primary)',
+                  border: '1px solid var(--color-border-subtle)',
+                  boxShadow: 'var(--shadow-3)',
+                  borderRadius: 'var(--radius-lg)',
+                  padding: '12px 14px',
+                  fontSize: 'var(--font-size-sm)',
+                  fontWeight: 'var(--font-weight-medium)',
+                  maxWidth: 420,
+                },
+                success: {
+                  iconTheme: {
+                    primary: 'var(--color-success-500)',
+                    secondary: 'var(--color-surface-1)',
+                  },
+                  style: {
+                    borderLeft: '4px solid var(--color-success-500)',
+                  },
+                },
+                error: {
+                  iconTheme: {
+                    primary: 'var(--color-danger-500)',
+                    secondary: 'var(--color-surface-1)',
+                  },
+                  style: {
+                    borderLeft: '4px solid var(--color-danger-500)',
+                  },
+                },
+                loading: {
+                  iconTheme: {
+                    primary: 'var(--color-brand-500)',
+                    secondary: 'var(--color-surface-1)',
+                  },
+                },
+              }}
+            />
             <AppRoutes />
           </AuthProvider>
         </ErrorBoundary>
