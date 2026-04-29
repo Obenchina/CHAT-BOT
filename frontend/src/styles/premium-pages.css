@@ -44,6 +44,8 @@
    2) PAGE HEADER — flat surface-1 card, no glass, no blur
    ============================================================ */
 .internal-shell .page-header {
+  position: relative !important; /* Force non-sticky for standard pages */
+  top: auto !important;
   margin: var(--space-5);
   padding: var(--space-5) var(--space-6);
   border-radius: var(--radius-xl);
@@ -56,6 +58,7 @@
   justify-content: space-between;
   gap: var(--space-4);
   flex-wrap: wrap;
+  z-index: 1;
 }
 .internal-shell .page-title {
   font-size: var(--font-size-2xl);
@@ -111,8 +114,9 @@
    4) STAT CARDS — same surface-1 card, brand-50 icon chip
    ============================================================ */
 .internal-shell .stats-grid {
+  display: grid;
   grid-template-columns: repeat(4, 1fr);
-  gap: var(--space-4);
+  gap: var(--space-5);
 }
 .internal-shell .stat-card {
   background: var(--color-surface-1);

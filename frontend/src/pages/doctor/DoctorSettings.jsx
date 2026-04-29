@@ -136,11 +136,12 @@ function DoctorSettings() {
         <div className="layout internal-shell doctor-settings-shell">
             <Sidebar />
             <main className="main-content">
+                {/* Page Header */}
+                <div className="page-header">
+                    <h1 className="page-title">Paramètres</h1>
+                </div>
+
                 <div className="page-content">
-                    {/* Page Header */}
-                    <div className="page-header">
-                        <h1 className="page-title">Paramètres</h1>
-                    </div>
 
                     {viewMode === 'list' ? (
                         <div className="settings-list-panel">
