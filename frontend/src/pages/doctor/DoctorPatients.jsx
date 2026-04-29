@@ -1,903 +1,469 @@
-﻿/**
- * Doctor Patients List Page
- * Read-only view of patients with history
+/**
+ * Doctor Patients — split-view workspace
+ *  ┌────────────────┬─────────────────────────────────────┐
+ *  │ Toolbar (search + filters + sort + new)             │
+ *  ├────────────────┼─────────────────────────────────────┤
+ *  │ LIST           │ DETAIL                              │
+ *  │  • avatar      │  Hero (name, age, badges)           │
+ *  │  • name        │  Tabs: Profil · Consultations · Mes │
+ *  │  • last visit  │  Selected tab content               │
+ *  └────────────────┴─────────────────────────────────────┘
  */
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
 import patientService from '../../services/patientService';
-import { showError, showConfirm } from '../../utils/toast';
 import caseService from '../../services/caseService';
-import translations from '../../constants/translations';
+import { showError, showConfirm } from '../../utils/toast';
 import { GENDER_OPTIONS } from '../../constants/config';
-import { formatDateOnlyDisplay } from '../../utils/patientAge';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import EditIcon from '@mui/icons-material/Edit';
-import DeleteIcon from '@mui/icons-material/Delete';
-import SearchIcon from '@mui/icons-material/Search';
-import CloseIcon from '@mui/icons-material/Close';
-import GroupOffIcon from '@mui/icons-material/GroupOff';
-import KeyboardArrowRightIcon from '@mui/icons-material/KeyboardArrowRight';
 import PatientMeasurementsChart from '../../components/patient/PatientMeasurementsChart';
 
-const t = translations;
+import SearchIcon from '@mui/icons-material/Search';
+import CloseIcon from '@mui/icons-material/Close';
+import EditIcon from '@mui/icons-material/Edit';
+import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import GroupOffIcon from '@mui/icons-material/GroupOff';
+import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
+import TimelineIcon from '@mui/icons-material/Timeline';
+import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
+import CallIcon from '@mui/icons-material/Call';
+import HomeIcon from '@mui/icons-material/Home';
+import CakeIcon from '@mui/icons-material/Cake';
 
-function DoctorPatients() {
-    // State
-    const [patients, setPatients] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [searchQuery, setSearchQuery] = useState('');
+/* helpers ------------------------------------------------------ */
+const fullName = (p) =>
+  `${p?.firstName || p?.first_name || ''} ${p?.lastName || p?.last_name || ''}`.trim() || 'Patient';
+const initials = (p) => {
+  if (!p) return '·';
+  const f = (p.firstName || p.first_name || '')[0] || '';
+  const l = (p.lastName || p.last_name || '')[0] || '';
+  return (f + l).toUpperCase() || '·';
+};
+const ageFromDob = (dob) => {
+  if (!dob) return null;
+  const d = new Date(dob);
+  if (Number.isNaN(d.getTime())) return null;
+  const diff = Date.now() - d.getTime();
+  const years = Math.floor(diff / (365.25 * 86400000));
+  if (years >= 2) return `${years} ans`;
+  const months = Math.floor(diff / (30.44 * 86400000));
+  return `${months} mois`;
+};
+const formatDate = (iso) => {
+  if (!iso) return '—';
+  return new Date(iso).toLocaleDateString('fr-FR', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+const statusInfo = (status) => {
+  const map = {
+    in_progress: { label: 'En cours',   tone: 'warning' },
+    submitted:   { label: 'À examiner', tone: 'info' },
+    reviewed:    { label: 'Validé',     tone: 'success' },
+    closed:      { label: 'Clôturé',    tone: 'gray' },
+  };
+  return map[status] || map.in_progress;
+};
 
-    // Filter/Sort/Pagination State
-    const [genderFilter, setGenderFilter] = useState('all');
-    const [sortBy, setSortBy] = useState('newest');
-    const [currentPage, setCurrentPage] = useState(1);
-    const [rowsPerPage, setRowsPerPage] = useState(10);
+/* component ---------------------------------------------------- */
+export default function DoctorPatients() {
+  const navigate = useNavigate();
+  const [patients, setPatients] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [query, setQuery] = useState('');
+  const [genderFilter, setGenderFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('newest');
 
-    // Edit/Delete State
-    const [showModal, setShowModal] = useState(false);
-    const [modalLoading, setModalLoading] = useState(false);
-    const [selectedPatient, setSelectedPatient] = useState(null);
-    const [formData, setFormData] = useState({
-        firstName: '',
-        lastName: '',
-        gender: 'male',
-        dateOfBirth: '',
-        phone: '',
-        address: '',
-        siblingsAlive: 0,
-        siblingsDeceased: 0
+  const [selectedId, setSelectedId] = useState(null);
+  const [tab, setTab] = useState('profile');
+  const [history, setHistory] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
+  const [measurements, setMeasurements] = useState({});
+  const [measurementsLoading, setMeasurementsLoading] = useState(false);
+  const [activeMeasure, setActiveMeasure] = useState(null);
+
+  const [showModal, setShowModal] = useState(false);
+  const [modalLoading, setModalLoading] = useState(false);
+  const [formData, setFormData] = useState({ firstName:'', lastName:'', gender:'male', dateOfBirth:'', phone:'', address:'', siblingsAlive:0, siblingsDeceased:0 });
+  const [formErrors, setFormErrors] = useState({});
+  const [editingPatient, setEditingPatient] = useState(null);
+
+  /* mobile detail toggle */
+  const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
+
+  useEffect(() => { loadPatients(); }, []);
+
+  async function loadPatients() {
+    setLoading(true);
+    try {
+      const r = await patientService.getAll();
+      const list = Array.isArray(r?.data) ? r.data : [];
+      setPatients(list);
+      if (list.length && !selectedId) setSelectedId(list[0].id);
+    } catch (e) { console.error(e); setPatients([]); }
+    finally { setLoading(false); }
+  }
+
+  /* search + filter + sort */
+  const filtered = useMemo(() => {
+    let r = Array.isArray(patients) ? [...patients] : [];
+    if (genderFilter !== 'all') r = r.filter((p) => p.gender === genderFilter);
+    if (query.trim()) {
+      const q = query.toLowerCase();
+      r = r.filter((p) => fullName(p).toLowerCase().includes(q) || (p.phone || '').includes(q));
+    }
+    r.sort((a, b) => {
+      switch (sortBy) {
+        case 'name_asc': return fullName(a).localeCompare(fullName(b));
+        case 'age_desc': return new Date(b.dateOfBirth || b.date_of_birth || 0) - new Date(a.dateOfBirth || a.date_of_birth || 0);
+        case 'age_asc':  return new Date(a.dateOfBirth || a.date_of_birth || 0) - new Date(b.dateOfBirth || b.date_of_birth || 0);
+        default: return b.id - a.id;
+      }
     });
-    const [formErrors, setFormErrors] = useState({});
+    return r;
+  }, [patients, query, genderFilter, sortBy]);
 
-    // History State
-    const [expandedPatientId, setExpandedPatientId] = useState(null);
-    const [expandedTab, setExpandedTab] = useState({}); // { patientId: 'consultations' | 'courbes' }
-    const [historyData, setHistoryData] = useState({});
-    const [historyLoading, setHistoryLoading] = useState({});
+  const selected = useMemo(() => filtered.find((p) => p.id === selectedId) || filtered[0] || null, [filtered, selectedId]);
 
-    // Measurements State
-    const [measurementsData, setMeasurementsData] = useState({});
-    const [measurementsLoading, setMeasurementsLoading] = useState({});
-    const [selectedMeasure, setSelectedMeasure] = useState({}); // { patientId: 'weight' }
+  /* load detail when selection changes */
+  useEffect(() => {
+    if (!selected?.id) return;
+    setHistory([]); setHistoryLoading(true);
+    patientService.getById(selected.id)
+      .then((r) => {
+        const cases = (r?.data?.cases || []).sort((a, b) => new Date(b.createdAt || b.created_at || 0) - new Date(a.createdAt || a.created_at || 0));
+        setHistory(cases);
+      }).catch(() => {})
+      .finally(() => setHistoryLoading(false));
 
-    const navigate = useNavigate();
+    setMeasurements({}); setMeasurementsLoading(true);
+    patientService.getMeasurements(selected.id)
+      .then((r) => {
+        const data = r?.data || {};
+        setMeasurements(data);
+        const keys = Object.keys(data);
+        if (keys.length) setActiveMeasure(keys[0]); else setActiveMeasure(null);
+      }).catch(() => {})
+      .finally(() => setMeasurementsLoading(false));
+  }, [selected?.id]);
 
-    // Load patients
-    useEffect(() => {
-        loadPatients();
-    }, []);
+  /* edit */
+  function openEdit(p) {
+    let dob = p.dateOfBirth || p.date_of_birth || '';
+    if (dob && typeof dob === 'string' && dob.includes('T')) dob = dob.split('T')[0];
+    setEditingPatient(p);
+    setFormData({
+      firstName: p.firstName || p.first_name || '',
+      lastName:  p.lastName || p.last_name || '',
+      gender: p.gender || 'male',
+      dateOfBirth: dob,
+      phone: p.phone || '',
+      address: p.address || '',
+      siblingsAlive: p.siblingsAlive ?? p.siblings_alive ?? 0,
+      siblingsDeceased: p.siblingsDeceased ?? p.siblings_deceased ?? 0,
+    });
+    setFormErrors({});
+    setShowModal(true);
+  }
+  function onChange(e) {
+    setFormData((p) => ({ ...p, [e.target.name]: e.target.value }));
+    setFormErrors((p) => ({ ...p, [e.target.name]: '' }));
+  }
+  function validate() {
+    const err = {};
+    if (!formData.firstName.trim()) err.firstName = 'Requis';
+    if (!formData.lastName.trim())  err.lastName  = 'Requis';
+    if (!formData.dateOfBirth) err.dateOfBirth = 'Date de naissance requise';
+    else if (new Date(formData.dateOfBirth) > new Date()) err.dateOfBirth = 'Date dans le futur';
+    if (!formData.phone.trim()) err.phone = 'Requis';
+    setFormErrors(err);
+    return Object.keys(err).length === 0;
+  }
+  async function submitEdit(e) {
+    e.preventDefault();
+    if (!validate()) return;
+    setModalLoading(true);
+    try {
+      const r = await patientService.update(editingPatient.id, formData);
+      if (r.success) {
+        setPatients((prev) => prev.map((p) => p.id === editingPatient.id ? { ...p, ...formData } : p));
+        setShowModal(false); setEditingPatient(null);
+      }
+    } catch (err) { setFormErrors({ general: err.message || 'Erreur serveur' }); }
+    finally { setModalLoading(false); }
+  }
 
-    async function loadPatients() {
-        try {
-            const response = await patientService.getAll();
-            if (response.success) {
-                setPatients(Array.isArray(response.data) ? response.data : []);
-            } else {
-                setPatients([]);
-            }
-        } catch (error) {
-            console.error('Load patients error:', error);
-            setPatients([]);
-        } finally {
-            setLoading(false);
-        }
-    }
+  /* delete */
+  async function deletePatient(p) {
+    const ok = await showConfirm('Supprimer ce patient ? Action irréversible.');
+    if (!ok) return;
+    try {
+      const r = await patientService.delete(p.id);
+      if (r.success) {
+        setPatients((prev) => prev.filter((x) => x.id !== p.id));
+        if (selectedId === p.id) setSelectedId(null);
+      }
+    } catch (e) { showError('Erreur lors de la suppression'); }
+  }
+  async function deleteCase(caseId) {
+    const ok = await showConfirm('Supprimer cette consultation ?');
+    if (!ok) return;
+    try {
+      const r = await caseService.deleteCase(caseId);
+      if (r.success) setHistory((prev) => prev.filter((c) => c.id !== caseId));
+    } catch (e) { showError('Erreur lors de la suppression'); }
+  }
 
-    // Handle search
-    async function handleSearch(e) {
-        const query = e.target.value;
-        setSearchQuery(query);
-        setCurrentPage(1); // Reset to first page on search
+  /* render ------------------------------------------------ */
+  return (
+    <div className="layout internal-shell pat-shell">
+      <Sidebar />
 
-        if (query.length >= 2) {
-            try {
-                const response = await patientService.search(query);
-                if (response.success) {
-                    setPatients(response.data);
-                }
-            } catch (error) {
-                console.error('Search error:', error);
-            }
-        } else if (query.length === 0) {
-            loadPatients();
-        }
-    }
+      <main className="main-content pat-main">
+        {/* TOOLBAR */}
+        <header className="pat-toolbar">
+          <div className="pat-toolbar__title">
+            <h1>Registre des patients</h1>
+            <span className="pat-toolbar__count">{filtered.length}</span>
+          </div>
+          <div className="pat-toolbar__actions">
+            <div className="pat-search">
+              <SearchIcon fontSize="small" />
+              <input
+                placeholder="Rechercher nom, téléphone…"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+              />
+              {query && <button className="pat-search__clear" onClick={() => setQuery('')}><CloseIcon fontSize="inherit" /></button>}
+            </div>
+            <select className="pat-filter" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}>
+              <option value="all">Tous les sexes</option>
+              <option value="male">Garçons</option>
+              <option value="female">Filles</option>
+            </select>
+            <select className="pat-filter" value={sortBy} onChange={(e) => setSortBy(e.target.value)}>
+              <option value="newest">Plus récents</option>
+              <option value="name_asc">Nom (A-Z)</option>
+              <option value="age_desc">Plus âgés</option>
+              <option value="age_asc">Plus jeunes</option>
+            </select>
+          </div>
+        </header>
 
-    function clearSearch() {
-        setSearchQuery('');
-        loadPatients();
-    }
-
-    // Data Processing (Filter, Sort, Paginate)
-    const processedPatients = useMemo(() => {
-        let result = Array.isArray(patients) ? [...patients] : [];
-
-        // 1. Filter
-        if (genderFilter !== 'all') {
-            result = result.filter(p => p.gender === genderFilter);
-        }
-
-        // 2. Sort
-        result.sort((a, b) => {
-            switch (sortBy) {
-                case 'name_asc': {
-                    const nameA = (a.firstName || a.first_name || '').toLowerCase();
-                    const nameB = (b.firstName || b.first_name || '').toLowerCase();
-                    return nameA.localeCompare(nameB);
-                }
-                case 'age_desc':
-                    return new Date(b.dateOfBirth || b.date_of_birth || 0) - new Date(a.dateOfBirth || a.date_of_birth || 0);
-                case 'age_asc':
-                    return new Date(a.dateOfBirth || a.date_of_birth || 0) - new Date(b.dateOfBirth || b.date_of_birth || 0);
-                case 'newest':
-                default:
-                    return b.id - a.id;
-            }
-        });
-
-        return result;
-    }, [patients, genderFilter, sortBy]);
-
-    const paginatedPatients = useMemo(() => {
-        const startIndex = (currentPage - 1) * rowsPerPage;
-        return processedPatients.slice(startIndex, startIndex + rowsPerPage);
-    }, [processedPatients, currentPage, rowsPerPage]);
-
-    const totalPages = Math.ceil(processedPatients.length / rowsPerPage);
-
-    // Toggle History
-    async function toggleHistory(patientId) {
-        if (expandedPatientId === patientId) {
-            setExpandedPatientId(null);
-            return;
-        }
-
-        setExpandedPatientId(patientId);
-
-        if (!expandedTab[patientId]) {
-            setExpandedTab(prev => ({ ...prev, [patientId]: 'consultations' }));
-        }
-
-        // Load if not loaded (or force reload to get latest status)
-        setHistoryLoading(prev => ({ ...prev, [patientId]: true }));
-        try {
-            const response = await patientService.getById(patientId);
-            if (response.success && response.data.cases) {
-                // Sort by date (newest to oldest)
-                const sortedCases = response.data.cases.sort((a, b) =>
-                    new Date(b.createdAt || b.created_at) - new Date(a.createdAt || a.created_at)
-                );
-                setHistoryData(prev => ({ ...prev, [patientId]: sortedCases }));
-            }
-        } catch (error) {
-            console.error('Failed to load history:', error);
-        } finally {
-            setHistoryLoading(prev => ({ ...prev, [patientId]: false }));
-        }
-
-        // Load measurements
-        setMeasurementsLoading(prev => ({ ...prev, [patientId]: true }));
-        try {
-            const mResponse = await patientService.getMeasurements(patientId);
-            if (mResponse.success && mResponse.data) {
-                setMeasurementsData(prev => ({ ...prev, [patientId]: mResponse.data }));
-
-                // Set default selected measure if not set and data exists
-                if (!selectedMeasure[patientId]) {
-                    const keys = Object.keys(mResponse.data);
-                    if (keys.length > 0) {
-                        setSelectedMeasure(prev => ({ ...prev, [patientId]: keys[0] }));
-                    }
-                }
-            }
-        } catch (error) {
-            console.error('Failed to load measurements:', error);
-        } finally {
-            setMeasurementsLoading(prev => ({ ...prev, [patientId]: false }));
-        }
-    }
-
-    // --- Edit Patient Logic ---
-
-    function handleEditClick(e, patient) {
-        e.stopPropagation();
-        setSelectedPatient(patient);
-        let dob = patient.dateOfBirth || patient.date_of_birth || '';
-        if (dob && typeof dob === 'string' && dob.includes('T')) {
-            dob = dob.split('T')[0];
-        } else if (dob instanceof Date) {
-            dob = dob.toISOString().split('T')[0];
-        }
-        setFormData({
-            firstName: patient.firstName || patient.first_name || '',
-            lastName: patient.lastName || patient.last_name || '',
-            gender: patient.gender || 'male',
-            dateOfBirth: dob,
-            phone: patient.phone || '',
-            address: patient.address || '',
-            siblingsAlive: patient.siblingsAlive ?? patient.siblings_alive ?? 0,
-            siblingsDeceased: patient.siblingsDeceased ?? patient.siblings_deceased ?? 0
-        });
-        setFormErrors({});
-        setShowModal(true);
-    }
-
-    function handleFormChange(e) {
-        const { name, value } = e.target;
-        setFormData(prev => ({ ...prev, [name]: value }));
-        setFormErrors(prev => ({ ...prev, [name]: '' }));
-    }
-
-    function validateForm() {
-        const errors = {};
-        if (!formData.firstName.trim()) errors.firstName = t.errors.required;
-        if (!formData.lastName.trim()) errors.lastName = t.errors.required;
-        if (!formData.dateOfBirth) {
-            errors.dateOfBirth = 'La date de naissance est requise.';
-        } else if (new Date(formData.dateOfBirth) > new Date()) {
-            errors.dateOfBirth = 'La date de naissance ne peut pas être dans le futur.';
-        }
-        if (!formData.phone.trim()) errors.phone = t.errors.required;
-        if (formData.siblingsAlive < 0) errors.siblingsAlive = 'Doit être positif.';
-        if (formData.siblingsDeceased < 0) errors.siblingsDeceased = 'Doit être positif.';
-        setFormErrors(errors);
-        return Object.keys(errors).length === 0;
-    }
-
-    async function handleUpdatePatient(e) {
-        e.preventDefault();
-        if (!validateForm()) return;
-
-        setModalLoading(true);
-        try {
-            const response = await patientService.update(selectedPatient.id, formData);
-            if (response.success) {
-                // Update local state
-                setPatients(prev => prev.map(p =>
-                    p.id === selectedPatient.id ? { ...p, ...formData } : p
-                ));
-                closeModal();
-            }
-        } catch (error) {
-            console.error('Update patient error:', error);
-            setFormErrors({ general: error.message || t.errors.serverError });
-        } finally {
-            setModalLoading(false);
-        }
-    }
-
-    function closeModal() {
-        setShowModal(false);
-        setSelectedPatient(null);
-        setFormData({ firstName: '', lastName: '', gender: 'male', dateOfBirth: '', phone: '', address: '', siblingsAlive: 0, siblingsDeceased: 0 });
-        setFormErrors({});
-    }
-
-    // --- Delete Patient Logic ---
-
-    async function handleDeletePatient(e, patientId) {
-        e.stopPropagation();
-        const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer ce patient ? Cette action est irréversible.');
-        if (!confirmed) {
-            return;
-        }
-
-        try {
-            const response = await patientService.delete(patientId);
-            if (response.success) {
-                setPatients(prev => prev.filter(p => p.id !== patientId));
-                if (expandedPatientId === patientId) {
-                    setExpandedPatientId(null);
-                }
-            }
-        } catch (error) {
-            console.error('Delete patient error:', error);
-            showError('Erreur lors de la suppression du patient');
-        }
-    }
-
-    // --- Delete Case Logic ---
-
-    async function handleDeleteCase(e, caseId, patientId) {
-        e.stopPropagation();
-        const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cette visite ?');
-        if (!confirmed) {
-            return;
-        }
-
-        try {
-            const response = await caseService.deleteCase(caseId);
-            if (response.success) {
-                // Update history data
-                setHistoryData(prev => ({
-                    ...prev,
-                    [patientId]: prev[patientId].filter(c => c.id !== caseId)
-                }));
-            }
-        } catch (error) {
-            console.error('Delete case error:', error);
-            showError('Erreur lors de la suppression de la visite');
-        }
-    }
-
-    return (
-        <div className="layout internal-shell doctor-patients-shell">
-            <Sidebar />
-
-            <main className="main-content">
-                <div className="page-header">
-                    <div>
-                        <h1 className="page-title">Mes Patients</h1>
-                        <p style={{ margin: 0, fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
-                            Consultez les dossiers de vos patients et gérez leurs visites.
-                        </p>
-                    </div>
-                </div>
-
-                <div className="page-content">
-                    {/* SaaS Toolbar */}
-                    <div className="card toolbar-shell" style={{ marginBottom: 'var(--space-lg)', border: 'none', background: 'transparent', boxShadow: 'none' }}>
-                        <div className="flex justify-between items-center flex-wrap gap-md" style={{ padding: '0' }}>
-                            {/* Search */}
-                            <div className="form-group" style={{ marginBottom: 0, flex: '1', minWidth: '180px', position: 'relative' }}>
-                                <SearchIcon style={{ position: 'absolute', left: '12px', top: '10px', color: 'var(--text-muted)' }} />
-                                <input
-                                    type="text"
-                                    className="form-input"
-                                    style={{ paddingLeft: '40px', paddingRight: '40px' }}
-                                    placeholder={t.patient.searchPatient}
-                                    value={searchQuery}
-                                    onChange={handleSearch}
-                                />
-                                {searchQuery && (
-                                    <button
-                                        onClick={clearSearch}
-                                        style={{
-                                            position: 'absolute', right: '12px', top: '10px',
-                                            background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer'
-                                        }}
-                                    >
-                                        <CloseIcon fontSize="small" />
-                                    </button>
-                                )}
-                            </div>
-
-                            {/* Filters & Sort */}
-                            <div className="flex gap-sm">
-                                <select
-                                    className="form-input form-select"
-                                    style={{ width: 'auto' }}
-                                    value={genderFilter}
-                                    onChange={(e) => { setGenderFilter(e.target.value); setCurrentPage(1); }}
-                                >
-                                    <option value="all">Tous les genres</option>
-                                    <option value="male">Homme</option>
-                                    <option value="female">Femme</option>
-                                </select>
-
-                                <select
-                                    className="form-input form-select"
-                                    style={{ width: 'auto' }}
-                                    value={sortBy}
-                                    onChange={(e) => setSortBy(e.target.value)}
-                                >
-                                    <option value="newest">Plus récents</option>
-                                    <option value="name_asc">Nom (A-Z)</option>
-                                    <option value="age_desc">Âge (Décroissant)</option>
-                                    <option value="age_asc">Âge (Croissant)</option>
-                                </select>
-                            </div>
+        {loading ? (
+          <div className="pat-loading"><LoadingSpinner size="lg" text="Chargement…" /></div>
+        ) : filtered.length === 0 ? (
+          <div className="pat-empty">
+            <GroupOffIcon style={{ fontSize: 56, opacity: 0.4 }} />
+            <h3>Aucun patient</h3>
+            <p>{query ? `Aucun résultat pour "${query}".` : 'Aucun patient enregistré pour le moment.'}</p>
+          </div>
+        ) : (
+          <div className={`pat-split ${mobileDetailOpen ? 'is-mobile-detail' : ''}`}>
+            {/* LIST */}
+            <aside className="pat-list">
+              <ul>
+                {filtered.map((p, i) => {
+                  const isSelected = selected?.id === p.id;
+                  return (
+                    <motion.li
+                      key={p.id}
+                      initial={{ opacity: 0, x: -6 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: i * 0.02 }}
+                      className={`pat-item ${isSelected ? 'is-selected' : ''}`}
+                      onClick={() => { setSelectedId(p.id); setTab('profile'); setMobileDetailOpen(true); }}
+                    >
+                      <div className={`pat-avatar pat-avatar--${p.gender || 'male'}`}>{initials(p)}</div>
+                      <div className="pat-item__main">
+                        <div className="pat-item__name">{fullName(p)}</div>
+                        <div className="pat-item__meta">
+                          {ageFromDob(p.dateOfBirth || p.date_of_birth) || '—'}
+                          {p.phone ? <> · {p.phone}</> : null}
                         </div>
+                      </div>
+                    </motion.li>
+                  );
+                })}
+              </ul>
+            </aside>
+
+            {/* DETAIL */}
+            <section className="pat-detail">
+              {!selected ? (
+                <div className="pat-empty"><PersonOutlineIcon style={{ fontSize: 56, opacity: 0.4 }} /><h3>Sélectionnez un patient</h3></div>
+              ) : (
+                <>
+                  {/* MOBILE BACK */}
+                  <button className="pat-back-btn" onClick={() => setMobileDetailOpen(false)}>
+                    <ArrowBackIcon fontSize="small" /> Retour à la liste
+                  </button>
+
+                  {/* HERO */}
+                  <div className="pat-hero">
+                    <div className={`pat-avatar pat-avatar--lg pat-avatar--${selected.gender || 'male'}`}>{initials(selected)}</div>
+                    <div className="pat-hero__main">
+                      <h2 className="pat-hero__name">{fullName(selected)}</h2>
+                      <div className="pat-hero__chips">
+                        <span className="chip"><CakeIcon fontSize="inherit" /> {ageFromDob(selected.dateOfBirth || selected.date_of_birth) || '—'}</span>
+                        <span className="chip">{selected.gender === 'female' ? '♀ Fille' : '♂ Garçon'}</span>
+                        {selected.phone && <span className="chip"><CallIcon fontSize="inherit" /> {selected.phone}</span>}
+                      </div>
                     </div>
+                    <div className="pat-hero__actions">
+                      <button className="btn btn-ghost" onClick={() => openEdit(selected)}><EditIcon fontSize="small" /> Modifier</button>
+                      <button className="btn btn-ghost btn-danger" onClick={() => deletePatient(selected)}><DeleteIcon fontSize="small" /></button>
+                    </div>
+                  </div>
 
-                    {/* Content Area */}
-                    {loading ? (
-                        <div className="skeleton-card-container" style={{ minHeight: '400px' }}>
-                            <div className="skeleton skeleton-text" style={{ height: '40px', marginBottom: '20px' }}></div>
-                            <div className="skeleton skeleton-text" style={{ height: '40px', marginBottom: '10px' }}></div>
-                            <div className="skeleton skeleton-text" style={{ height: '40px', marginBottom: '10px' }}></div>
-                            <div className="skeleton skeleton-text" style={{ height: '40px', marginBottom: '10px' }}></div>
-                        </div>
-                    ) : processedPatients.length > 0 ? (
-                        <div className="card">
-                            {/* Desktop Table */}
-                            <div className="table-container desktop-table-container">
-                                <table className="table">
-                                    <thead>
-                                        <tr>
-                                            <th style={{ width: '32px' }}></th>
-                                            <th className="col-hide-md" style={{ width: '12%' }}>Date</th>
-                                            <th>Patient</th>
-                                            <th style={{ width: '10%' }}>{t.patient.gender}</th>
-                                            <th style={{ width: '8%' }}>Date de naissance</th>
-                                            <th className="col-hide-md" style={{ width: '14%' }}>{t.patient.phone}</th>
-                                            <th className="col-actions" style={{ width: '100px' }}>Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {paginatedPatients.map(patient => (
-                                            <React.Fragment key={patient.id}>
-                                                <tr style={{ cursor: 'pointer' }} onClick={() => toggleHistory(patient.id)}>
-                                                    <td data-label="Historique" style={{ color: 'var(--text-muted)' }}>
-                                                        <KeyboardArrowRightIcon
-                                                            style={{
-                                                                transform: expandedPatientId === patient.id ? 'rotate(90deg)' : 'rotate(0deg)',
-                                                                transition: 'transform var(--transition-base)',
-                                                                fontSize: '20px'
-                                                            }}
-                                                        />
-                                                    </td>
-                                                    <td data-label="Date" className="col-hide-md" style={{ color: 'var(--text-secondary)' }}>
-                                                        {new Date(patient.createdAt || Date.now()).toLocaleDateString()}
-                                                    </td>
-                                                    <td data-label="Patient" className="col-truncate" style={{ fontWeight: 500, color: 'var(--text-primary)' }} title={`${patient.firstName || patient.first_name} ${patient.lastName || patient.last_name}`}>
-                                                        {patient.firstName || patient.first_name} {patient.lastName || patient.last_name}
-                                                    </td>
-                                                    <td data-label={t.patient.gender}>
-                                                        <span className="badge badge-gray">
-                                                            {patient.gender === 'male' ? t.patient.male :
-                                                                patient.gender === 'female' ? t.patient.female : t.patient.other}
-                                                        </span>
-                                                    </td>
-                                                    <td data-label="Date de naissance">{formatDateOnlyDisplay(patient.dateOfBirth || patient.date_of_birth)}</td>
-                                                    <td data-label={t.patient.phone} className="col-hide-md" style={{ color: 'var(--text-secondary)' }}>{patient.phone || '-'}</td>
-                                                    <td data-label="Actions" className="col-actions">
-                                                        <div>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="btn-icon"
-                                                                onClick={(e) => {
-                                                                    e.stopPropagation();
-                                                                    handleEditClick(e, patient);
-                                                                }}
-                                                                title="Modifier"
-                                                            >
-                                                                <EditIcon fontSize="small" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="sm"
-                                                                className="btn-icon"
-                                                                onClick={(e) => handleDeletePatient(e, patient.id)}
-                                                                title="Supprimer"
-                                                                style={{ color: 'var(--error)' }}
-                                                            >
-                                                                <DeleteIcon fontSize="small" />
-                                                            </Button>
-                                                        </div>
-                                                    </td>
-                                                </tr>
-                                                {/* Expanded History Row (SaaS Sub-card) */}
-                                                {expandedPatientId === patient.id && (
-                                                    <tr style={{ backgroundColor: 'var(--gray-50)', borderBottom: '1px solid var(--border-color)' }}>
-                                                        <td colSpan="7" style={{ padding: 'var(--space-lg) var(--space-xl)' }}>
-                                                            <div className="card" style={{ border: '1px solid var(--border-color)', boxShadow: 'var(--shadow-sm)' }}>
-                                                                <div className="card-header" style={{ padding: '0', borderBottom: '1px solid var(--border-color)', display: 'flex', background: 'var(--bg-subtle)' }}>
-                                                                    <button
-                                                                        className={`tab-btn ${expandedTab[patient.id] === 'consultations' ? 'active' : ''}`}
-                                                                        onClick={() => setExpandedTab(prev => ({ ...prev, [patient.id]: 'consultations' }))}
-                                                                        style={{ flex: 1, padding: 'var(--space-md)', background: 'transparent', border: 'none', borderBottom: expandedTab[patient.id] === 'consultations' ? '2px solid var(--primary)' : '2px solid transparent', fontWeight: expandedTab[patient.id] === 'consultations' ? '600' : 'normal', color: expandedTab[patient.id] === 'consultations' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}
-                                                                    >
-                                                                        Consultations ({historyData[patient.id]?.length || 0})
-                                                                    </button>
-                                                                    <button
-                                                                        className={`tab-btn ${expandedTab[patient.id] === 'courbes' ? 'active' : ''}`}
-                                                                        onClick={() => setExpandedTab(prev => ({ ...prev, [patient.id]: 'courbes' }))}
-                                                                        style={{ flex: 1, padding: 'var(--space-md)', background: 'transparent', border: 'none', borderBottom: expandedTab[patient.id] === 'courbes' ? '2px solid var(--primary)' : '2px solid transparent', fontWeight: expandedTab[patient.id] === 'courbes' ? '600' : 'normal', color: expandedTab[patient.id] === 'courbes' ? 'var(--primary)' : 'var(--text-secondary)', cursor: 'pointer' }}
-                                                                    >
-                                                                        Courbes Cliniques
-                                                                    </button>
-                                                                </div>
+                  {/* TABS */}
+                  <div className="pat-tabs">
+                    {[
+                      { v:'profile',     l:'Profil',         icon: <PersonOutlineIcon fontSize="small" /> },
+                      { v:'consultations', l:`Consultations (${history.length})`, icon: <LocalHospitalIcon fontSize="small" /> },
+                      { v:'mesures',    l:'Courbes',        icon: <TimelineIcon fontSize="small" /> },
+                    ].map((x) => (
+                      <button
+                        key={x.v}
+                        className={`pat-tab ${tab === x.v ? 'is-active' : ''}`}
+                        onClick={() => setTab(x.v)}
+                      >
+                        {x.icon} <span>{x.l}</span>
+                      </button>
+                    ))}
+                  </div>
 
-                                                                <div className="card-body" style={{ padding: '0' }}>
-                                                                    {expandedTab[patient.id] === 'courbes' ? (
-                                                                        <div style={{ padding: 'var(--space-lg)' }}>
-                                                                            {measurementsLoading[patient.id] ? (
-                                                                                <div className="flex justify-center"><LoadingSpinner size="sm" /></div>
-                                                                            ) : Object.keys(measurementsData[patient.id] || {}).length > 0 ? (
-                                                                                <div>
-                                                                                    <div style={{ marginBottom: '16px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                                                                                        {Object.keys(measurementsData[patient.id]).map(measureKey => (
-                                                                                            <button
-                                                                                                key={measureKey}
-                                                                                                className={`badge ${selectedMeasure[patient.id] === measureKey ? 'badge-primary' : 'badge-gray'}`}
-                                                                                                style={{ cursor: 'pointer', border: 'none', padding: '6px 12px', fontSize: '0.85rem' }}
-                                                                                                onClick={() => setSelectedMeasure(prev => ({ ...prev, [patient.id]: measureKey }))}
-                                                                                            >
-                                                                                                {measureKey.toUpperCase()}
-                                                                                            </button>
-                                                                                        ))}
-                                                                                    </div>
-                                                                                    {selectedMeasure[patient.id] && measurementsData[patient.id][selectedMeasure[patient.id]] && (
-                                                                                        <PatientMeasurementsChart
-                                                                                            data={measurementsData[patient.id][selectedMeasure[patient.id]]}
-                                                                                            measureKey={selectedMeasure[patient.id]}
-                                                                                            patient={patient}
-                                                                                        />
-                                                                                    )}
-                                                                                </div>
-                                                                            ) : (
-                                                                                <div className="text-center" style={{ padding: 'var(--space-xl)', color: 'var(--text-muted)' }}>
-                                                                                    <p style={{ margin: 0 }}>Aucune mesure clinique enregistrée pour ce patient.</p>
-                                                                                </div>
-                                                                            )}
-                                                                        </div>
-                                                                    ) : historyLoading[patient.id] ? (
-                                                                        <div className="flex justify-center" style={{ padding: 'var(--space-xl)' }}>
-                                                                            <LoadingSpinner size="sm" />
-                                                                        </div>
-                                                                    ) : historyData[patient.id] && historyData[patient.id].length > 0 ? (
-                                                                        <table className="table" style={{ margin: 0 }}>
-                                                                            <thead style={{ background: 'transparent' }}>
-                                                                                <tr>
-                                                                                    <th style={{ padding: 'var(--space-sm) var(--space-lg)' }}>Visite</th>
-                                                                                    <th style={{ padding: 'var(--space-sm) var(--space-lg)' }}>Date</th>
-                                                                                    <th style={{ padding: 'var(--space-sm) var(--space-lg)' }}>Statut</th>
-                                                                                    <th style={{ padding: 'var(--space-sm) var(--space-lg)', textAlign: 'right' }}>Action</th>
-                                                                                </tr>
-                                                                            </thead>
-                                                                            <tbody>
-                                                                                {historyData[patient.id].map((cse, index) => (
-                                                                                    <tr key={cse.id} style={{ background: 'transparent' }}>
-                                                                                        <td style={{ padding: 'var(--space-sm) var(--space-lg)' }}>
-                                                                                            <strong>Visite #{historyData[patient.id].length - index}</strong>
-                                                                                        </td>
-                                                                                        <td style={{ padding: 'var(--space-sm) var(--space-lg)', color: 'var(--text-secondary)' }}>
-                                                                                            {new Date(cse.createdAt || cse.created_at).toLocaleDateString('fr-FR')}
-                                                                                        </td>
-                                                                                        <td style={{ padding: 'var(--space-sm) var(--space-lg)' }}>
-                                                                                            <span className={`badge badge-${cse.status === 'in_progress' ? 'warning' :
-                                                                                                cse.status === 'submitted' ? 'info' :
-                                                                                                    cse.status === 'reviewed' ? 'success' : 'gray'
-                                                                                                }`}>
-                                                                                                {cse.status === 'in_progress' ? 'En cours' :
-                                                                                                    cse.status === 'submitted' ? 'En attente' :
-                                                                                                        cse.status === 'reviewed' ? 'Traité' : 'Clôturé'}
-                                                                                            </span>
-                                                                                        </td>
-                                                                                        <td style={{ padding: 'var(--space-sm) var(--space-lg)' }}>
-                                                                                            <div className="flex gap-2 justify-right" style={{ justifyContent: 'flex-end' }}>
-                                                                                                <Button
-                                                                                                    variant="secondary"
-                                                                                                    size="sm"
-                                                                                                    onClick={(e) => {
-                                                                                                        e.stopPropagation();
-                                                                                                        navigate(`/doctor/cases/${cse.id}`, { state: { from: 'patients' } });
-                                                                                                    }}
-                                                                                                >
-                                                                                                    <VisibilityIcon fontSize="small" style={{ marginRight: '4px' }} /> Voir
-                                                                                                </Button>
-                                                                                                <Button
-                                                                                                    variant="ghost"
-                                                                                                    size="sm"
-                                                                                                    className="btn-icon"
-                                                                                                    onClick={(e) => handleDeleteCase(e, cse.id, patient.id)}
-                                                                                                    title="Supprimer la visite"
-                                                                                                    style={{ color: 'var(--error)' }}
-                                                                                                >
-                                                                                                    <DeleteIcon fontSize="small" />
-                                                                                                </Button>
-                                                                                            </div>
-                                                                                        </td>
-                                                                                    </tr>
-                                                                                ))}
-                                                                            </tbody>
-                                                                        </table>
-                                                                    ) : (
-                                                                        <div className="text-center" style={{ padding: 'var(--space-xl)', color: 'var(--text-muted)' }}>
-                                                                            <p style={{ margin: 0 }}>Aucune visite précédente pour ce patient.</p>
-                                                                        </div>
-                                                                    )}
-                                                                </div>
-                                                            </div>
-                                                        </td>
-                                                    </tr>
-                                                )}
-                                            </React.Fragment>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
+                  {/* TAB CONTENT */}
+                  <div className="pat-tab-content">
+                    <AnimatePresence mode="wait">
+                      {tab === 'profile' && (
+                        <motion.div key="profile" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} className="pat-block">
+                          <h3>Informations</h3>
+                          <dl className="pat-info">
+                            <div><dt>Prénom</dt><dd>{selected.firstName || selected.first_name}</dd></div>
+                            <div><dt>Nom</dt><dd>{selected.lastName || selected.last_name}</dd></div>
+                            <div><dt>Sexe</dt><dd>{selected.gender === 'female' ? 'Féminin' : 'Masculin'}</dd></div>
+                            <div><dt>Naissance</dt><dd>{formatDate(selected.dateOfBirth || selected.date_of_birth)}</dd></div>
+                            <div><dt>Téléphone</dt><dd>{selected.phone || '—'}</dd></div>
+                            <div><dt>Adresse</dt><dd>{selected.address || '—'}</dd></div>
+                            <div><dt>Frères/sœurs</dt><dd>{(selected.siblingsAlive ?? 0)} vivants · {(selected.siblingsDeceased ?? 0)} décédés</dd></div>
+                          </dl>
+                        </motion.div>
+                      )}
 
-                            {/* Mobile List View (Replit Style) */}
-                            <div className="mobile-list-container" style={{ padding: 'var(--space-md)' }}>
-                                {paginatedPatients.map(patient => (
-                                    <div key={`mob-${patient.id}`} className="mobile-list-item">
-                                        <button
-                                            className="mobile-list-header"
-                                            onClick={() => toggleHistory(patient.id)}
-                                        >
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-md)', minWidth: 0 }}>
-                                                <div style={{ width: '40px', height: '40px', borderRadius: '50%', background: 'rgba(59, 130, 246, 0.1)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                                                    <VisibilityIcon style={{ color: 'var(--primary)', fontSize: '20px' }} />
-                                                </div>
-                                                <div style={{ minWidth: 0 }}>
-                                                    <p style={{ margin: 0, fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                                        {patient.firstName || patient.first_name} {patient.lastName || patient.last_name}
-                                                    </p>
-                                                    <p style={{ margin: '2px 0 0 0', fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                                                        {formatDateOnlyDisplay(patient.dateOfBirth || patient.date_of_birth)} · {patient.gender === 'female' ? 'Femme' : 'Homme'} {patient.phone ? `· ${patient.phone}` : ''}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                            <div style={{ display: 'flex', alignItems: 'center', gap: 'var(--space-xs)', flexShrink: 0 }}>
-                                                <KeyboardArrowRightIcon
-                                                    style={{
-                                                        transform: expandedPatientId === patient.id ? 'rotate(90deg)' : 'rotate(0deg)',
-                                                        transition: 'transform 0.2s',
-                                                        color: 'var(--text-muted)'
-                                                    }}
-                                                />
-                                            </div>
-                                        </button>
-
-                                        {/* Expanded History for Mobile */}
-                                        {expandedPatientId === patient.id && (
-                                            <div className="mobile-list-content">
-                                                <div style={{ display: 'flex', justifyContent: 'space-between', padding: 'var(--space-md) 0', borderBottom: '1px solid var(--border-color)', flexDirection: 'column', gap: '12px' }}>
-                                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                                                        <div className="tabs-container" style={{ display: 'flex', gap: '16px' }}>
-                                                            <button
-                                                                onClick={() => setExpandedTab(prev => ({ ...prev, [patient.id]: 'consultations' }))}
-                                                                style={{ background: 'transparent', border: 'none', borderBottom: expandedTab[patient.id] === 'consultations' ? '2px solid var(--primary)' : '2px solid transparent', padding: '4px 0', fontSize: '0.8rem', fontWeight: expandedTab[patient.id] === 'consultations' ? 'bold' : 'normal', color: expandedTab[patient.id] === 'consultations' ? 'var(--primary)' : 'var(--text-secondary)' }}
-                                                            >
-                                                                Consultations
-                                                            </button>
-                                                            <button
-                                                                onClick={() => setExpandedTab(prev => ({ ...prev, [patient.id]: 'courbes' }))}
-                                                                style={{ background: 'transparent', border: 'none', borderBottom: expandedTab[patient.id] === 'courbes' ? '2px solid var(--primary)' : '2px solid transparent', padding: '4px 0', fontSize: '0.8rem', fontWeight: expandedTab[patient.id] === 'courbes' ? 'bold' : 'normal', color: expandedTab[patient.id] === 'courbes' ? 'var(--primary)' : 'var(--text-secondary)' }}
-                                                            >
-                                                                Courbes
-                                                            </button>
-                                                        </div>
-                                                        <div style={{ display: 'flex', gap: '4px' }}>
-                                                            <Button variant="ghost" size="sm" className="btn-icon" onClick={(e) => handleEditClick(e, patient)}><EditIcon fontSize="small" /></Button>
-                                                            <Button variant="ghost" size="sm" className="btn-icon" style={{ color: 'var(--error)' }} onClick={(e) => handleDeletePatient(e, patient.id)}><DeleteIcon fontSize="small" /></Button>
-                                                        </div>
-                                                    </div>
-                                                </div>
-
-                                                {expandedTab[patient.id] === 'courbes' ? (
-                                                    <div style={{ padding: 'var(--space-md) 0' }}>
-                                                        {measurementsLoading[patient.id] ? (
-                                                            <div className="flex justify-center"><LoadingSpinner size="sm" /></div>
-                                                        ) : Object.keys(measurementsData[patient.id] || {}).length > 0 ? (
-                                                            <div>
-                                                                <div style={{ marginBottom: '16px', display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
-                                                                    {Object.keys(measurementsData[patient.id]).map(measureKey => (
-                                                                        <button
-                                                                            key={measureKey}
-                                                                            className={`badge ${selectedMeasure[patient.id] === measureKey ? 'badge-primary' : 'badge-gray'}`}
-                                                                            style={{ cursor: 'pointer', border: 'none', padding: '4px 8px', fontSize: '0.75rem' }}
-                                                                            onClick={() => setSelectedMeasure(prev => ({ ...prev, [patient.id]: measureKey }))}
-                                                                        >
-                                                                            {measureKey.toUpperCase()}
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                                {selectedMeasure[patient.id] && measurementsData[patient.id][selectedMeasure[patient.id]] && (
-                                                                    <PatientMeasurementsChart
-                                                                        data={measurementsData[patient.id][selectedMeasure[patient.id]]}
-                                                                        measureKey={selectedMeasure[patient.id]}
-                                                                        patient={patient}
-                                                                    />
-                                                                )}
-                                                            </div>
-                                                        ) : (
-                                                            <p style={{ margin: 'var(--space-md) 0', fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic', textAlign: 'center' }}>Aucune mesure.</p>
-                                                        )}
-                                                    </div>
-                                                ) : historyLoading[patient.id] ? (
-                                                    <div className="flex justify-center" style={{ padding: 'var(--space-md)' }}><LoadingSpinner size="sm" /></div>
-                                                ) : historyData[patient.id] && historyData[patient.id].length > 0 ? (
-                                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-sm)', marginTop: 'var(--space-sm)' }}>
-                                                        {historyData[patient.id].map(cse => (
-                                                            <div key={`mob-case-${cse.id}`}
-                                                                style={{ background: 'var(--bg-elevated)', padding: 'var(--space-sm)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-color)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}
-                                                                onClick={() => navigate(`/doctor/cases/${cse.id}`, { state: { from: 'patients' } })}
-                                                            >
-                                                                <div>
-                                                                    <p style={{ margin: 0, fontSize: '0.85rem', fontWeight: 500 }}>{new Date(cse.createdAt || cse.created_at).toLocaleDateString()}</p>
-                                                                    <span style={{ fontSize: '0.7rem' }} className={`badge badge-${cse.status === 'in_progress' ? 'warning' : cse.status === 'submitted' ? 'info' : cse.status === 'reviewed' ? 'success' : 'gray'}`}>
-                                                                        {cse.status === 'in_progress' ? 'En cours' : cse.status === 'submitted' ? 'En attente' : cse.status === 'reviewed' ? 'Traité' : 'Clôturé'}
-                                                                    </span>
-                                                                </div>
-                                                                <KeyboardArrowRightIcon style={{ color: 'var(--primary)' }} />
-                                                            </div>
-                                                        ))}
-                                                    </div>
-                                                ) : (
-                                                    <p style={{ margin: 'var(--space-md) 0', fontSize: '0.85rem', color: 'var(--text-muted)', fontStyle: 'italic' }}>Aucune consultation.</p>
-                                                )}
-                                            </div>
-                                        )}
+                      {tab === 'consultations' && (
+                        <motion.div key="cons" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} className="pat-block">
+                          <h3>Consultations</h3>
+                          {historyLoading ? (
+                            <div className="pat-loading-inline"><LoadingSpinner size="sm" /></div>
+                          ) : history.length === 0 ? (
+                            <div className="pat-empty pat-empty--small"><LocalHospitalIcon style={{ fontSize: 40, opacity: 0.4 }} /><p>Aucune consultation pour ce patient.</p></div>
+                          ) : (
+                            <ul className="pat-cases">
+                              {history.map((c) => {
+                                const s = statusInfo(c.status);
+                                return (
+                                  <li key={c.id} className="pat-case-row" onClick={() => navigate(`/doctor/cases/${c.id}`)}>
+                                    <div className="pat-case-row__date">{formatDate(c.createdAt || c.created_at)}</div>
+                                    <div className="pat-case-row__main">
+                                      <div className="pat-case-row__title">{c.complaint || c.motif || 'Consultation'}</div>
+                                      <span className={`badge badge-${s.tone}`}>{s.label}</span>
                                     </div>
+                                    <div className="pat-case-row__actions">
+                                      <button className="icon-btn" title="Ouvrir" onClick={(e) => { e.stopPropagation(); navigate(`/doctor/cases/${c.id}`); }}><VisibilityIcon fontSize="small" /></button>
+                                      <button className="icon-btn icon-btn--danger" title="Supprimer" onClick={(e) => { e.stopPropagation(); deleteCase(c.id); }}><DeleteIcon fontSize="small" /></button>
+                                    </div>
+                                  </li>
+                                );
+                              })}
+                            </ul>
+                          )}
+                        </motion.div>
+                      )}
+
+                      {tab === 'mesures' && (
+                        <motion.div key="mes" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} className="pat-block">
+                          <h3>Courbes pédiatriques</h3>
+                          {measurementsLoading ? (
+                            <div className="pat-loading-inline"><LoadingSpinner size="sm" /></div>
+                          ) : Object.keys(measurements).length === 0 ? (
+                            <div className="pat-empty pat-empty--small"><TimelineIcon style={{ fontSize: 40, opacity: 0.4 }} /><p>Aucune mesure enregistrée pour ce patient.</p></div>
+                          ) : (
+                            <>
+                              <div className="pat-measure-tabs">
+                                {Object.keys(measurements).map((k) => (
+                                  <button
+                                    key={k}
+                                    className={`pat-measure-tab ${activeMeasure === k ? 'is-active' : ''}`}
+                                    onClick={() => setActiveMeasure(k)}
+                                  >
+                                    {k} <span>· {measurements[k]?.length || 0}</span>
+                                  </button>
                                 ))}
-                            </div>
+                              </div>
+                              {activeMeasure && (
+                                <PatientMeasurementsChart
+                                  patient={selected}
+                                  measurements={measurements[activeMeasure]}
+                                  measureType={activeMeasure}
+                                />
+                              )}
+                            </>
+                          )}
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </div>
+                </>
+              )}
+            </section>
+          </div>
+        )}
 
-                            {/* Pagination Footer */}
-                            {processedPatients.length > 0 && (
-                                <div className="card-footer flex justify-between items-center" style={{ background: 'var(--bg-card)' }}>
-                                    <div style={{ fontSize: '0.875rem', color: 'var(--text-secondary)' }}>
-                                        Affichage de {((currentPage - 1) * rowsPerPage) + 1} à {Math.min(currentPage * rowsPerPage, processedPatients.length)} sur {processedPatients.length} patients
-                                    </div>
-                                    <div className="flex items-center gap-md">
-                                        <select
-                                            className="form-input form-select"
-                                            style={{ width: 'auto', padding: 'var(--space-xs) 2rem var(--space-xs) var(--space-sm)', height: '32px' }}
-                                            value={rowsPerPage}
-                                            onChange={(e) => { setRowsPerPage(Number(e.target.value)); setCurrentPage(1); }}
-                                        >
-                                            <option value={10}>10 par page</option>
-                                            <option value={25}>25 par page</option>
-                                            <option value={50}>50 par page</option>
-                                        </select>
-                                        <div className="flex gap-sm">
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                disabled={currentPage === 1}
-                                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
-                                            >
-                                                Précédent
-                                            </Button>
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                disabled={currentPage === totalPages}
-                                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
-                                            >
-                                                Suivant
-                                            </Button>
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    ) : (
-                        // Empty State (No Data or No Search Results)
-                        <div className="card empty-state-card flex flex-col items-center justify-center" style={{ padding: 'var(--space-3xl)', textAlign: 'center', background: 'var(--bg-surface)' }}>
-                            <div style={{
-                                width: '64px', height: '64px', borderRadius: '50%', background: 'var(--gray-100)',
-                                display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 'var(--space-md)', color: 'var(--text-muted)'
-                            }}>
-                                <GroupOffIcon fontSize="large" />
-                            </div>
-                            <h3 style={{ marginBottom: 'var(--space-sm)' }}>Aucun patient</h3>
-                            <p style={{ color: 'var(--text-secondary)', maxWidth: '400px', marginBottom: 'var(--space-lg)' }}>
-                                {searchQuery
-                                    ? `Nous n'avons trouvé aucun patient correspondant à "${searchQuery}".`
-                                    : "Il n'y a actuellement aucun patient dans le système."}
-                            </p>
-                            {searchQuery && (
-                                <Button variant="secondary" onClick={clearSearch}>Réinitialiser la recherche</Button>
-                            )}
-                        </div>
-                    )}
-                </div>
-            </main>
-
-            {/* Edit Patient Modal - Updated 2 column Layout */}
-            <Modal
-                isOpen={showModal}
-                onClose={closeModal}
-                title="Modifier le patient"
-                footer={
-                    <>
-                        <Button variant="ghost" onClick={closeModal}>
-                            {t.common.cancel}
-                        </Button>
-                        <Button
-                            variant="primary"
-                            onClick={handleUpdatePatient}
-                            loading={modalLoading}
-                        >
-                            {t.common.save}
-                        </Button>
-                    </>
-                }
-            >
-                {
-                    formErrors.general && (
-                        <div className="alert alert-error">{formErrors.general}</div>
-                    )
-                }
-
-                <form onSubmit={handleUpdatePatient}>
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 var(--space-md)' }}>
-                        <Input
-                            label={t.patient.firstName}
-                            name="firstName"
-                            value={formData.firstName}
-                            onChange={handleFormChange}
-                            error={formErrors.firstName}
-                            required
-                        />
-                        <Input
-                            label={t.patient.lastName}
-                            name="lastName"
-                            value={formData.lastName}
-                            onChange={handleFormChange}
-                            error={formErrors.lastName}
-                            required
-                        />
-                    </div>
-
-                    <div className="form-group">
-                        <label className="form-label">{t.patient.gender} *</label>
-                        <select
-                            name="gender"
-                            value={formData.gender}
-                            onChange={handleFormChange}
-                            className="form-input form-select"
-                        >
-                            {GENDER_OPTIONS.map(opt => (
-                                <option key={opt.value} value={opt.value}>
-                                    {opt.label}
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 var(--space-md)' }}>
-                        <Input
-                            label="Date de naissance"
-                            name="dateOfBirth"
-                            type="date"
-                            value={formData.dateOfBirth}
-                            onChange={handleFormChange}
-                            error={formErrors.dateOfBirth}
-                            required
-                        />
-                        <Input
-                            label={t.patient.phone}
-                            name="phone"
-                            type="tel"
-                            value={formData.phone}
-                            onChange={handleFormChange}
-                            error={formErrors.phone}
-                            required
-                        />
-                    </div>
-
-                    <Input
-                        label="Adresse"
-                        name="address"
-                        value={formData.address}
-                        onChange={handleFormChange}
-                    />
-
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0 var(--space-md)' }}>
-                        <Input
-                            label="Frères/sœurs vivants"
-                            name="siblingsAlive"
-                            type="number"
-                            min="0"
-                            value={formData.siblingsAlive}
-                            onChange={handleFormChange}
-                            error={formErrors.siblingsAlive}
-                        />
-                        <Input
-                            label="Frères/sœurs décédés"
-                            name="siblingsDeceased"
-                            type="number"
-                            min="0"
-                            value={formData.siblingsDeceased}
-                            onChange={handleFormChange}
-                            error={formErrors.siblingsDeceased}
-                        />
-                    </div>
-                </form>
-            </Modal>
-        </div>
-    );
+        {/* EDIT MODAL */}
+        {showModal && (
+          <Modal
+            isOpen={showModal}
+            onClose={() => setShowModal(false)}
+            title="Modifier le patient"
+            footer={
+              <>
+                <Button variant="ghost" onClick={() => setShowModal(false)}>Annuler</Button>
+                <Button variant="primary" onClick={submitEdit} loading={modalLoading}>Enregistrer</Button>
+              </>
+            }
+          >
+            {formErrors.general && <div className="alert alert-error">{formErrors.general}</div>}
+            <form onSubmit={submitEdit}>
+              <div className="form-2col">
+                <Input label="Prénom" name="firstName" value={formData.firstName} onChange={onChange} error={formErrors.firstName} required />
+                <Input label="Nom" name="lastName" value={formData.lastName} onChange={onChange} error={formErrors.lastName} required />
+              </div>
+              <div className="form-group">
+                <label className="form-label">Sexe *</label>
+                <select name="gender" value={formData.gender} onChange={onChange} className="form-input form-select">
+                  {GENDER_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              </div>
+              <div className="form-2col">
+                <Input label="Date de naissance" name="dateOfBirth" type="date" value={formData.dateOfBirth} onChange={onChange} error={formErrors.dateOfBirth} required />
+                <Input label="Téléphone" name="phone" type="tel" value={formData.phone} onChange={onChange} error={formErrors.phone} required />
+              </div>
+              <Input label="Adresse" name="address" value={formData.address} onChange={onChange} />
+              <div className="form-2col">
+                <Input label="Frères/sœurs vivants" name="siblingsAlive" type="number" min="0" value={formData.siblingsAlive} onChange={onChange} />
+                <Input label="Frères/sœurs décédés" name="siblingsDeceased" type="number" min="0" value={formData.siblingsDeceased} onChange={onChange} />
+              </div>
+            </form>
+          </Modal>
+        )}
+      </main>
+    </div>
+  );
 }
-
-export default DoctorPatients;

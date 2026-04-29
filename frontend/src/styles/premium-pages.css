@@ -33,7 +33,7 @@
 
   background: var(--color-surface-0) !important;
   color: var(--color-text-primary);
-  
+
   /* Kill horizontal scroll globally for the internal shell */
   max-width: 100vw;
   overflow-x: hidden;

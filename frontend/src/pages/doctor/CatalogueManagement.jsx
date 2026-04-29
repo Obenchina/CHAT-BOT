@@ -729,32 +729,32 @@ function CatalogueManagement() {
     }
 
     return (
-        <div className="layout internal-shell catalogue-shell">
+        <div className="layout internal-shell cat-shell">
             <Sidebar />
-            <main className="main-content">
-                <div className="page-header">
-                    <div>
-                        <h1 className="page-title">{t.catalogue.title}</h1>
-                        <p style={{ margin: 0, fontSize: '0.813rem', color: 'var(--text-secondary)' }}>
-                            Creez plusieurs catalogues et choisissez celui qui correspond a chaque visite.
-                        </p>
+            <main className="main-content cat-main">
+                <header className="cat-topbar">
+                    <div className="cat-topbar__title">
+                        <h1>{t.catalogue.title}</h1>
+                        <p>Créez plusieurs catalogues et choisissez celui qui correspond à chaque visite.</p>
                     </div>
                     <Button variant="primary" onClick={openCreateCatalogueModal}>
                         <AddIcon fontSize="small" /> Nouveau catalogue
                     </Button>
-                </div>
+                </header>
 
-                <div className="page-content">
+                <div className="cat-body">
                     {loading ? (
-                        <div className="flex justify-center" style={{ padding: 'var(--space-2xl)' }}>
+                        <div className="cat-loading">
                             <LoadingSpinner size="lg" text={t.common.loading} />
                         </div>
                     ) : catalogues.length === 0 ? (
-                        <div className="card empty-state-card" style={{ padding: 'var(--space-3xl)', textAlign: 'center' }}>
-                            <h3 style={{ marginBottom: 'var(--space-sm)' }}>Aucun catalogue</h3>
-                            <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
-                                Creez votre premier catalogue pour commencer.
-                            </p>
+                        <div className="cat-empty">
+                            <div className="cat-empty__icon"><AddIcon fontSize="large" /></div>
+                            <h3>Aucun catalogue de questions</h3>
+                            <p>Créez votre premier catalogue pour structurer la collecte d'informations lors des visites.</p>
+                            <Button variant="primary" onClick={openCreateCatalogueModal}>
+                                <AddIcon fontSize="small" /> Créer un catalogue
+                            </Button>
                         </div>
                     ) : (
                         <div className="card catalogue-list-shell">
