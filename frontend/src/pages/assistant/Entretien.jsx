@@ -254,7 +254,7 @@ function ShortcutsModal({ onClose }) {
 // MAIN PAGE
 // =====================================================
 
-export default function EntretienV2() {
+export default function Entretien() {
   const { patientId } = useParams();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();

@@ -1,5 +1,5 @@
 /**
- * Premium Pages — Match CaseDetailsV2 EXACTLY.
+ * Premium Pages — Match CaseDetails EXACTLY.
  *
  * Reference style (from case-details.css):
  *   - page background:  var(--color-surface-0)   (no gradients)
@@ -12,7 +12,7 @@
  */
 
 /* ============================================================
-   1) NEUTRALIZE legacy "internal-premium.css" glass shell
+   1) NEUTRALIZE legacy "shell.css" glass shell
    ============================================================ */
 .internal-shell {
   /* erase old shell custom-props that produced glassy/blurry surfaces */
@@ -290,7 +290,7 @@
 }
 
 /* ============================================================
-   8) BUTTONS — match CaseDetailsV2 buttons
+   8) BUTTONS — match CaseDetails buttons
    ============================================================ */
 .internal-shell .btn,
 .internal-shell button.btn {

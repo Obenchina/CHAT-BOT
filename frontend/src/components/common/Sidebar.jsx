@@ -20,7 +20,7 @@ import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
 import SettingsIcon from '@mui/icons-material/Settings';
 import ThemeToggle from './ThemeToggle';
-// internal-premium.css is now imported in App.jsx (before premium-pages.css)
+// shell.css is now imported in App.jsx (before premium-pages.css)
 // so the new flat surfaces override the legacy glass shell consistently.
 
 const t = translations;

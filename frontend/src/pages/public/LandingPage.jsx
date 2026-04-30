@@ -120,7 +120,7 @@ const showcaseStages = [
 
 const showcaseTags = ['Vocal', 'Imagerie', 'PDF', 'OTP', 'Historique'];
 
-function LandingPagePremium() {
+function LandingPage() {
     return (
         <div className="landing-page landing-page-premium">
             <header className="landing-hero">
@@ -336,4 +336,4 @@ function LandingPagePremium() {
     );
 }
 
-export default LandingPagePremium;
+export default LandingPage;

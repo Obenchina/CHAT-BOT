@@ -34,7 +34,7 @@ const coverStats = [
     { value: 'OTP', label: 'controle email' }
 ];
 
-function ForgotPasswordPagePremium() {
+function ForgotPasswordPage() {
     const navigate = useNavigate();
     const [step, setStep] = useState('email');
     const [email, setEmail] = useState('');
@@ -323,4 +323,4 @@ function ForgotPasswordPagePremium() {
     );
 }
 
-export default ForgotPasswordPagePremium;
+export default ForgotPasswordPage;

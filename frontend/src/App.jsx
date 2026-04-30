@@ -21,7 +21,7 @@ import './styles/components.css';
 // Legacy page-specific styles (loaded BEFORE premium-pages.css so the
 // new flat surfaces win the cascade. Otherwise lazy routes inject these
 // later and shadow the redesign.)
-import './styles/internal-premium.css';
+import './styles/shell.css';
 import './styles/profile.css';
 import './styles/pages.css';
 import './styles/auth.css';
@@ -35,21 +35,21 @@ import './styles/settings.css';
 import './styles/catalogue.css';
 
 // Public Pages (loaded eagerly — small, always needed)
-import LandingPage from './pages/public/LandingPagePremium';
-import LoginPage from './pages/public/LoginPagePremium';
-import RegisterPage from './pages/public/RegisterPagePremium';
-import ForgotPasswordPage from './pages/public/ForgotPasswordPagePremium';
+import LandingPage from './pages/public/LandingPage';
+import LoginPage from './pages/public/LoginPage';
+import RegisterPage from './pages/public/RegisterPage';
+import ForgotPasswordPage from './pages/public/ForgotPasswordPage';
 
 // Lazy-loaded Pages (loaded on demand)
 const DoctorDashboard = lazy(() => import('./pages/doctor/DoctorDashboard'));
 const CatalogueManagement = lazy(() => import('./pages/doctor/CatalogueManagement'));
 
-const CaseDetails = lazy(() => import('./pages/doctor/CaseDetailsV2'));
+const CaseDetails = lazy(() => import('./pages/doctor/CaseDetails'));
 const DoctorPatients = lazy(() => import('./pages/doctor/DoctorPatients'));
 
 const DoctorSettings = lazy(() => import('./pages/doctor/DoctorSettings'));
 const PatientsList = lazy(() => import('./pages/assistant/PatientsList'));
-const QuestionnairePage = lazy(() => import('./pages/assistant/EntretienV2'));
+const Entretien = lazy(() => import('./pages/assistant/Entretien'));
 const CaseReviewPage = lazy(() => import('./pages/assistant/CaseReviewPage'));
 const AssistantProfile = lazy(() => import('./pages/assistant/AssistantProfile'));
 
@@ -207,7 +207,7 @@ function AppRoutes() {
 
         <Route path="/assistant/case/new/:patientId" element={
           <ProtectedRoute requiredRole="assistant">
-            <QuestionnairePage />
+            <Entretien />
           </ProtectedRoute>
         } />
 

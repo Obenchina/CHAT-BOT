@@ -33,7 +33,7 @@ const coverStats = [
     { value: 'OTP', label: 'Accès Sécurisé' }
 ];
 
-function LoginPagePremium() {
+function LoginPage() {
     const [formData, setFormData] = useState({
         email: '',
         password: ''
@@ -138,4 +138,4 @@ function LoginPagePremium() {
     );
 }
 
-export default LoginPagePremium;
+export default LoginPage;

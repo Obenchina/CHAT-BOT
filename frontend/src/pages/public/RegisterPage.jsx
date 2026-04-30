@@ -36,7 +36,7 @@ const coverStats = [
     { value: 'IA', label: 'Synthèse Clinique' }
 ];
 
-function RegisterPagePremium() {
+function RegisterPage() {
     const [formData, setFormData] = useState({
         email: '',
         password: '',
@@ -429,4 +429,4 @@ function RegisterPagePremium() {
     );
 }
 
-export default RegisterPagePremium;
+export default RegisterPage;

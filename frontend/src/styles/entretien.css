@@ -640,7 +640,7 @@ body.sidebar-collapsed .entretien-page__main {
 }
 
 /* =============================================================
-   MOBILE / TABLET — stacked layout for EntretienV2
+   MOBILE / TABLET — stacked layout for Entretien
    ============================================================= */
 @media (max-width: 1100px) {
   .entretien-plan { width: 200px; }

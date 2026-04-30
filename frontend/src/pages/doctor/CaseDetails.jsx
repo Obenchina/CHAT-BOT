@@ -13,16 +13,16 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import DocumentPreviewModal from '../../components/common/DocumentPreviewModal';
 import ErrorBoundary from '../../components/common/ErrorBoundary';
 
-import CaseTopBar from '../../components/casev2/CaseTopBar';
-import CaseNavigator from '../../components/casev2/CaseNavigator';
-import CopilotPanel from '../../components/casev2/CopilotPanel';
-import AiSummaryBlock from '../../components/casev2/blocks/AiSummaryBlock';
-import AnamnesisBlock from '../../components/casev2/blocks/AnamnesisBlock';
-import MeasuresBlock from '../../components/casev2/blocks/MeasuresBlock';
-import ChartsBlock from '../../components/casev2/blocks/ChartsBlock';
-import DocumentsBlock from '../../components/casev2/blocks/DocumentsBlock';
-import PrescriptionBlock from '../../components/casev2/blocks/PrescriptionBlock';
-import DiagnosticBlock from '../../components/casev2/blocks/DiagnosticBlock';
+import CaseTopBar from '../../components/case/CaseTopBar';
+import CaseNavigator from '../../components/case/CaseNavigator';
+import CopilotPanel from '../../components/case/CopilotPanel';
+import AiSummaryBlock from '../../components/case/blocks/AiSummaryBlock';
+import AnamnesisBlock from '../../components/case/blocks/AnamnesisBlock';
+import MeasuresBlock from '../../components/case/blocks/MeasuresBlock';
+import ChartsBlock from '../../components/case/blocks/ChartsBlock';
+import DocumentsBlock from '../../components/case/blocks/DocumentsBlock';
+import PrescriptionBlock from '../../components/case/blocks/PrescriptionBlock';
+import DiagnosticBlock from '../../components/case/blocks/DiagnosticBlock';
 
 import api from '../../services/api';
 import caseService from '../../services/caseService';
@@ -36,7 +36,7 @@ const LS_KEY_COPILOT      = 'case-v2:copilotOpen';
 const LS_KEY_COPILOT_EXP  = 'case-v2:copilotExpanded';
 const MOBILE_BREAKPOINT_PX = 960;
 
-export default function CaseDetailsV2() {
+export default function CaseDetails() {
   const { id } = useParams();
   const navigate = useNavigate();
 
