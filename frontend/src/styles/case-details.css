@@ -948,6 +948,63 @@ body.sidebar-collapsed .case-page__main {
   .case-mobile-tabs { display: flex; }
   .case-workspace { padding: 0; }
   .case-resize-handle { display: none; }
+
+  .case-topbar {
+    height: auto;
+    min-height: var(--workspace-topbar-height);
+    padding: 10px var(--space-3) 10px 56px;
+    gap: var(--space-2);
+    flex-wrap: wrap;
+  }
+
+  .case-topbar__back {
+    padding: 8px 10px;
+  }
+
+  .case-topbar__patient {
+    min-width: 160px;
+  }
+
+  .case-topbar__status {
+    margin-left: auto;
+  }
+
+  .case-workspace--mobile .case-navigator {
+    height: auto;
+    flex: 0 0 auto;
+    overflow-y: hidden;
+  }
+
+  .case-workspace--mobile .case-dossier__inner {
+    padding: var(--space-3);
+    gap: var(--space-3);
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .case-block {
+    padding: var(--space-4);
+    border-radius: var(--radius-lg);
+    min-width: 0;
+  }
+
+  .case-workspace--mobile,
+  .case-workspace--mobile .case-dossier {
+    overflow-x: hidden;
+  }
+
+  .ai-summary__text {
+    overflow-wrap: anywhere;
+  }
+
+  .ai-summary__bar-row {
+    grid-template-columns: minmax(0, 1fr) 56px;
+  }
+
+  .ai-summary__bar-label {
+    grid-column: 1 / -1;
+  }
 }
 
 /* Copilot expanded mode (full-width feel) */

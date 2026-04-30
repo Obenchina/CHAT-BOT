@@ -26,13 +26,17 @@ async function getDashboard(req, res) {
             return res.status(404).json({ success: false, message: 'Doctor not found' });
         }
 
-        // Stats queries
-        const [[{ pendingCases }]] = await pool.execute(
-            'SELECT COUNT(c.id) as pendingCases FROM cases c JOIN patients p ON c.patient_id = p.id WHERE p.doctor_id = ? AND c.status = "submitted"', 
-            [doctor.id]
-        );
-        const [[{ reviewedCases }]] = await pool.execute(
-            'SELECT COUNT(c.id) as reviewedCases FROM cases c JOIN patients p ON c.patient_id = p.id WHERE p.doctor_id = ? AND c.status = "reviewed"', 
+        const [[caseStats]] = await pool.execute(
+            `SELECT
+                COUNT(c.id) AS totalCases,
+                SUM(CASE WHEN c.status = 'submitted' THEN 1 ELSE 0 END) AS pendingCases,
+                SUM(CASE WHEN c.status = 'reviewed' THEN 1 ELSE 0 END) AS reviewedCases,
+                SUM(CASE WHEN DATE(c.created_at) = CURDATE() THEN 1 ELSE 0 END) AS todayCreatedCases,
+                SUM(CASE WHEN c.submitted_at IS NOT NULL AND DATE(c.submitted_at) = CURDATE() THEN 1 ELSE 0 END) AS todaySubmittedCases,
+                SUM(CASE WHEN c.reviewed_at IS NOT NULL AND DATE(c.reviewed_at) = CURDATE() THEN 1 ELSE 0 END) AS todayReviewedCases
+             FROM cases c
+             JOIN patients p ON c.patient_id = p.id
+             WHERE p.doctor_id = ?`,
             [doctor.id]
         );
         const [[{ totalAssistants }]] = await pool.execute(
@@ -41,6 +45,10 @@ async function getDashboard(req, res) {
         );
         const [[{ totalPatients }]] = await pool.execute(
             'SELECT COUNT(*) as totalPatients FROM patients WHERE doctor_id = ?', 
+            [doctor.id]
+        );
+        const [[{ todayNewPatients }]] = await pool.execute(
+            'SELECT COUNT(*) as todayNewPatients FROM patients WHERE doctor_id = ? AND DATE(created_at) = CURDATE()',
             [doctor.id]
         );
 
@@ -54,10 +62,15 @@ async function getDashboard(req, res) {
                     specialty: doctor.specialty
                 },
                 stats: {
-                    pendingCases,
-                    reviewedCases,
-                    totalAssistants,
-                    totalPatients
+                    totalCases: Number(caseStats.totalCases || 0),
+                    pendingCases: Number(caseStats.pendingCases || 0),
+                    reviewedCases: Number(caseStats.reviewedCases || 0),
+                    todayCreatedCases: Number(caseStats.todayCreatedCases || 0),
+                    todaySubmittedCases: Number(caseStats.todaySubmittedCases || 0),
+                    todayReviewedCases: Number(caseStats.todayReviewedCases || 0),
+                    todayNewPatients: Number(todayNewPatients || 0),
+                    totalAssistants: Number(totalAssistants || 0),
+                    totalPatients: Number(totalPatients || 0)
                 }
             }
         });

@@ -12,7 +12,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../../components/common/Sidebar';
 import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
@@ -97,6 +97,7 @@ export default function DoctorPatients() {
   /* mobile detail toggle */
   const [mobileDetailOpen, setMobileDetailOpen] = useState(false);
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(() => { loadPatients(); }, []);
 
   async function loadPatients() {
@@ -106,7 +107,7 @@ export default function DoctorPatients() {
       const list = Array.isArray(r?.data) ? r.data : [];
       setPatients(list);
       if (list.length && !selectedId) setSelectedId(list[0].id);
-    } catch (e) { console.error(e); setPatients([]); }
+    } catch (error) { console.error(error); setPatients([]); }
     finally { setLoading(false); }
   }
 
@@ -209,7 +210,7 @@ export default function DoctorPatients() {
         setPatients((prev) => prev.filter((x) => x.id !== p.id));
         if (selectedId === p.id) setSelectedId(null);
       }
-    } catch (e) { showError('Erreur lors de la suppression'); }
+    } catch { showError('Erreur lors de la suppression'); }
   }
   async function deleteCase(caseId) {
     const ok = await showConfirm('Supprimer cette consultation ?');
@@ -217,7 +218,7 @@ export default function DoctorPatients() {
     try {
       const r = await caseService.deleteCase(caseId);
       if (r.success) setHistory((prev) => prev.filter((c) => c.id !== caseId));
-    } catch (e) { showError('Erreur lors de la suppression'); }
+    } catch { showError('Erreur lors de la suppression'); }
   }
 
   /* render ------------------------------------------------ */
@@ -272,7 +273,7 @@ export default function DoctorPatients() {
                 {filtered.map((p, i) => {
                   const isSelected = selected?.id === p.id;
                   return (
-                    <motion.li
+                    <Motion.li
                       key={p.id}
                       initial={{ opacity: 0, x: -6 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -288,7 +289,7 @@ export default function DoctorPatients() {
                           {p.phone ? <> · {p.phone}</> : null}
                         </div>
                       </div>
-                    </motion.li>
+                    </Motion.li>
                   );
                 })}
               </ul>
@@ -343,7 +344,7 @@ export default function DoctorPatients() {
                   <div className="pat-tab-content">
                     <AnimatePresence mode="wait">
                       {tab === 'profile' && (
-                        <motion.div key="profile" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} className="pat-block">
+                        <Motion.div key="profile" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} className="pat-block">
                           <h3>Informations</h3>
                           <dl className="pat-info">
                             <div><dt>Prénom</dt><dd>{selected.firstName || selected.first_name}</dd></div>
@@ -354,11 +355,11 @@ export default function DoctorPatients() {
                             <div><dt>Adresse</dt><dd>{selected.address || '—'}</dd></div>
                             <div><dt>Frères/sœurs</dt><dd>{(selected.siblingsAlive ?? 0)} vivants · {(selected.siblingsDeceased ?? 0)} décédés</dd></div>
                           </dl>
-                        </motion.div>
+                        </Motion.div>
                       )}
 
                       {tab === 'consultations' && (
-                        <motion.div key="cons" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} className="pat-block">
+                        <Motion.div key="cons" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} className="pat-block">
                           <h3>Consultations</h3>
                           {historyLoading ? (
                             <div className="pat-loading-inline"><LoadingSpinner size="sm" /></div>
@@ -384,11 +385,11 @@ export default function DoctorPatients() {
                               })}
                             </ul>
                           )}
-                        </motion.div>
+                        </Motion.div>
                       )}
 
                       {tab === 'mesures' && (
-                        <motion.div key="mes" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} className="pat-block">
+                        <Motion.div key="mes" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} className="pat-block">
                           <h3>Courbes pédiatriques</h3>
                           {measurementsLoading ? (
                             <div className="pat-loading-inline"><LoadingSpinner size="sm" /></div>
@@ -410,13 +411,14 @@ export default function DoctorPatients() {
                               {activeMeasure && (
                                 <PatientMeasurementsChart
                                   patient={selected}
-                                  measurements={measurements[activeMeasure]}
-                                  measureType={activeMeasure}
+                                  data={measurements[activeMeasure]}
+                                  measureKey={activeMeasure}
+                                  height={480}
                                 />
                               )}
                             </>
                           )}
-                        </motion.div>
+                        </Motion.div>
                       )}
                     </AnimatePresence>
                   </div>

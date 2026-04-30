@@ -366,6 +366,39 @@ const Catalogue = {
         } finally {
             connection.release();
         }
+    },
+
+    async getSections() {
+        return [];
+    },
+
+    async getSectionById() {
+        return null;
+    },
+
+    async ensureSectionByName(catalogueId, name, sectionOrder = 0) {
+        return {
+            id: null,
+            catalogue_id: catalogueId,
+            name: String(name || '').trim(),
+            section_order: Number(sectionOrder || 0)
+        };
+    },
+
+    async createSection(catalogueId, name) {
+        return this.ensureSectionByName(catalogueId, name, 0);
+    },
+
+    async renameSection() {
+        return false;
+    },
+
+    async reorderSections() {
+        return true;
+    },
+
+    async deleteSection() {
+        return true;
     }
 };
 

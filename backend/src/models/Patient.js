@@ -67,7 +67,7 @@ const Patient = {
              JOIN case_answers ca ON c.id = ca.case_id
              JOIN questions q ON ca.question_id = q.id
              WHERE c.patient_id = ? 
-             AND ca.answer_type_snapshot = 'number'
+             AND COALESCE(ca.answer_type_snapshot, q.answer_type) = 'number'
              AND q.clinical_measure IS NOT NULL 
              AND q.clinical_measure != 'none'
              ORDER BY c.created_at ASC`,

@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { motion as Motion, AnimatePresence } from 'framer-motion';
 import Sidebar from '../../components/common/Sidebar';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import doctorService from '../../services/doctorService';
@@ -16,21 +16,56 @@ import DeleteIcon from '@mui/icons-material/Delete';
 import ArrowForwardIcon from '@mui/icons-material/ArrowForward';
 import InboxIcon from '@mui/icons-material/Inbox';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
 import SearchIcon from '@mui/icons-material/Search';
 
 /* -------------------------------------------------------------- */
 /* Helpers                                                         */
 /* -------------------------------------------------------------- */
 function getInitials(p) {
-  if (!p) return '·';
-  const f = (p.firstName || p.first_name || '').trim();
-  const l = (p.lastName || p.last_name || '').trim();
-  return ((f[0] || '') + (l[0] || '')).toUpperCase() || '·';
+  if (!p) return '.';
+  const f = (p.firstName || p.first_name || p.patient_first_name || '').trim();
+  const l = (p.lastName || p.last_name || p.patient_last_name || '').trim();
+  const name = (p.patientName || p.patient_name || '').trim();
+  if (f || l) return ((f[0] || '') + (l[0] || '')).toUpperCase() || '.';
+  return name
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || '.';
 }
 function getFullName(p) {
   if (!p) return 'Patient';
-  return `${p.firstName || p.first_name || ''} ${p.lastName || p.last_name || ''}`.trim() || 'Patient';
+  return (
+    p.patientName ||
+    p.patient_name ||
+    `${p.firstName || p.first_name || p.patient_first_name || ''} ${p.lastName || p.last_name || p.patient_last_name || ''}`.trim() ||
+    'Patient'
+  );
+}
+function getCasePatient(c) {
+  return c?.patient || c || null;
+}
+function getDoctorFullName(doctor) {
+  if (!doctor) return '';
+  return `${doctor.firstName || doctor.first_name || ''} ${doctor.lastName || doctor.last_name || ''}`.trim();
+}
+function getCaseDate(c) {
+  return c?.submittedAt || c?.submitted_at || c?.reviewedAt || c?.reviewed_at || c?.date || c?.createdAt || c?.created_at || null;
+}
+function isToday(value) {
+  if (!value) return false;
+  const d = new Date(value);
+  if (Number.isNaN(d.getTime())) return false;
+  const now = new Date();
+  return d.getFullYear() === now.getFullYear() &&
+    d.getMonth() === now.getMonth() &&
+    d.getDate() === now.getDate();
+}
+function statNumber(value, fallback = 0) {
+  const n = Number(value ?? fallback ?? 0);
+  return Number.isFinite(n) ? n : 0;
 }
 function relativeTime(date) {
   if (!date) return '';
@@ -58,7 +93,7 @@ function groupByDay(items) {
   const today = new Date(); today.setHours(0,0,0,0);
   const buckets = { today: [], yesterday: [], week: [], earlier: [] };
   for (const it of items) {
-    const d = new Date(it.date || it.createdAt || it.created_at || Date.now());
+    const d = new Date(getCaseDate(it) || Date.now());
     d.setHours(0,0,0,0);
     const diff = (today - d) / 86400000;
     if (diff <= 0) buckets.today.push(it);
@@ -75,12 +110,13 @@ function groupByDay(items) {
 export default function DoctorDashboard() {
   const navigate = useNavigate();
   const [stats, setStats] = useState(null);
+  const [doctor, setDoctor] = useState(null);
   const [cases, setCases] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('submitted');
   const [query, setQuery] = useState('');
 
-  useEffect(() => { load(); /* eslint-disable-next-line */ }, []);
+  useEffect(() => { load(); }, []);
 
   async function load() {
     setLoading(true);
@@ -89,7 +125,10 @@ export default function DoctorDashboard() {
         doctorService.getDashboard(),
         caseService.getAll(null),
       ]);
-      if (statsRes.success) setStats(statsRes.data.stats || statsRes.data);
+      if (statsRes.success) {
+        setStats(statsRes.data.stats || statsRes.data);
+        setDoctor(statsRes.data.doctor || null);
+      }
       if (casesRes.success) setCases(Array.isArray(casesRes.data) ? casesRes.data : []);
     } catch (e) {
       console.error('Dashboard load error:', e);
@@ -106,9 +145,12 @@ export default function DoctorDashboard() {
       if (r.success) {
         setCases((p) => p.filter((c) => c.id !== id));
         const s = await doctorService.getDashboard();
-        if (s.success) setStats(s.data.stats || s.data);
+        if (s.success) {
+          setStats(s.data.stats || s.data);
+          setDoctor(s.data.doctor || null);
+        }
       }
-    } catch (e) {
+    } catch {
       showError('Erreur lors de la suppression');
     }
   }
@@ -119,11 +161,11 @@ export default function DoctorDashboard() {
     if (query.trim()) {
       const q = query.toLowerCase();
       list = list.filter((c) => {
-        const name = getFullName(c.patient).toLowerCase();
+        const name = getFullName(getCasePatient(c)).toLowerCase();
         return name.includes(q) || (c.complaint || '').toLowerCase().includes(q);
       });
     }
-    list.sort((a, b) => new Date(b.date || b.createdAt || 0) - new Date(a.date || a.createdAt || 0));
+    list.sort((a, b) => new Date(getCaseDate(b) || 0) - new Date(getCaseDate(a) || 0));
     return list;
   }, [cases, filter, query]);
 
@@ -140,7 +182,29 @@ export default function DoctorDashboard() {
 
   const buckets = useMemo(() => groupByDay(filtered), [filtered]);
 
-  const submitted = (cases || []).filter((c) => c.status === 'submitted').slice(0, 5);
+  const doctorName = getDoctorFullName(doctor);
+  const pendingCount = statNumber(stats?.pendingCases, (cases || []).filter((c) => c.status === 'submitted').length);
+  const totalMetrics = useMemo(() => ({
+    totalCases: statNumber(stats?.totalCases, (cases || []).length),
+    totalPatients: statNumber(stats?.totalPatients, 0),
+    reviewedCases: statNumber(stats?.reviewedCases, (cases || []).filter((c) => c.status === 'reviewed').length),
+    totalAssistants: statNumber(stats?.totalAssistants, 0),
+  }), [cases, stats]);
+  const todayMetrics = useMemo(() => ({
+    createdCases: statNumber(
+      stats?.todayCreatedCases,
+      (cases || []).filter((c) => isToday(c.createdAt || c.created_at)).length
+    ),
+    submittedCases: statNumber(
+      stats?.todaySubmittedCases,
+      (cases || []).filter((c) => isToday(c.submittedAt || c.submitted_at)).length
+    ),
+    reviewedCases: statNumber(
+      stats?.todayReviewedCases,
+      (cases || []).filter((c) => isToday(c.reviewedAt || c.reviewed_at)).length
+    ),
+    newPatients: statNumber(stats?.todayNewPatients, 0),
+  }), [cases, stats]);
 
   return (
     <div className="layout internal-shell doctor-dashboard-shell">
@@ -148,7 +212,7 @@ export default function DoctorDashboard() {
 
       <main className="main-content dash-shell">
         {/* ============ HERO TOPBAR ============ */}
-        <motion.header
+        <Motion.header
           className="dash-hero"
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
@@ -156,11 +220,13 @@ export default function DoctorDashboard() {
         >
           <div className="dash-hero__left">
             <p className="dash-hero__day">{today.charAt(0).toUpperCase() + today.slice(1)}</p>
-            <h1 className="dash-hero__title">{greeting}, Dr. Bennani.</h1>
+            <h1 className="dash-hero__title">
+              {greeting}, {doctorName ? `Dr. ${doctorName}` : 'Docteur'}.
+            </h1>
             <p className="dash-hero__subtitle">
-              {submitted.length > 0
-                ? `${submitted.length} ${submitted.length > 1 ? 'dossiers nécessitent' : 'dossier nécessite'} votre validation aujourd'hui.`
-                : "Aucun dossier en attente. Bonne journée."}
+              {pendingCount > 0
+                ? `${pendingCount} ${pendingCount > 1 ? 'dossiers nécessitent' : 'dossier nécessite'} votre validation.`
+                : 'Aucun dossier en attente. Bonne journée.'}
             </p>
           </div>
 
@@ -173,11 +239,8 @@ export default function DoctorDashboard() {
                 placeholder="Rechercher patient, motif…"
               />
             </div>
-            <button className="btn btn-primary" onClick={() => navigate('/doctor/patients')}>
-              <AddCircleOutlineIcon fontSize="small" /> Nouveau patient
-            </button>
           </div>
-        </motion.header>
+        </Motion.header>
 
         {loading && !stats ? (
           <div className="dash-loading">
@@ -210,19 +273,19 @@ export default function DoctorDashboard() {
               </div>
 
               {filtered.length === 0 ? (
-                <motion.div
+                <Motion.div
                   className="dash-empty"
                   initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                 >
                   <InboxIcon style={{ fontSize: 56, opacity: 0.4 }} />
                   <h3>Boîte vide</h3>
                   <p>Aucun dossier ne correspond à ce filtre.</p>
-                </motion.div>
+                </Motion.div>
               ) : (
                 <AnimatePresence mode="popLayout">
                   {Object.entries(buckets).map(([key, list]) =>
                     list.length === 0 ? null : (
-                      <motion.div
+                      <Motion.div
                         key={key}
                         layout
                         initial={{ opacity: 0, y: 6 }}
@@ -240,7 +303,7 @@ export default function DoctorDashboard() {
                           {list.map((c, i) => {
                             const s = statusInfo(c.status);
                             return (
-                              <motion.li
+                              <Motion.li
                                 key={c.id}
                                 layout
                                 initial={{ opacity: 0, x: -6 }}
@@ -249,10 +312,10 @@ export default function DoctorDashboard() {
                                 className="dash-row"
                                 onClick={() => navigate(`/doctor/cases/${c.id}`)}
                               >
-                                <div className="dash-row__avatar">{getInitials(c.patient)}</div>
+                                <div className="dash-row__avatar">{getInitials(getCasePatient(c))}</div>
                                 <div className="dash-row__main">
                                   <div className="dash-row__name">
-                                    {getFullName(c.patient)}
+                                    {getFullName(getCasePatient(c))}
                                     <span className="dash-row__status">
                                       <span className="dash-row__dot" style={{ background: s.dot }} />
                                       {s.label}
@@ -264,7 +327,7 @@ export default function DoctorDashboard() {
                                 </div>
                                 <div className="dash-row__meta">
                                   <span className="dash-row__time">
-                                    <AccessTimeIcon fontSize="inherit" /> {relativeTime(c.date || c.createdAt)}
+                                    <AccessTimeIcon fontSize="inherit" /> {relativeTime(getCaseDate(c))}
                                   </span>
                                   <button
                                     className="dash-row__del"
@@ -275,103 +338,94 @@ export default function DoctorDashboard() {
                                   </button>
                                   <ArrowForwardIcon className="dash-row__arrow" fontSize="small" />
                                 </div>
-                              </motion.li>
+                              </Motion.li>
                             );
                           })}
                         </ul>
-                      </motion.div>
+                      </Motion.div>
                     )
                   )}
                 </AnimatePresence>
               )}
             </section>
 
-            {/* ============ SIDE COLUMN — METRICS + QUICK ACTIONS ============ */}
+            {/* ============ SIDE COLUMN - METRICS ============ */}
             <aside className="dash-col-side">
-              <motion.div
+              <Motion.div
                 className="dash-side-card"
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <h3 className="dash-side-title">Aperçu</h3>
+                <h3 className="dash-side-title">Base de données</h3>
                 <ul className="dash-metrics">
                   <li>
                     <span className="dash-metric__icon dash-metric__icon--info"><AssignmentIcon fontSize="small" /></span>
                     <div>
-                      <div className="dash-metric__value">{stats?.pendingCases ?? 0}</div>
+                      <div className="dash-metric__value">{totalMetrics.totalCases}</div>
+                      <div className="dash-metric__label">Dossiers</div>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="dash-metric__icon dash-metric__icon--brand"><PersonIcon fontSize="small" /></span>
+                    <div>
+                      <div className="dash-metric__value">{totalMetrics.totalPatients}</div>
+                      <div className="dash-metric__label">Patients</div>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="dash-metric__icon dash-metric__icon--success"><CheckCircleIcon fontSize="small" /></span>
+                    <div>
+                      <div className="dash-metric__value">{totalMetrics.reviewedCases}</div>
+                      <div className="dash-metric__label">Validés</div>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="dash-metric__icon dash-metric__icon--neutral"><GroupsIcon fontSize="small" /></span>
+                    <div>
+                      <div className="dash-metric__value">{totalMetrics.totalAssistants}</div>
+                      <div className="dash-metric__label">Assistants</div>
+                    </div>
+                  </li>
+                </ul>
+              </Motion.div>
+
+              <Motion.div
+                className="dash-side-card dash-side-card--accent"
+                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.18 }}
+              >
+                <h3 className="dash-side-title">Aujourd'hui</h3>
+                <ul className="dash-metrics">
+                  <li>
+                    <span className="dash-metric__icon dash-metric__icon--info"><AssignmentIcon fontSize="small" /></span>
+                    <div>
+                      <div className="dash-metric__value">{todayMetrics.createdCases}</div>
+                      <div className="dash-metric__label">Dossiers créés</div>
+                    </div>
+                  </li>
+                  <li>
+                    <span className="dash-metric__icon dash-metric__icon--neutral"><AccessTimeIcon fontSize="small" /></span>
+                    <div>
+                      <div className="dash-metric__value">{todayMetrics.submittedCases}</div>
                       <div className="dash-metric__label">À examiner</div>
                     </div>
                   </li>
                   <li>
                     <span className="dash-metric__icon dash-metric__icon--success"><CheckCircleIcon fontSize="small" /></span>
                     <div>
-                      <div className="dash-metric__value">{stats?.reviewedCases ?? 0}</div>
+                      <div className="dash-metric__value">{todayMetrics.reviewedCases}</div>
                       <div className="dash-metric__label">Validés</div>
                     </div>
                   </li>
                   <li>
                     <span className="dash-metric__icon dash-metric__icon--brand"><PersonIcon fontSize="small" /></span>
                     <div>
-                      <div className="dash-metric__value">{stats?.totalPatients ?? 0}</div>
-                      <div className="dash-metric__label">Patients</div>
-                    </div>
-                  </li>
-                  <li>
-                    <span className="dash-metric__icon dash-metric__icon--neutral"><GroupsIcon fontSize="small" /></span>
-                    <div>
-                      <div className="dash-metric__value">{stats?.totalAssistants ?? 0}</div>
-                      <div className="dash-metric__label">Collaborateurs</div>
+                      <div className="dash-metric__value">{todayMetrics.newPatients}</div>
+                      <div className="dash-metric__label">Nouveaux patients</div>
                     </div>
                   </li>
                 </ul>
-              </motion.div>
-
-              <motion.div
-                className="dash-side-card"
-                initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.18 }}
-              >
-                <h3 className="dash-side-title">Accès rapide</h3>
-                <div className="dash-quick">
-                  <Link to="/doctor/patients" className="dash-quick__item">
-                    <PersonIcon fontSize="small" />
-                    <span>Registre patients</span>
-                    <ArrowForwardIcon fontSize="inherit" />
-                  </Link>
-                  <Link to="/doctor/catalogue" className="dash-quick__item">
-                    <AssignmentIcon fontSize="small" />
-                    <span>Référentiel questions</span>
-                    <ArrowForwardIcon fontSize="inherit" />
-                  </Link>
-                  <Link to="/doctor/settings" className="dash-quick__item">
-                    <GroupsIcon fontSize="small" />
-                    <span>Paramètres & équipe</span>
-                    <ArrowForwardIcon fontSize="inherit" />
-                  </Link>
-                </div>
-              </motion.div>
-
-              {submitted.length > 0 && (
-                <motion.div
-                  className="dash-side-card dash-side-card--accent"
-                  initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: 0.26 }}
-                >
-                  <h3 className="dash-side-title">Priorité du jour</h3>
-                  <ul className="dash-priority">
-                    {submitted.map((c) => (
-                      <li key={c.id} onClick={() => navigate(`/doctor/cases/${c.id}`)}>
-                        <span className="dash-row__avatar dash-row__avatar--sm">{getInitials(c.patient)}</span>
-                        <div>
-                          <div className="dash-priority__name">{getFullName(c.patient)}</div>
-                          <div className="dash-priority__meta">{relativeTime(c.date || c.createdAt)}</div>
-                        </div>
-                        <ArrowForwardIcon fontSize="inherit" />
-                      </li>
-                    ))}
-                  </ul>
-                </motion.div>
-              )}
+              </Motion.div>
             </aside>
           </div>
         )}

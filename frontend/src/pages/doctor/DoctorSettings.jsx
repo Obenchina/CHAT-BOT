@@ -285,7 +285,7 @@ function ProfileTab() {
                     <div className="profile-section-card">
                         <div className="section-header">
                             <div className="section-title"><span></span> Informations Personnelles</div>
-                            {!isEditing && <button className="btn-edit" onClick={() => setIsEditing(true)}> Modifier</button>}
+                            {!isEditing && <Button variant="secondary" size="sm" onClick={() => setIsEditing(true)}>Modifier</Button>}
                         </div>
 
                         {message.text && <div className={`alert alert-${message.type} mb-4`}>{message.text}</div>}
@@ -329,8 +329,8 @@ function ProfileTab() {
                                     </div>
                                 </div>
                                 <div className="form-actions">
-                                    <button type="button" className="btn-cancel" onClick={() => { setIsEditing(false); loadProfile(); }} disabled={saving}>Annuler</button>
-                                    <button type="submit" className="btn-save" disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</button>
+                                    <Button type="button" variant="secondary" onClick={() => { setIsEditing(false); loadProfile(); }} disabled={saving}>Annuler</Button>
+                                    <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Enregistrement...' : 'Enregistrer'}</Button>
                                 </div>
                             </form>
                         ) : (
@@ -352,7 +352,7 @@ function ProfileTab() {
                         </div>
                         <div className="space-y-4">
                             <p className="text-gray-500 text-sm">Gérez votre mot de passe et la sécurité de votre compte.</p>
-                            <button className="btn-password" onClick={() => setShowPasswordModal(true)}> Changer le mot de passe</button>
+                            <Button variant="secondary" fullWidth onClick={() => setShowPasswordModal(true)}>Changer le mot de passe</Button>
                         </div>
                     </div>
                 </div>
@@ -374,8 +374,8 @@ function ProfileTab() {
                                     <div className="input-group"><label>Confirmer le mot de passe</label><input type="password" className="input-field" value={passwordData.confirm} onChange={(e) => setPasswordData({ ...passwordData, confirm: e.target.value })} required minLength={6} placeholder="Repetez le mot de passe" /></div>
                                 </div>
                                 <div className="modal-footer">
-                                    <button type="button" className="btn-cancel" onClick={() => setShowPasswordModal(false)}>Annuler</button>
-                                    <button type="submit" className="btn-save" disabled={saving}>{saving ? 'Modification...' : 'Confirmer'}</button>
+                                    <Button type="button" variant="secondary" onClick={() => setShowPasswordModal(false)}>Annuler</Button>
+                                    <Button type="submit" variant="primary" disabled={saving}>{saving ? 'Modification...' : 'Confirmer'}</Button>
                                 </div>
                             </form>
                         </div>

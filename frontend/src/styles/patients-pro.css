@@ -450,8 +450,19 @@
 }
 @media (max-width: 768px) {
   .pat-toolbar { padding: var(--space-3) var(--space-4); }
-  .pat-toolbar__actions { width: 100%; }
-  .pat-search { flex: 1; min-width: 0; width: auto; }
+  .pat-toolbar__actions {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+  .pat-search {
+    grid-column: 1 / -1;
+    width: 100%;
+  }
+  .pat-filter {
+    width: 100%;
+    min-width: 0;
+  }
   .pat-split { grid-template-columns: 1fr; position: relative; }
   .pat-list { display: block; }
   .pat-detail {

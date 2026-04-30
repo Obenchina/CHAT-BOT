@@ -89,7 +89,35 @@
   line-height: 1.55;
 }
 
+.catalogue-expanded-panel .desktop-table-container {
+  overflow-x: auto;
+}
+
+.catalogue-question-table {
+  table-layout: auto;
+  min-width: 760px;
+}
+
+.catalogue-question-table .col-truncate {
+  max-width: none;
+  white-space: normal;
+  overflow: visible;
+  text-overflow: clip;
+  line-height: 1.45;
+  color: var(--color-text-primary);
+}
+
+.catalogue-question-table td {
+  vertical-align: top;
+}
+
 @media (max-width: 768px) {
   .cat-topbar { padding: var(--space-3) var(--space-4); }
   .cat-body { padding: var(--space-4); }
+  .catalogue-expanded-panel .desktop-table-container {
+    margin-inline: calc(-1 * var(--space-2));
+  }
+  .catalogue-question-table {
+    min-width: 680px;
+  }
 }
