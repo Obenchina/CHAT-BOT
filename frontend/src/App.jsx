@@ -22,11 +22,9 @@ import './styles/components.css';
 // new flat surfaces win the cascade. Otherwise lazy routes inject these
 // later and shadow the redesign.)
 import './styles/internal-premium.css';
-import './styles/dashboard.css';
 import './styles/profile.css';
 import './styles/pages.css';
 import './styles/auth.css';
-import './styles/questionnaire.css';
 import './styles/entretien.css';
 
 // New unified design layer — must be LAST.

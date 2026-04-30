@@ -6,7 +6,6 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import doctorService from '../../services/doctorService';
 import caseService from '../../services/caseService';
 import { showError, showConfirm } from '../../utils/toast';
-import '../../styles/dashboard.css';
 
 import AssignmentIcon from '@mui/icons-material/Assignment';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
