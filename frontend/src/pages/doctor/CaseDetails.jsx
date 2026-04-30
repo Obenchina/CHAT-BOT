@@ -630,7 +630,7 @@ export default function CaseDetails() {
         </div>
 
         {previewDoc && (
-          <DocumentPreviewModal document={previewDoc} onClose={() => setPreviewDoc(null)} />
+          <DocumentPreviewModal document={previewDoc} isOpen={Boolean(previewDoc)} onClose={() => setPreviewDoc(null)} />
         )}
       </div>
     </div>
