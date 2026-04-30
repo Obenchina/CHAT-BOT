@@ -243,7 +243,23 @@ export default function DoctorPatients() {
               />
               {query && <button className="pat-search__clear" onClick={() => setQuery('')}><CloseIcon fontSize="inherit" /></button>}
             </div>
-            <select className="pat-filter" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}>
+            <div className="pat-mobile-segmented" aria-label="Filtrer par sexe">
+              {[
+                ['all', 'Tous'],
+                ['male', 'Garçons'],
+                ['female', 'Filles']
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  className={genderFilter === value ? 'is-active' : ''}
+                  onClick={() => setGenderFilter(value)}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <select className="pat-filter pat-filter--gender" value={genderFilter} onChange={(e) => setGenderFilter(e.target.value)}>
               <option value="all">Tous les sexes</option>
               <option value="male">Garçons</option>
               <option value="female">Filles</option>

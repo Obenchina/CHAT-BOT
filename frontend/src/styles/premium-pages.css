@@ -604,10 +604,16 @@
     color: var(--color-text-primary);
   }
 
+  .internal-shell .chatgpt-toggle-btn {
+    display: none !important;
+  }
+
   .internal-shell .dash-hero,
   .internal-shell .pat-toolbar,
   .internal-shell .cat-topbar,
-  .internal-shell .set-topbar {
-    padding-left: 56px !important;
+  .internal-shell .set-topbar,
+  .internal-shell .page-header {
+    padding-left: var(--space-4) !important;
+    padding-top: 52px !important;
   }
 }

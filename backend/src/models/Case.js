@@ -250,11 +250,11 @@ const Case = {
             caseId,
             questionId,
             audioPath,
-            textAnswer,
             questionTextSnapshot,
             answerTypeSnapshot,
             orderIndexSnapshot
         } = answerData;
+        const textAnswer = answerData.textAnswer ?? answerData.transcribedText;
 
         const [result] = await pool.execute(
             `INSERT INTO case_answers (
@@ -293,11 +293,11 @@ const Case = {
     async updateAnswer(id, updateData) {
         const {
             audioPath,
-            textAnswer,
             questionTextSnapshot,
             answerTypeSnapshot,
             orderIndexSnapshot
         } = updateData;
+        const textAnswer = updateData.textAnswer ?? updateData.transcribedText;
 
         const updates = [];
         const params = [];

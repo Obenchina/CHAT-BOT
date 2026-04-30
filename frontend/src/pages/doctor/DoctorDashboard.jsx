@@ -114,6 +114,7 @@ export default function DoctorDashboard() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('submitted');
   const [query, setQuery] = useState('');
+  const [metricView, setMetricView] = useState('today');
 
   useEffect(() => { load(); }, []);
 
@@ -349,13 +350,30 @@ export default function DoctorDashboard() {
             </section>
 
             {/* ============ SIDE COLUMN - METRICS ============ */}
-            <aside className="dash-col-side">
+            <aside className="dash-col-side" data-metric-view={metricView}>
+              <div className="dash-metric-switch" role="tablist" aria-label="Statistiques">
+                <button
+                  type="button"
+                  className={`dash-metric-switch__btn${metricView === 'today' ? ' is-active' : ''}`}
+                  onClick={() => setMetricView('today')}
+                >
+                  Aujourd'hui
+                </button>
+                <button
+                  type="button"
+                  className={`dash-metric-switch__btn${metricView === 'total' ? ' is-active' : ''}`}
+                  onClick={() => setMetricView('total')}
+                >
+                  Vue globale
+                </button>
+              </div>
+
               <Motion.div
-                className="dash-side-card"
+                className="dash-side-card dash-side-card--total"
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.1 }}
               >
-                <h3 className="dash-side-title">Base de données</h3>
+                <h3 className="dash-side-title">Vue globale</h3>
                 <ul className="dash-metrics">
                   <li>
                     <span className="dash-metric__icon dash-metric__icon--info"><AssignmentIcon fontSize="small" /></span>
@@ -389,7 +407,7 @@ export default function DoctorDashboard() {
               </Motion.div>
 
               <Motion.div
-                className="dash-side-card dash-side-card--accent"
+                className="dash-side-card dash-side-card--accent dash-side-card--today"
                 initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.18 }}
               >

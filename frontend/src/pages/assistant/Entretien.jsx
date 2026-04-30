@@ -266,10 +266,8 @@ export default function Entretien() {
   const [questions, setQuestions] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [answers, setAnswers] = useState({});
-  const [internalNotes, setInternalNotes] = useState({});
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const [showShortcuts, setShowShortcuts] = useState(false);
 
   // recording state
   const [isRecording, setIsRecording] = useState(false);
@@ -361,7 +359,16 @@ export default function Entretien() {
           const fd = new FormData();
           fd.append('audio', answerData.audioBlob, 'recording.webm');
           fd.append('questionId', question.id);
-          await caseService.addAnswer(caseId, fd);
+          const res = await caseService.addAnswer(caseId, fd);
+          if (res.success && res.data?.transcribedText) {
+            setAnswers(prev => ({
+              ...prev,
+              [question.id]: {
+                ...prev[question.id],
+                value: res.data.transcribedText
+              }
+            }));
+          }
         } else if (['yes_no', 'choices', 'text_short', 'text_long', 'number'].includes(answerData.type)) {
           await caseService.addTextAnswer(caseId, {
             questionId: question.id,
@@ -392,11 +399,15 @@ export default function Entretien() {
       mediaRecorderRef.current = mr;
       audioChunksRef.current = [];
       mr.ondataavailable = (e) => { audioChunksRef.current.push(e.data); };
-      mr.onstop = () => {
+      mr.onstop = async () => {
         const blob = new Blob(audioChunksRef.current, { type: 'audio/webm' });
         const url = URL.createObjectURL(blob);
-        setAnswers(prev => ({ ...prev, [currentQuestion.id]: { type: 'voice', audioBlob: blob, audioUrl: url } }));
+        const ans = { type: 'voice', audioBlob: blob, audioUrl: url };
+        setAnswers(prev => ({ ...prev, [currentQuestion.id]: ans }));
         stream.getTracks().forEach(t => t.stop());
+        
+        // Trigger immediate save for instant transcription
+        saveAnswer(currentQuestion, ans);
       };
       recordStartRef.current = Date.now();
       setRecordTime('00:00');
@@ -529,7 +540,7 @@ export default function Entretien() {
 
   // ---- Keyboard shortcuts ----
   useEffect(() => {
-    if (!currentQuestion || showShortcuts) return;
+    if (!currentQuestion) return;
     const at = currentQuestion.answerType || currentQuestion.answer_type;
     const choices = currentQuestion.choices;
 
@@ -537,12 +548,6 @@ export default function Entretien() {
       // ignore when typing in input (except for ctrl combos)
       const tag = e.target.tagName;
       const isText = (tag === 'INPUT' || tag === 'TEXTAREA');
-
-      if (e.key === '?') { e.preventDefault(); setShowShortcuts(true); return; }
-      if (e.key === 'Escape') {
-        if (showShortcuts) setShowShortcuts(false);
-        return;
-      }
 
       if (e.key === 'ArrowRight' && !isText) { e.preventDefault(); goNext(); return; }
       if (e.key === 'ArrowLeft' && !isText) { e.preventDefault(); goPrev(); return; }
@@ -579,9 +584,8 @@ export default function Entretien() {
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [currentQuestion, isRecording, answers, showShortcuts, currentIndex, questions]);
+  }, [currentQuestion, isRecording, answers, currentIndex, questions]);
 
-  // ---- Group questions by section for plan & recap ----
   const grouped = useMemo(() => {
     const map = new Map();
     questions.forEach((q, idx) => {
@@ -629,7 +633,7 @@ export default function Entretien() {
       <div className="entretien-page__main">
         {/* Top bar */}
         <header className="entretien-topbar">
-          <button className="entretien-topbar__back" onClick={() => navigate(-1)}>← Quitter</button>
+          <button className="entretien-topbar__back" onClick={() => navigate('/assistant/patients')}>← Quitter</button>
           {patient && (
             <div className="entretien-topbar__patient">
               <div className="entretien-topbar__avatar">
@@ -655,9 +659,6 @@ export default function Entretien() {
               <div className="entretien-topbar__progress-fill" style={{ width: `${progressPct}%` }} />
             </div>
           </div>
-          <button className="entretien-topbar__shortcuts" onClick={() => setShowShortcuts(true)} title="Afficher les raccourcis (?)">
-            ⌨ Raccourcis
-          </button>
         </header>
 
         {/* 3-column workspace */}
@@ -765,15 +766,7 @@ export default function Entretien() {
                     />
                   )}
 
-                  {/* internal note */}
-                  <div className="entretien-note">
-                    <div className="entretien-note__label">📝 Note interne (assistant uniquement)</div>
-                    <textarea
-                      value={internalNotes[currentQuestion.id] || ''}
-                      onChange={(e) => setInternalNotes(prev => ({ ...prev, [currentQuestion.id]: e.target.value }))}
-                      placeholder="Observation pour le médecin (non envoyée comme réponse)"
-                    />
-                  </div>
+                  {/* internal note removed */}
                 </MotionDiv>
               </AnimatePresence>
             </div>
@@ -798,7 +791,7 @@ export default function Entretien() {
                       <div className="entretien-recap__group-title">{sec}</div>
                       {answered.map(({ q }) => {
                         const a = answers[q.id];
-                        let display = a.value || (a.audioUrl ? '🎙 Audio enregistré' : '—');
+                        let display = a.value || (a.audioUrl ? '🎙 Transcription en cours...' : '—');
                         if (a.type === 'yes_no') display = a.value === 'yes' ? '✓ Oui' : '✗ Non';
                         return (
                           <div key={q.id} className="entretien-recap__entry">
@@ -820,9 +813,6 @@ export default function Entretien() {
           <button className="entretien-footer__btn" onClick={goPrev} disabled={currentIndex === 0}>
             ← Précédente
           </button>
-          <div style={{ fontSize: 'var(--font-size-xs)', color: 'var(--color-text-muted)' }}>
-            Astuce : <kbd style={{ background: 'var(--color-surface-2)', padding: '2px 6px', borderRadius: 4 }}>?</kbd> pour les raccourcis
-          </div>
           {isLast ? (
             <button
               className="entretien-footer__btn entretien-footer__btn--success"
@@ -840,8 +830,6 @@ export default function Entretien() {
             </button>
           )}
         </footer>
-
-        {showShortcuts && <ShortcutsModal onClose={() => setShowShortcuts(false)} />}
       </div>
     </div>
   );

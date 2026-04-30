@@ -545,18 +545,18 @@ async function addAnswer(req, res) {
             console.log(`Updating existing answer ${existingAnswer.id} for question ${questionId}`);
             await Case.updateAnswer(existingAnswer.id, {
                 audioPath,
-                transcribedText: transcribedText || null,
+                textAnswer: transcribedText || null,
                 questionTextSnapshot: existingAnswer.question_text_snapshot || questionContext.snapshot.questionTextSnapshot,
                 answerTypeSnapshot: existingAnswer.answer_type_snapshot || questionContext.snapshot.answerTypeSnapshot,
                 orderIndexSnapshot: existingAnswer.order_index_snapshot ?? questionContext.snapshot.orderIndexSnapshot
             });
-            answer = { ...existingAnswer, audioPath, transcribedText };
+            answer = { ...existingAnswer, audioPath, textAnswer: transcribedText, transcribedText };
         } else {
             answer = await Case.addAnswer({
                 caseId: parseInt(id),
                 questionId,
                 audioPath,
-                transcribedText: transcribedText || null,
+                textAnswer: transcribedText || null,
                 ...questionContext.snapshot
             });
         }
@@ -570,6 +570,7 @@ async function addAnswer(req, res) {
                 id: answer.id,
                 questionId,
                 audioPath,
+                textAnswer: transcribedText || null,
                 transcribedText
             }
         });
@@ -686,6 +687,11 @@ async function submit(req, res) {
         const answers = caseData.answers || [];
         let transcriptionCount = 0;
         let missingTranscriptions = [];
+        const patientForTranscription = await Patient.findById(caseData.patient_id || caseData.patient?.id);
+        const doctorIdForTranscription = patientForTranscription ? patientForTranscription.doctor_id : null;
+        const aiCfgForTranscription = doctorIdForTranscription
+            ? await AiConfig.getEffectiveConfig(doctorIdForTranscription)
+            : null;
 
         for (const answer of answers) {
             // If answer is text-only (no audio), it's fine
@@ -697,7 +703,7 @@ async function submit(req, res) {
             if (!answer.text_answer) {
                 try {
                     console.log('🎤 Transcription needed for answer:', answer.id);
-                    const transcribedText = await aiService.transcribeAudio(answer.audio_path);
+                    const transcribedText = await aiService.transcribeAudio(answer.audio_path, aiCfgForTranscription);
                     if (transcribedText) {
                         answer.text_answer = transcribedText;
                         await Case.updateAnswer(answer.id, { textAnswer: transcribedText });
@@ -1115,6 +1121,9 @@ async function retranscribeCase(req, res) {
 
         const answers = caseData.answers || [];
         let transcribedCount = 0;
+        const patient = await Patient.findById(caseData.patient_id || caseData.patient?.id);
+        const doctorId = patient ? patient.doctor_id : null;
+        const aiCfg = doctorId ? await AiConfig.getEffectiveConfig(doctorId) : null;
 
         for (const answer of answers) {
             // Skip if no audio or already has transcription
@@ -1124,11 +1133,11 @@ async function retranscribeCase(req, res) {
             }
 
             console.log(`Transcribing answer ${answer.id}: ${answer.audio_path}`);
-            const transcribedText = await aiService.transcribeAudio(answer.audio_path);
+            const transcribedText = await aiService.transcribeAudio(answer.audio_path, aiCfg);
 
             if (transcribedText) {
                 // Update answer with transcription
-                await Case.updateAnswer(answer.id, { transcribedText });
+                await Case.updateAnswer(answer.id, { textAnswer: transcribedText });
                 transcribedCount++;
                 console.log(`Successfully transcribed answer ${answer.id}`);
             }

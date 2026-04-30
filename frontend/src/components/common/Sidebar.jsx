@@ -47,6 +47,7 @@ function Sidebar() {
     const [isCollapsed, setIsCollapsed] = useState(() => {
         return localStorage.getItem('sidebar_collapsed') === 'true';
     });
+    const sidebarIsCollapsed = isCollapsed && !mobileOpen;
 
     useEffect(() => {
         localStorage.setItem('sidebar_collapsed', isCollapsed);
@@ -122,12 +123,12 @@ function Sidebar() {
                 />
             )}
 
-            <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''} ${isCollapsed ? 'collapsed' : ''}`}>
+            <aside className={`sidebar ${mobileOpen ? 'sidebar-open' : ''} ${sidebarIsCollapsed ? 'collapsed' : ''}`}>
                 
                 {/* Header */}
                 <div className="sidebar-header">
                     {/* Collapsed State: Logo becomes the toggle button */}
-                    {isCollapsed ? (
+                    {sidebarIsCollapsed ? (
                         <div 
                             className="collapsed-logo-toggle"
                             onClick={() => setIsCollapsed(false)}
@@ -165,7 +166,7 @@ function Sidebar() {
                 </div>
 
                 {/* AI Error Banner */}
-                {aiErrorConfig && !isCollapsed && (
+                {aiErrorConfig && !sidebarIsCollapsed && (
                     <div className="sidebar-alert" style={{
                         background: 'var(--error-500)',
                         color: 'white',
@@ -194,7 +195,7 @@ function Sidebar() {
                 )}
 
                 {/* AI Error Dot for Collapsed mode */}
-                {aiErrorConfig && isCollapsed && (
+                {aiErrorConfig && sidebarIsCollapsed && (
                     <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '10px' }}>
                         <div style={{ width: '12px', height: '12px', borderRadius: '50%', background: 'var(--error-500)', border: '2px solid rgba(255,255,255,0.2)', cursor: 'pointer' }} title="⚠️ Configuration IA - Erreur" onClick={() => navigate('/doctor/settings')}></div>
                     </div>
@@ -222,7 +223,7 @@ function Sidebar() {
                                 to="/doctor/dashboard"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
-                                title={isCollapsed ? "Tableau de bord" : ""}
+                                title={sidebarIsCollapsed ? "Tableau de bord" : ""}
                             >
                                 <DashboardIcon /> <span className="sidebar-link-text">Tableau de bord</span>
                             </NavLink>
@@ -231,7 +232,7 @@ function Sidebar() {
                                 to="/doctor/patients"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
-                                title={isCollapsed ? "Registre des patients" : ""}
+                                title={sidebarIsCollapsed ? "Registre des patients" : ""}
                             >
                                 <PeopleIcon /> <span className="sidebar-link-text">Registre des patients</span>
                             </NavLink>
@@ -240,7 +241,7 @@ function Sidebar() {
                                 to="/doctor/catalogue"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
-                                title={isCollapsed ? t.doctor.catalogue : ""}
+                                title={sidebarIsCollapsed ? t.doctor.catalogue : ""}
                             >
                                 <AssignmentIcon /> <span className="sidebar-link-text">{t.doctor.catalogue}</span>
                             </NavLink>
@@ -249,7 +250,7 @@ function Sidebar() {
                                 to="/doctor/settings"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
-                                title={isCollapsed ? "Paramètres" : ""}
+                                title={sidebarIsCollapsed ? "Paramètres" : ""}
                             >
                                 <SettingsIcon /> <span className="sidebar-link-text">Paramètres</span>
                             </NavLink>
@@ -263,7 +264,7 @@ function Sidebar() {
                                 to="/assistant/patients"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
-                                title={isCollapsed ? t.assistant.patientsList : ""}
+                                title={sidebarIsCollapsed ? t.assistant.patientsList : ""}
                             >
                                 <PeopleIcon /> <span className="sidebar-link-text">{t.assistant.patientsList}</span>
                             </NavLink>
@@ -272,7 +273,7 @@ function Sidebar() {
                                 to="/assistant/profile"
                                 className={({ isActive }) => `sidebar-link ${isActive ? 'active' : ''}`}
                                 onClick={handleNavClick}
-                                title={isCollapsed ? t.assistant.profile : ""}
+                                title={sidebarIsCollapsed ? t.assistant.profile : ""}
                             >
                                 <PersonIcon /> <span className="sidebar-link-text">{t.assistant.profile}</span>
                             </NavLink>
@@ -291,12 +292,12 @@ function Sidebar() {
                     </div>
 
                     <div className="sidebar-footer-actions">
-                        <ThemeToggle isCollapsed={isCollapsed} />
+                        <ThemeToggle isCollapsed={sidebarIsCollapsed} />
 
                         <button
                             onClick={handleLogout}
                             className="theme-toggle-btn"
-                            title={isCollapsed ? t.auth.logout : ""}
+                            title={sidebarIsCollapsed ? t.auth.logout : ""}
                         >
                             <LogoutIcon fontSize="small" /> <span className="sidebar-link-text">{t.auth.logout}</span>
                         </button>

@@ -239,8 +239,8 @@ function CaseReviewPage() {
                                     {caseData.answers && caseData.answers.length > 0 ? (
                                         <div style={{ display: 'flex', flexDirection: 'column' }}>
                                             {caseData.answers.map((answer, idx) => {
-                                                const questionText = answer.question_text || answer.question?.question_text || `Question ${idx + 1}`;
-                                                const answerText = answer.text_answer || answer.textAnswer || '';
+                                                const questionText = answer.question_text_snapshot || answer.questionTextSnapshot || answer.question_text || answer.question?.question_text || `Question ${idx + 1}`;
+                                                const answerText = answer.text_answer || answer.textAnswer || answer.transcribedText || answer.transcribed_text || '';
                                                 const answerDirection = getTextDirection(answerText || questionText);
                                                 const questionIsRtl = isRtlText(questionText);
 
@@ -437,5 +437,4 @@ function CaseReviewPage() {
 }
 
 export default CaseReviewPage;
-
 

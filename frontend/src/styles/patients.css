@@ -94,6 +94,9 @@
   transition: border-color var(--duration-fast);
 }
 .pat-filter:focus { border-color: var(--color-brand-500); outline: none; }
+.pat-mobile-segmented {
+  display: none;
+}
 
 /* === SPLIT =========================================================== */
 .pat-split {
@@ -462,6 +465,36 @@
   .pat-filter {
     width: 100%;
     min-width: 0;
+    height: 34px;
+    padding: 0 8px;
+    font-size: 12px;
+  }
+  .pat-filter--gender {
+    display: none;
+  }
+  .pat-mobile-segmented {
+    display: grid;
+    grid-column: 1 / -1;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 4px;
+    width: 100%;
+    padding: 4px;
+    border: 1px solid var(--color-border-subtle);
+    border-radius: var(--radius-md);
+    background: var(--color-surface-1);
+  }
+  .pat-mobile-segmented button {
+    border: 0;
+    border-radius: calc(var(--radius-md) - 2px);
+    background: transparent;
+    color: var(--color-text-secondary);
+    font-size: 12px;
+    font-weight: var(--font-weight-semibold);
+    padding: 7px 6px;
+  }
+  .pat-mobile-segmented button.is-active {
+    background: var(--color-brand-500);
+    color: var(--color-text-inverse);
   }
   .pat-split { grid-template-columns: 1fr; position: relative; }
   .pat-list { display: block; }
