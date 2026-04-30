@@ -29,10 +29,10 @@ import './styles/entretien.css';
 
 // New unified design layer — must be LAST.
 import './styles/premium-pages.css';
-import './styles/dashboard-pro.css';
-import './styles/patients-pro.css';
-import './styles/settings-pro.css';
-import './styles/catalogue-pro.css';
+import './styles/dashboard.css';
+import './styles/patients.css';
+import './styles/settings.css';
+import './styles/catalogue.css';
 
 // Public Pages (loaded eagerly — small, always needed)
 import LandingPage from './pages/public/LandingPagePremium';
