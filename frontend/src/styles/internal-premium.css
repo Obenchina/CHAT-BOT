@@ -400,9 +400,9 @@
 }
 
 .internal-shell .btn-password {
-    background: var(--color-surface);
-    border-color: var(--color-border);
-    color: var(--color-text-primary);
+    background: var(--shell-surface-strong);
+    border-color: var(--shell-border);
+    color: var(--shell-text);
 }
 
 .internal-shell .btn-edit,

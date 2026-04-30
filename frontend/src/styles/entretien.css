@@ -664,8 +664,109 @@ body.sidebar-collapsed .entretien-page__main {
 }
 
 @media (max-width: 600px) {
-  .entretien-topbar { flex-wrap: wrap; height: auto; padding: 8px 12px; gap: 8px; }
-  .entretien-topbar__patient { order: 1; flex: 1 1 100%; min-width: 0; }
-  .entretien-stage__inner { padding: var(--space-3); }
+  .entretien-page__main {
+    height: 100dvh;
+  }
+  .entretien-topbar {
+    flex-wrap: wrap;
+    height: auto;
+    min-height: 0;
+    padding: 8px 10px;
+    gap: 8px;
+  }
+  .entretien-topbar__back {
+    padding: 6px 10px;
+  }
+  .entretien-topbar__patient {
+    order: 1;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
+  .entretien-topbar__avatar {
+    width: 32px;
+    height: 32px;
+  }
+  .entretien-topbar__progress {
+    flex: 1 1 0;
+    min-width: 120px;
+    padding-right: 0;
+  }
+  .entretien-topbar__progress-bar {
+    width: auto;
+    flex: 1;
+    min-width: 70px;
+  }
+  .entretien-topbar__shortcuts {
+    white-space: nowrap;
+    padding: 6px 10px;
+  }
+  .entretien-plan,
+  .entretien-recap {
+    max-height: 132px;
+  }
+  .entretien-plan__header,
+  .entretien-recap__header {
+    padding: 10px 12px;
+  }
+  .entretien-plan__list {
+    display: flex;
+    gap: 8px;
+    padding: 8px 12px 10px;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .entretien-plan__section {
+    flex: 0 0 max-content;
+    min-width: min(320px, 86vw);
+    margin: 0;
+    white-space: nowrap;
+  }
+  .entretien-plan__section-name {
+    padding: 0 0 6px;
+  }
+  .entretien-plan__section > button {
+    margin-right: 6px;
+  }
+  .entretien-plan__item {
+    display: inline-flex;
+    width: auto;
+    max-width: 150px;
+    min-height: 38px;
+    padding: 7px 10px;
+    border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    vertical-align: top;
+  }
+  .entretien-plan__item--current {
+    padding-left: 10px;
+    border-left: 0;
+    outline: 1px solid var(--color-brand-500);
+  }
+  .entretien-stage {
+    min-height: 0;
+    padding: var(--space-3);
+  }
+  .entretien-stage__inner { padding: 0; gap: var(--space-4); }
+  .entretien-stage__question { font-size: var(--font-size-xl); }
   .entretien-stage__qmeta { flex-wrap: wrap; gap: 6px; }
+  .entretien-footer {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+  .entretien-footer__btn {
+    min-width: 0;
+    padding: 0 12px;
+  }
+}
+
+@media (max-width: 420px) {
+  .entretien-topbar__shortcuts {
+    font-size: 0;
+    width: 40px;
+    justify-content: center;
+  }
+  .entretien-topbar__shortcuts::before {
+    content: "⌨";
+    font-size: var(--font-size-sm);
+  }
 }

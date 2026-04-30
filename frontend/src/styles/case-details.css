@@ -1007,6 +1007,70 @@ body.sidebar-collapsed .case-page__main {
   }
 }
 
+@media (max-width: 560px) {
+  .case-topbar {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr) auto;
+    align-items: center;
+    min-height: 0;
+    padding: 10px 10px 10px 50px;
+    gap: 8px;
+  }
+  .case-topbar__back {
+    grid-column: 1;
+    padding: 7px 10px;
+  }
+  .case-topbar__patient {
+    grid-column: 2;
+    min-width: 0;
+  }
+  .case-topbar__name {
+    font-size: var(--font-size-sm);
+  }
+  .case-topbar__meta {
+    display: block;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .case-topbar__avatar {
+    width: 36px;
+    height: 36px;
+  }
+  .case-topbar__status {
+    grid-column: 3;
+    justify-self: end;
+    margin-left: 0;
+    white-space: nowrap;
+    padding: 7px 12px;
+  }
+  .rx__tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .rx__tab {
+    min-width: 0;
+    justify-content: center;
+    padding: 9px 8px;
+    gap: 6px;
+    font-size: var(--font-size-xs);
+  }
+  .diagnostic__footer {
+    flex-direction: column;
+    align-items: stretch;
+    gap: var(--space-3);
+  }
+  .diagnostic__actions {
+    width: 100%;
+  }
+  .diagnostic__actions .btn {
+    flex: 1;
+    justify-content: center;
+    min-width: 0;
+  }
+}
+
 /* Copilot expanded mode (full-width feel) */
 .copilot--expanded .copilot__messages {
   max-width: 920px;

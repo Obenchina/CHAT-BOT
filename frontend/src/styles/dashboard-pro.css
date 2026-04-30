@@ -440,6 +440,22 @@
   .dash-hero__actions { width: 100%; }
   .dash-search { flex: 1; width: auto; min-width: 0; }
   .dash-grid { padding: var(--space-3) var(--space-4); gap: var(--space-3); }
+  .dash-col-side { gap: var(--space-3); }
+  .dash-side-card { padding: var(--space-4); }
+  .dash-metrics {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--space-3);
+  }
+  .dash-metrics > li {
+    align-items: flex-start;
+    min-width: 0;
+  }
+  .dash-metric__icon {
+    width: 34px;
+    height: 34px;
+  }
+  .dash-metric__value { font-size: 20px; }
   .dash-row { padding: 12px; }
   .dash-row__avatar { width: 36px; height: 36px; }
   .dash-row__time { display: none; }

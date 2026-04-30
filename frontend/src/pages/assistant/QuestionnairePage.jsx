@@ -161,7 +161,7 @@ function QuestionnairePage() {
 
                                     existingAnswers[qId] = {
                                         type: answerType,
-                                        value: transcribedText,
+                                        value: textAnswer,
                                         audioUrl: audioUrl
                                     };
                                 } else {

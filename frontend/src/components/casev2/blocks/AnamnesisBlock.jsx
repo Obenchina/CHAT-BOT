@@ -1,6 +1,8 @@
 import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
+const MotionDiv = motion.div;
+
 function groupBySection(answers = []) {
   const map = new Map();
   for (const a of answers) {
@@ -79,7 +81,7 @@ export default function AnamnesisBlock({ caseData }) {
                 </button>
                 <AnimatePresence initial={false}>
                   {isOpen && (
-                    <motion.div
+                    <MotionDiv
                       key="qa"
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
@@ -95,7 +97,7 @@ export default function AnamnesisBlock({ caseData }) {
                           </div>
                         ))}
                       </div>
-                    </motion.div>
+                    </MotionDiv>
                   )}
                 </AnimatePresence>
               </div>

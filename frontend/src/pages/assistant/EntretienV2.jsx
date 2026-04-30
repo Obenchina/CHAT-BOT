@@ -16,6 +16,10 @@ import { getAuthUploadUrl } from '../../constants/config';
 
 import '../../styles/entretien.css';
 
+const MotionButton = motion.button;
+const MotionDiv = motion.div;
+const MotionSpan = motion.span;
+
 // =====================================================
 // validation helpers
 // =====================================================
@@ -65,22 +69,22 @@ function initials(first, last) {
 function YesNoQuestion({ value, onChange }) {
   return (
     <div className="entretien-yesno">
-      <motion.button
+      <MotionButton
         whileHover={{ y: -2 }}
         whileTap={{ scale: 0.98 }}
         className={`entretien-yesno__btn entretien-yesno__btn--yes${value === 'yes' ? ' entretien-yesno__btn--selected' : ''}`}
         onClick={() => onChange('yes')}
       >
         ✓ Oui <span className="entretien-yesno__shortcut">Y</span>
-      </motion.button>
-      <motion.button
+      </MotionButton>
+      <MotionButton
         whileHover={{ y: -2 }}
         whileTap={{ scale: 0.98 }}
         className={`entretien-yesno__btn entretien-yesno__btn--no${value === 'no' ? ' entretien-yesno__btn--selected' : ''}`}
         onClick={() => onChange('no')}
       >
         ✗ Non <span className="entretien-yesno__shortcut">N</span>
-      </motion.button>
+      </MotionButton>
     </div>
   );
 }
@@ -96,7 +100,7 @@ function ChoicesQuestion({ choices = [], value, onChange }) {
       {list.map((c, i) => {
         const txt = typeof c === 'string' ? c : (c.text || c.label || '');
         return (
-          <motion.button
+          <MotionButton
             key={i}
             whileHover={{ x: 2 }}
             whileTap={{ scale: 0.98 }}
@@ -105,7 +109,7 @@ function ChoicesQuestion({ choices = [], value, onChange }) {
           >
             <span className="entretien-choices__shortcut">{i + 1}</span>
             <span>{txt}</span>
-          </motion.button>
+          </MotionButton>
         );
       })}
     </div>
@@ -115,7 +119,7 @@ function ChoicesQuestion({ choices = [], value, onChange }) {
 function VoiceQuestion({ recording, recordTime, audioUrl, onStart, onStop, onClear }) {
   return (
     <div className="entretien-voice">
-      <motion.button
+      <MotionButton
         animate={recording ? { scale: [1, 1.05, 1] } : { scale: 1 }}
         transition={{ repeat: recording ? Infinity : 0, duration: 1.4 }}
         className={`entretien-voice__btn${recording ? ' entretien-voice__btn--recording' : ''}`}
@@ -124,12 +128,12 @@ function VoiceQuestion({ recording, recordTime, audioUrl, onStart, onStop, onCle
         title={recording ? 'Arrêter (R)' : 'Enregistrer (R)'}
       >
         {recording ? '■' : '🎙'}
-      </motion.button>
+      </MotionButton>
 
       {recording && (
         <div className="entretien-voice__waveform" aria-hidden>
           {[0.3, 0.8, 0.5, 1.0, 0.6, 0.9, 0.4].map((h, i) => (
-            <motion.span
+            <MotionSpan
               key={i}
               className="entretien-voice__bar"
               animate={{ height: [`${h * 30}%`, `${h * 100}%`, `${h * 40}%`] }}
@@ -338,7 +342,6 @@ export default function EntretienV2() {
       }
     })();
     return () => { cancelled = true; };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId, selectedCatalogueId]);
 
   // beforeunload guard
@@ -702,7 +705,7 @@ export default function EntretienV2() {
           <main className="entretien-stage">
             <div className="entretien-stage__inner">
               <AnimatePresence mode="wait">
-                <motion.div
+                <MotionDiv
                   key={currentQuestion.id}
                   initial={{ opacity: 0, x: 24 }}
                   animate={{ opacity: 1, x: 0 }}
@@ -771,7 +774,7 @@ export default function EntretienV2() {
                       placeholder="Observation pour le médecin (non envoyée comme réponse)"
                     />
                   </div>
-                </motion.div>
+                </MotionDiv>
               </AnimatePresence>
             </div>
           </main>

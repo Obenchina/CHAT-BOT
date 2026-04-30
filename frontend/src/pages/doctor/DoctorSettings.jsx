@@ -492,7 +492,7 @@ function AssistantsTab() {
                     <InboxIcon style={{ fontSize: '3rem', color: 'var(--text-muted)', marginBottom: 'var(--space-md)' }} />
                     <p style={{ color: 'var(--text-muted)' }}>Aucun assistant pour le moment</p>
                     <Button variant="primary" size="sm" onClick={handleAdd} style={{ marginTop: 'var(--space-md)' }}>
-                        <AddIcon fontSize="small" /> Creer un assistant
+                        <AddIcon fontSize="small" /> Créer un assistant
                     </Button>
                 </div>
             ) : (
@@ -545,7 +545,7 @@ function AssistantsTab() {
                         <div className="modal-footer" style={{ marginTop: 'var(--space-lg)' }}>
                             <Button variant="secondary" onClick={() => setShowModal(false)}>Annuler</Button>
                             <Button variant="primary" type="submit" disabled={saving}>
-                                {saving ? 'Enregistrement...' : (editingAssistant ? 'Modifier' : 'Cr?er')}
+                                {saving ? 'Enregistrement...' : (editingAssistant ? 'Modifier' : 'Créer')}
                             </Button>
                         </div>
                     </form>
