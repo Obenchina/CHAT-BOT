@@ -827,7 +827,7 @@ function isHallucinatedTranscription(text) {
  */
 function buildChatSystemPrompt(caseData, responseLanguage = 'ar') {
     const { patient, answers, documents } = caseData;
-    
+
     let patientAge = patient.age;
     if (!patientAge && patient.date_of_birth) {
         const dob = new Date(patient.date_of_birth);
@@ -937,11 +937,11 @@ async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = nul
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
     const contents = [];
-    
+
     // Add system context as first user message
     contents.push({ role: 'user', parts: [{ text: systemContext + '\n\nابدأ المحادثة. أنا الطبيب المعالج.' }] });
     contents.push({ role: 'model', parts: [{ text: 'مرحباً دكتور. أنا مستعد لمناقشة هذه الحالة معك. كيف يمكنني مساعدتك؟' }] });
-    
+
     // Add chat history
     chatHistory.forEach(m => {
         contents.push({
@@ -949,7 +949,7 @@ async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = nul
             parts: [{ text: m.content }]
         });
     });
-    
+
     // Add new message
     contents.push({ role: 'user', parts: [{ text: newMessage }] });
 
@@ -993,7 +993,7 @@ async function suggestMedications(caseData, aiConfig = null) {
     }
 
     const aiAnalysis = caseData.ai_analysis || caseData.aiAnalysis;
-    
+
     const prompt = `Tu es un pharmacien clinicien expert.
 Basé sur les informations suivantes, suggère les médicaments appropriés.
 
