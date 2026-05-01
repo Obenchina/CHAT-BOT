@@ -131,10 +131,19 @@
 
 .btn-icon {
     padding: 0;
-    width: 36px;
-    height: 36px;
-    min-width: 36px;
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
     border-radius: var(--radius-md);
+    background: var(--color-surface-2);
+    border: 1px solid var(--color-border-subtle);
+    color: var(--color-text-secondary);
+}
+
+.btn-icon:hover:not(:disabled) {
+    background: var(--color-surface-3);
+    color: var(--color-text-primary);
+    border-color: var(--color-border-default);
 }
 
 /* ======================
@@ -272,6 +281,7 @@ textarea.form-input {
 .table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
+    padding-right: var(--space-sm);
 }
 
 .table {
@@ -285,6 +295,11 @@ textarea.form-input {
     text-align: left;
     border-bottom: 1px solid var(--border-color);
     vertical-align: middle;
+}
+
+.table th:first-child,
+.table td:first-child {
+    padding-left: var(--space-xl);
 }
 
 .table th {
@@ -315,6 +330,9 @@ textarea.form-input {
     white-space: nowrap;
     overflow: visible;
     text-align: right;
+    width: 1px; /* shrink to content */
+    min-width: 220px;
+    padding-right: 64px !important;
 }
 
 .table .col-actions>div {
