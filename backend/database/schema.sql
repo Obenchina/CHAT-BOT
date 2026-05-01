@@ -91,6 +91,7 @@ CREATE TABLE IF NOT EXISTS catalogues (
     id INT PRIMARY KEY AUTO_INCREMENT,
     doctor_id INT NOT NULL,
     name VARCHAR(150) NOT NULL,
+    version INT NOT NULL DEFAULT 1,
     is_active BOOLEAN DEFAULT TRUE,
     is_published BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -101,6 +102,20 @@ CREATE TABLE IF NOT EXISTS catalogues (
 ) ENGINE=InnoDB;
 
 -- ======================
+-- CATALOGUE SECTIONS TABLE
+-- ======================
+CREATE TABLE IF NOT EXISTS catalogue_sections (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    catalogue_id INT NOT NULL,
+    name VARCHAR(150) NOT NULL,
+    section_order INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uq_catalogue_section_name (catalogue_id, name),
+    FOREIGN KEY (catalogue_id) REFERENCES catalogues(id) ON DELETE CASCADE,
+    INDEX idx_catalogue_order (catalogue_id, section_order)
+) ENGINE=InnoDB;
+
+-- ======================
 -- QUESTIONS TABLE
 -- Stores questions within catalogues
 -- Phase 2: Added section_name, section_order, clinical_measure, expanded answer_type
@@ -108,6 +123,8 @@ CREATE TABLE IF NOT EXISTS catalogues (
 CREATE TABLE IF NOT EXISTS questions (
     id INT PRIMARY KEY AUTO_INCREMENT,
     catalogue_id INT NOT NULL,
+    section_name VARCHAR(150) NULL,
+    section_order INT DEFAULT 0,
     question_text TEXT NOT NULL,
     answer_type ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NOT NULL,
     clinical_measure ENUM('none', 'temperature', 'weight', 'height', 'head_circumference', 'blood_pressure') NOT NULL DEFAULT 'none',
@@ -117,7 +134,7 @@ CREATE TABLE IF NOT EXISTS questions (
     order_index INT NOT NULL DEFAULT 0,
     FOREIGN KEY (catalogue_id) REFERENCES catalogues(id) ON DELETE CASCADE,
     INDEX idx_catalogue_id (catalogue_id),
-    INDEX idx_order (catalogue_id, order_index)
+    INDEX idx_order (catalogue_id, section_order, order_index)
 ) ENGINE=InnoDB;
 
 -- ======================
@@ -155,6 +172,7 @@ CREATE TABLE IF NOT EXISTS case_answers (
     case_id INT NOT NULL,
     question_id INT NOT NULL,
     audio_path VARCHAR(500),
+    transcribed_text TEXT,
     text_answer TEXT,
     question_text_snapshot TEXT,
     answer_type_snapshot ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NULL,
@@ -214,6 +232,7 @@ CREATE TABLE IF NOT EXISTS ai_config (
     is_active BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    response_language ENUM('ar', 'fr') NOT NULL DEFAULT 'ar',
     UNIQUE KEY doctor_provider_unique (doctor_id, provider),
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -275,8 +294,10 @@ CREATE TABLE IF NOT EXISTS doctor_medications (
     id INT PRIMARY KEY AUTO_INCREMENT,
     doctor_id INT NOT NULL,
     name VARCHAR(255) NOT NULL,
+    dosage_form VARCHAR(100) NULL,
     default_dosage VARCHAR(100),
     default_frequency VARCHAR(100),
+    notes TEXT,
     default_duration VARCHAR(100),
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     INDEX idx_doctor_name (doctor_id, name)
