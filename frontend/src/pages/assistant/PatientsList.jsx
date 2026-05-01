@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Patients List Page
  * Assistant main page showing patient list
  */
@@ -436,7 +436,7 @@ function PatientsList() {
                                             <th style={{ width: '10%' }}>{t.patient.gender}</th>
                                             <th style={{ width: '8%' }}>Date de naissance</th>
                                             <th className="col-hide-md" style={{ width: '14%' }}>{t.patient.phone}</th>
-                                            <th className="col-actions" style={{ width: '160px' }}>{t.common.actions}</th>
+                                            <th className="col-actions">{t.common.actions}</th>
                                         </tr>
                                     </thead>
                                     <tbody>

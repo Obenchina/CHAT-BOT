@@ -281,7 +281,6 @@ textarea.form-input {
 .table-container {
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
-    padding-right: var(--space-sm);
 }
 
 .table {
@@ -297,10 +296,6 @@ textarea.form-input {
     vertical-align: middle;
 }
 
-.table th:first-child,
-.table td:first-child {
-    padding-left: var(--space-xl);
-}
 
 .table th {
     background: var(--gray-50);
@@ -331,8 +326,7 @@ textarea.form-input {
     overflow: visible;
     text-align: right;
     width: 1px; /* shrink to content */
-    min-width: 220px;
-    padding-right: 64px !important;
+    padding-right: var(--space-md) !important;
 }
 
 .table .col-actions>div {
