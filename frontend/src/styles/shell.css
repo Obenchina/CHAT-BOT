@@ -1464,7 +1464,7 @@ select.form-select option {
 .doctor-dashboard-shell .page-content,
 .doctor-patients-shell .page-content,
 .assistant-patients-shell .page-content {
-    width: 100%;
+    width: auto;
 }
 
 .case-details-layout {
