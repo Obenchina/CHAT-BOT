@@ -553,22 +553,23 @@ async function callOpenAIAPI(userContent, cfg) {
  * Sends audio as base64 inline data
  * @param {string} audioPath - Path to audio file
  * @param {Object} aiConfig - Optional AI config { provider, apiKey, model }
+ * @param {string} targetLang - Target language ('fr' or 'ar')
  * @returns {Promise<string>} Transcribed text
  */
-async function transcribeAudio(audioPath, aiConfig = null) {
+async function transcribeAudio(audioPath, aiConfig = null, targetLang = null) {
     const cfg = aiConfig || { provider: 'gemini', apiKey: config.ai.apiKey, model: config.ai.model };
 
     if (cfg.provider === 'openai') {
-        return _transcribeAudioWhisper(audioPath, cfg);
+        return _transcribeAudioWhisper(audioPath, cfg, targetLang);
     }
 
-    return _transcribeAudioGemini(audioPath, cfg);
+    return _transcribeAudioGemini(audioPath, cfg, targetLang);
 }
 
 /**
  * Internal: Transcribe audio using Gemini
  */
-async function _transcribeAudioGemini(audioPath, cfg) {
+async function _transcribeAudioGemini(audioPath, cfg, targetLang = null) {
     try {
         const path = require('path');
         const fs = require('fs').promises;
@@ -607,9 +608,10 @@ async function _transcribeAudioGemini(audioPath, cfg) {
         console.log(`Audio: ${path.basename(absoluteAudioPath)}, MIME: ${mimeType}, Size: ${(audioBuffer.length / 1024).toFixed(1)}KB`);
 
         // Build prompt parts: transcription instruction + audio data
-        const promptParts = [
-            {
-                text: `أنت متخصص في تحويل الكلام إلى نص في سياق طبي. استمع للتسجيل الصوتي التالي وقم بنسخه حرفياً إلى نص عربي.
+        const promptText = targetLang === 'fr'
+            ? `Tu es un expert en transcription médicale. Écoute l'audio suivant et transcris-le fidèlement en FRANÇAIS uniquement. 
+               Ignore toute autre langue. Ne réponds que par le texte transcrit, sans commentaires.`
+            : `أنت متخصص في تحويل الكلام إلى نص في سياق طبي. استمع للتسجيل الصوتي التالي وقم بنسخه حرفياً إلى نص عربي.
 
 ملاحظة مهمة: المتحدث جزائري، وقد يتكلم بالدارجة الجزائرية أو بمزيج من الدارجة الجزائرية والعربية الفصحى أو بالفصحى فقط. اكتب ما تسمعه بالضبط كما نطقه المتحدث.
 
@@ -620,7 +622,11 @@ async function _transcribeAudioGemini(audioPath, cfg) {
 - لا تختلق أو تتخيل كلاماً غير موجود في التسجيل
 - لا تكتب أي محتوى من خيالك أو من الإنترنت
 
-انسخ الصوت:`
+انسخ الصوت:`;
+
+        const promptParts = [
+            {
+                text: promptText
             },
             {
                 inlineData: {
@@ -676,7 +682,7 @@ async function _transcribeAudioGemini(audioPath, cfg) {
 /**
  * Internal: Transcribe audio using OpenAI Whisper
  */
-async function _transcribeAudioWhisper(audioPath, cfg) {
+async function _transcribeAudioWhisper(audioPath, cfg, targetLang = null) {
     try {
         const path = require('path');
         const fs = require('fs').promises;
@@ -698,9 +704,13 @@ async function _transcribeAudioWhisper(audioPath, cfg) {
         // Native FormData in Node 18+
         const formData = new FormData();
         const blob = new Blob([audioBuffer]);
+        const whisperPrompt = targetLang === 'fr'
+            ? 'Le locuteur parle en français médical. Veuillez transcrire fidèlement le texte en français uniquement.'
+            : 'المتحدث يتحدث بالدارجة الجزائرية وقد يستخدم كلمات فرنسية أو مصطلحات طبية. يرجى كتابة النص بدقة كما نُطق.';
+
         formData.append('file', blob, path.basename(absoluteAudioPath));
         formData.append('model', 'gpt-4o-mini-transcribe');
-        formData.append('prompt', 'المتحدث يتحدث بالدارجة الجزائرية وقد يستخدم كلمات فرنسية أو مصطلحات طبية. يرجى كتابة النص بدقة كما نُطق.');
+        formData.append('prompt', whisperPrompt);
 
         const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
             method: 'POST',
@@ -787,11 +797,19 @@ function isHallucinatedTranscription(text) {
         /thank you for watching/i,
         /شكرا للمشاهدة/i,
         /مرحبا بكم/i,
-        /السلام عليكم ورحمة الله وبركاته$/  // Only greeting and nothing else
+        /السلام عليكم ورحمة الله وبركاته$/,  // Only greeting and nothing else
+        /المتحدث يتحدث بالدارجة الجزائرية/i, // Catch prompt leakage
+        /يرجى كتابة النص بدقة/i,            // Catch prompt leakage
+        /تحويل الكلام إلى نص/i,            // Catch prompt leakage
+        /audio transcription/i,             // Catch prompt leakage
+        /medical terms/i                    // Catch prompt leakage
     ];
 
+    // Normalize text for better matching (remove punctuation and extra spaces)
+    const normalizedText = text.replace(/[.,!?;:()]/g, '').replace(/\s+/g, ' ').trim();
+
     for (const pattern of hallucinationPatterns) {
-        if (pattern.test(text)) {
+        if (pattern.test(text) || pattern.test(normalizedText)) {
             return true;
         }
     }

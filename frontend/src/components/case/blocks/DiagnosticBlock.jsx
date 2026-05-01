@@ -39,7 +39,7 @@ export default function DiagnosticBlock({
     });
   };
 
-  const voice = useVoiceTranscription({ onText: insertDictation });
+  const voice = useVoiceTranscription({ onText: insertDictation, lang: 'fr' });
 
   return (
     <section className="case-block" id="block-diagnostic">

@@ -405,7 +405,7 @@ export default function Entretien() {
         const ans = { type: 'voice', audioBlob: blob, audioUrl: url };
         setAnswers(prev => ({ ...prev, [currentQuestion.id]: ans }));
         stream.getTracks().forEach(t => t.stop());
-        
+
         // Trigger immediate save for instant transcription
         saveAnswer(currentQuestion, ans);
       };
@@ -589,7 +589,7 @@ export default function Entretien() {
   const grouped = useMemo(() => {
     const map = new Map();
     questions.forEach((q, idx) => {
-      const sec = q.section_name || q.sectionName || 'Sans section';
+      const sec = q.section_name || q.sectionName || '';
       if (!map.has(sec)) map.set(sec, []);
       map.get(sec).push({ q, idx });
     });
@@ -625,7 +625,7 @@ export default function Entretien() {
   const answerType = currentQuestion.answerType || currentQuestion.answer_type;
   const required = currentQuestion.isRequired ?? currentQuestion.is_required;
   const isLast = currentIndex === questions.length - 1;
-  const sectionName = currentQuestion.section_name || currentQuestion.sectionName || 'Sans section';
+  const sectionName = currentQuestion.section_name || currentQuestion.sectionName || '';
 
   return (
     <div className="entretien-page">
@@ -672,11 +672,13 @@ export default function Entretien() {
               {grouped.map(([sec, items]) => {
                 const done = items.filter(({ q }) => answers[q.id]).length;
                 return (
-                  <div className="entretien-plan__section" key={sec}>
-                    <div className="entretien-plan__section-name">
-                      <span>{sec}</span>
-                      <span className="entretien-plan__section-count">{done}/{items.length}</span>
-                    </div>
+                  <div className="entretien-plan__section" key={sec || 'root'}>
+                    {sec && (
+                      <div className="entretien-plan__section-name">
+                        <span>{sec}</span>
+                        <span className="entretien-plan__section-count">{done}/{items.length}</span>
+                      </div>
+                    )}
                     {items.map(({ q, idx }) => {
                       const isCurrent = idx === currentIndex;
                       const isDone = !!answers[q.id];
@@ -715,7 +717,7 @@ export default function Entretien() {
                   style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-5)' }}
                 >
                   <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
-                    <span className="entretien-stage__chip">{sectionName}</span>
+                    {sectionName && <span className="entretien-stage__chip">{sectionName}</span>}
                     {required && <span className="entretien-stage__chip entretien-stage__chip--required">● Obligatoire</span>}
                     <span className="entretien-stage__qmeta">Question {currentIndex + 1} / {questions.length}</span>
                   </div>
@@ -787,8 +789,8 @@ export default function Entretien() {
                   const answered = items.filter(({ q }) => answers[q.id]);
                   if (answered.length === 0) return null;
                   return (
-                    <div key={sec} className="entretien-recap__group">
-                      <div className="entretien-recap__group-title">{sec}</div>
+                    <div key={sec || 'root'} className="entretien-recap__group">
+                      {sec && <div className="entretien-recap__group-title">{sec}</div>}
                       {answered.map(({ q }) => {
                         const a = answers[q.id];
                         let display = a.value || (a.audioUrl ? '🎙 Transcription en cours...' : '—');

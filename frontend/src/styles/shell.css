@@ -1152,6 +1152,7 @@
         display: none !important;
         opacity: 0;
     }
+
     body.sidebar-collapsed .sidebar-user-card,
     body.sidebar-collapsed .sidebar-link,
     body.sidebar-collapsed .theme-toggle-btn {
@@ -1188,7 +1189,8 @@
 }
 
 /* Fix dropdown contrast in dark mode */
-.form-select option, select.form-select option {
+.form-select option,
+select.form-select option {
     background-color: var(--bg-card);
     color: var(--text-primary);
 }
@@ -1592,6 +1594,7 @@
 }
 
 @media (max-width: 1180px) {
+
     .case-details-layout,
     .questionnaire-workspace {
         grid-template-columns: 1fr;

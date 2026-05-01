@@ -119,7 +119,7 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
     });
   };
 
-  const voice = useVoiceTranscription({ onText: insertDictation });
+  const voice = useVoiceTranscription({ onText: insertDictation, lang: 'fr' });
 
   useEffect(() => {
     if (!caseId) return;

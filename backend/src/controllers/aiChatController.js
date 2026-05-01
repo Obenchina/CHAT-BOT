@@ -223,7 +223,8 @@ async function transcribe(req, res) {
             return res.status(400).json({ success: false, message: 'Clé API IA non configurée' });
         }
 
-        const text = await aiService.transcribeAudio(audioPath, aiConfig);
+        const { lang } = req.body;
+        const text = await aiService.transcribeAudio(audioPath, aiConfig, lang);
 
         // Best-effort cleanup of uploaded audio file
         try {

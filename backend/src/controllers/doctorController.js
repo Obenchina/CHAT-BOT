@@ -40,11 +40,11 @@ async function getDashboard(req, res) {
             [doctor.id]
         );
         const [[{ totalAssistants }]] = await pool.execute(
-            'SELECT COUNT(*) as totalAssistants FROM assistants WHERE doctor_id = ?', 
+            'SELECT COUNT(*) as totalAssistants FROM assistants WHERE doctor_id = ?',
             [doctor.id]
         );
         const [[{ totalPatients }]] = await pool.execute(
-            'SELECT COUNT(*) as totalPatients FROM patients WHERE doctor_id = ?', 
+            'SELECT COUNT(*) as totalPatients FROM patients WHERE doctor_id = ?',
             [doctor.id]
         );
         const [[{ todayNewPatients }]] = await pool.execute(
@@ -145,10 +145,10 @@ async function updatePrescriptionConfig(req, res) {
         res.json({ success: true, message: 'Configuration updated successfully', data: updated });
     } catch (error) {
         console.error('Update config error:', error);
-        res.status(500).json({ 
-            success: false, 
-            message: 'Failed to update config', 
-            error: error.message 
+        res.status(500).json({
+            success: false,
+            message: 'Failed to update config',
+            error: error.message
         });
     }
 }
@@ -198,7 +198,7 @@ async function updateAiConfig(req, res) {
             response_language,
             responseLanguage
         } = req.body;
-        
+
         const config = await AiConfig.upsert(doctor.id, {
             provider,
             apiKey: api_key || apiKey || '',
@@ -254,11 +254,11 @@ async function getAnalysesConfig(req, res) {
             return res.status(404).json({ success: false, message: 'Doctor not found' });
         }
         // Return as an object with analysesList for frontend compatibility
-        res.json({ 
-            success: true, 
-            data: { 
-                analysesList: doctor.analyses_list || '' 
-            } 
+        res.json({
+            success: true,
+            data: {
+                analysesList: doctor.analyses_list || ''
+            }
         });
     } catch (error) {
         console.error('Get analyses config error:', error);
@@ -287,11 +287,11 @@ async function getLetterConfig(req, res) {
             return res.status(404).json({ success: false, message: 'Doctor not found' });
         }
         // Return as an object with letterTemplate for frontend compatibility
-        res.json({ 
-            success: true, 
-            data: { 
-                letterTemplate: doctor.letter_template || '' 
-            } 
+        res.json({
+            success: true,
+            data: {
+                letterTemplate: doctor.letter_template || ''
+            }
         });
     } catch (error) {
         console.error('Get letter config error:', error);
@@ -415,7 +415,7 @@ async function uploadGrowthCurve(req, res) {
                     });
                 }
 
-                require('fs').unlink(req.file.path, () => {});
+                require('fs').unlink(req.file.path, () => { });
 
                 return res.status(201).json({
                     success: true,
@@ -594,21 +594,29 @@ async function uploadMedicationCSV(req, res) {
             const defaultDuration = defaultDurationKey ? normalizeOptionalText(row[defaultDurationKey], 100) : '';
 
             try {
-                // Check for existing medication with SAME details for this doctor
+                // Check if already exists to prevent duplicates
                 const [existing] = await pool.execute(
-                    'SELECT id FROM doctor_medications WHERE doctor_id = ? AND name = ? AND (default_dosage = ? OR (default_dosage IS NULL AND ? IS NULL)) AND (default_frequency = ? OR (default_frequency IS NULL AND ? IS NULL)) AND (default_duration = ? OR (default_duration IS NULL AND ? IS NULL)) LIMIT 1',
+                    `SELECT id FROM doctor_medications 
+                     WHERE doctor_id = ? AND name = ? 
+                     AND (default_dosage = ? OR (default_dosage IS NULL AND ? IS NULL))
+                     AND (default_frequency = ? OR (default_frequency IS NULL AND ? IS NULL))
+                     AND (default_duration = ? OR (default_duration IS NULL AND ? IS NULL))
+                     LIMIT 1`,
                     [
-                        doctor.id, 
-                        name, 
-                        defaultDosage || null, defaultDosage || null,
-                        defaultFrequency || null, defaultFrequency || null,
-                        defaultDuration || null, defaultDuration || null
+                        doctor.id,
+                        name,
+                        defaultDosage || null,
+                        defaultDosage || null,
+                        defaultFrequency || null,
+                        defaultFrequency || null,
+                        defaultDuration || null,
+                        defaultDuration || null
                     ]
                 );
 
-                if (existing && existing.length > 0) {
+                if (existing.length > 0) {
                     skipped++;
-                    // Optional: don't even log as error, just silent skip or "already exists"
+                    // No error needed for deliberate skip
                     continue;
                 }
 

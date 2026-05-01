@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import aiChatService from '../services/aiChatService';
 import { showError } from '../utils/toast';
 
-export default function useVoiceTranscription({ onText } = {}) {
+export default function useVoiceTranscription({ onText, lang } = {}) {
   const [recording, setRecording] = useState(false);
   const [transcribing, setTranscribing] = useState(false);
   const recorderRef = useRef(null);
@@ -42,7 +42,7 @@ export default function useVoiceTranscription({ onText } = {}) {
           const blob = new Blob(chunksRef.current, {
             type: recorder.mimeType || 'audio/webm',
           });
-          const res = await aiChatService.transcribe(blob);
+          const res = await aiChatService.transcribe(blob, lang);
           const text = String(res?.data?.text || res?.data?.data?.text || '').trim();
 
           if (res?.success && text) {
