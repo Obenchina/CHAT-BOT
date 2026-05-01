@@ -20,8 +20,8 @@ function AuthShell({
                 <aside className="auth-cover">
                     <div className="auth-cover-top">
                         <Link to="/" className="auth-cover-brand">
-                            <span className="auth-brand-mark">MC</span>
-                            <span className="auth-brand-text">MediConsult</span>
+                            <img src="/assets/logo.png" alt="Medi-Consult Logo" className="auth-logo-img" />
+                            <span className="auth-brand-text">Medi-Consult</span>
                         </Link>
 
                         {badge && <div className="auth-cover-badge">{badge}</div>}
@@ -58,8 +58,8 @@ function AuthShell({
                     <div className={`auth-container${wide ? ' auth-container-wide' : ''}`}>
                         <div className="auth-mobile-intro">
                             <Link to="/" className="auth-logo">
-                                <span className="auth-brand-mark">MC</span>
-                                <span className="auth-brand-text">MediConsult</span>
+                                <img src="/assets/logo.png" alt="Medi-Consult Logo" className="auth-logo-img" />
+                                <span className="auth-brand-text">Medi-Consult</span>
                             </Link>
                             {badge && <div className="auth-mobile-badge">{badge}</div>}
                         </div>

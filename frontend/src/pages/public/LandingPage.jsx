@@ -130,8 +130,8 @@ function LandingPage() {
 
                 <nav className="landing-topbar">
                     <Link to="/" className="landing-brand">
-                        <span className="landing-brand-mark">MC</span>
-                        <span className="landing-brand-text">MediConsult</span>
+                        <img src="/assets/logo.png" alt="Medi-Consult Logo" className="landing-logo-img" />
+                        <span className="landing-brand-text">Medi-Consult</span>
                     </Link>
 
                     <div className="landing-topbar-actions">
@@ -149,7 +149,7 @@ function LandingPage() {
                             Un flux clinique fluide, du patient au diagnostic.
                         </h1>
                         <p className="landing-hero-subtitle">
-                            MediConsult harmonise l'interaction entre l'assistant, le patient et le praticien. 
+                            Medi-Consult harmonise l'interaction entre l'assistant, le patient et le praticien. 
                             Anamnèse vocale, imagerie et synthèse IA convergent vers une décision clinique précise.
                         </p>
 
@@ -172,7 +172,7 @@ function LandingPage() {
                     <div className="landing-showcase-card">
                         <div className="landing-showcase-head">
                             <div>
-                                <span className="landing-showcase-kicker">Écosystème MediConsult</span>
+                                <span className="landing-showcase-kicker">Écosystème Medi-Consult</span>
                                 <h2>Un flux unique pour une pratique moderne.</h2>
                             </div>
                             <span className="landing-status-chip">Processus Actif</span>
@@ -321,7 +321,7 @@ function LandingPage() {
             <footer className="landing-footer-premium">
                 <div className="landing-footer-inner">
                     <div>
-                        <strong>MediConsult</strong>
+                        <strong>Medi-Consult</strong>
                         <p>Plateforme avancée de coordination médicale et d'aide au diagnostic.</p>
                     </div>
 

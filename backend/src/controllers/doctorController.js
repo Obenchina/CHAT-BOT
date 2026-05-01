@@ -594,6 +594,24 @@ async function uploadMedicationCSV(req, res) {
             const defaultDuration = defaultDurationKey ? normalizeOptionalText(row[defaultDurationKey], 100) : '';
 
             try {
+                // Check for existing medication with SAME details for this doctor
+                const [existing] = await pool.execute(
+                    'SELECT id FROM doctor_medications WHERE doctor_id = ? AND name = ? AND (default_dosage = ? OR (default_dosage IS NULL AND ? IS NULL)) AND (default_frequency = ? OR (default_frequency IS NULL AND ? IS NULL)) AND (default_duration = ? OR (default_duration IS NULL AND ? IS NULL)) LIMIT 1',
+                    [
+                        doctor.id, 
+                        name, 
+                        defaultDosage || null, defaultDosage || null,
+                        defaultFrequency || null, defaultFrequency || null,
+                        defaultDuration || null, defaultDuration || null
+                    ]
+                );
+
+                if (existing && existing.length > 0) {
+                    skipped++;
+                    // Optional: don't even log as error, just silent skip or "already exists"
+                    continue;
+                }
+
                 await pool.execute(
                     'INSERT INTO doctor_medications (doctor_id, name, default_dosage, default_frequency, default_duration) VALUES (?, ?, ?, ?, ?)',
                     [

@@ -134,22 +134,15 @@ function Sidebar() {
                             onClick={() => setIsCollapsed(false)}
                             title="Ouvrir la barre latérale"
                         >
-                            <span className="default-icon">
-                                <LocalHospitalIcon fontSize="small" style={{ color: '#fff' }} />
-                            </span>
-                            <span className="hover-icon">
-                                <ChatGPTToggleIcon />
-                            </span>
+                            <img src="/assets/logo.png" alt="Logo" className="sidebar-collapsed-logo-img" />
                         </div>
                     ) : (
                         <>
                             {/* Expanded State: Logo on Left, Toggle on Right */}
                             <div className="sidebar-logo">
-                                <span className="sidebar-brand-mark">
-                                    <LocalHospitalIcon fontSize="small"  style={{ color: '#fff' }} />
-                                </span>
+                                <img src="/assets/logo.png" alt="Medi-Consult Logo" className="sidebar-brand-logo-img" />
                                 <div className="sidebar-brand-copy">
-                                    <span className="sidebar-brand-name">MediConsult</span>
+                                    <span className="sidebar-brand-name">Medi-Consult</span>
                                     <span className="sidebar-brand-subtitle">{roleLabel}</span>
                                 </div>
                             </div>

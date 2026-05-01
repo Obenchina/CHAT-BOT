@@ -748,6 +748,19 @@
     letter-spacing: -0.03em;
 }
 
+.sidebar-brand-logo-img {
+    height: 38px;
+    width: auto;
+    object-fit: contain;
+    border-radius: 8px;
+}
+
+.sidebar-collapsed-logo-img {
+    height: 30px;
+    width: auto;
+    object-fit: contain;
+}
+
 .sidebar-brand-subtitle {
     font-size: 0.75rem;
     color: rgba(211, 228, 255, 0.62);
@@ -1610,4 +1623,12 @@
     .internal-shell .card-header {
         padding: var(--space-4);
     }
+}
+
+/* Auth Logo */
+.auth-logo-img {
+    height: 42px;
+    width: auto;
+    object-fit: contain;
+    margin-right: 12px;
 }

@@ -889,6 +889,13 @@
     box-shadow: 0 12px 28px rgba(88, 222, 199, 0.18);
 }
 
+.landing-logo-img {
+    height: 42px;
+    width: auto;
+    object-fit: contain;
+    border-radius: 12px;
+}
+
 .landing-brand-text {
     font-size: 1.12rem;
     font-weight: 700;
