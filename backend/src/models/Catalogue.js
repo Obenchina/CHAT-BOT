@@ -50,17 +50,16 @@ const Catalogue = {
         const activeValue = Boolean(isActive);
 
         const [result] = await pool.execute(
-            `INSERT INTO catalogues (doctor_id, name, is_active, is_published, created_at)
-             VALUES (?, ?, ?, ?, NOW())`,
-            [doctorId, trimmedName, activeValue, activeValue]
+            `INSERT INTO catalogues (doctor_id, name, is_active, created_at)
+             VALUES (?, ?, ?, NOW())`,
+            [doctorId, trimmedName, activeValue]
         );
 
         return {
             id: result.insertId,
             doctor_id: doctorId,
             name: trimmedName,
-            is_active: activeValue,
-            is_published: activeValue
+            is_active: activeValue
         };
     },
 
@@ -157,8 +156,7 @@ const Catalogue = {
         if (updateData.isActive !== undefined) {
             const activeValue = Boolean(updateData.isActive);
             updates.push('is_active = ?');
-            updates.push('is_published = ?');
-            params.push(activeValue, activeValue);
+            params.push(activeValue);
         }
 
         if (updates.length === 0) {

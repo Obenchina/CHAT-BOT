@@ -55,7 +55,6 @@ CREATE TABLE IF NOT EXISTS assistants (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL UNIQUE,
     doctor_id INT NOT NULL,
-    is_active BOOLEAN DEFAULT TRUE,
     FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     INDEX idx_user_id (user_id),
@@ -93,11 +92,9 @@ CREATE TABLE IF NOT EXISTS catalogues (
     name VARCHAR(150) NOT NULL,
     version INT NOT NULL DEFAULT 1,
     is_active BOOLEAN DEFAULT TRUE,
-    is_published BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     INDEX idx_doctor_id (doctor_id),
-    INDEX idx_published (doctor_id, is_published),
     INDEX idx_active (doctor_id, is_active)
 ) ENGINE=InnoDB;
 

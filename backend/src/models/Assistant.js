@@ -15,8 +15,8 @@ const Assistant = {
         const { userId, doctorId } = assistantData;
 
         const [result] = await pool.execute(
-            `INSERT INTO assistants (user_id, doctor_id, is_active)
-       VALUES (?, ?, true)`,
+            `INSERT INTO assistants (user_id, doctor_id)
+       VALUES (?, ?)`,
             [userId, doctorId]
         );
 
@@ -34,7 +34,7 @@ const Assistant = {
      */
     async findByUserId(userId) {
         const [assistants] = await pool.execute(
-            `SELECT a.*, u.first_name, u.last_name, u.email
+            `SELECT a.*, u.first_name, u.last_name, u.email, u.is_active
        FROM assistants a
        JOIN users u ON a.user_id = u.id
        WHERE a.user_id = ?`,
@@ -51,7 +51,7 @@ const Assistant = {
      */
     async findById(id) {
         const [assistants] = await pool.execute(
-            `SELECT a.*, u.first_name, u.last_name, u.email
+            `SELECT a.*, u.first_name, u.last_name, u.email, u.is_active
        FROM assistants a
        JOIN users u ON a.user_id = u.id
        WHERE a.id = ?`,
@@ -68,7 +68,7 @@ const Assistant = {
      */
     async findByDoctorId(doctorId) {
         const [assistants] = await pool.execute(
-            `SELECT a.*, u.email, u.first_name, u.last_name
+            `SELECT a.*, u.email, u.first_name, u.last_name, u.is_active
        FROM assistants a
        JOIN users u ON a.user_id = u.id
        WHERE a.doctor_id = ?
@@ -79,44 +79,7 @@ const Assistant = {
         return assistants;
     },
 
-    /**
-     * Update assistant profile (only is_active lives in assistants table now)
-     * @param {number} id - Assistant ID
-     * @param {Object} updateData - Fields to update
-     * @returns {Promise<boolean>} Success status
-     */
-    async update(id, updateData) {
-        const { isActive } = updateData;
 
-        if (isActive === undefined) return true;
-
-        const [result] = await pool.execute(
-            `UPDATE assistants SET 
-        is_active = COALESCE(?, is_active)
-       WHERE id = ?`,
-            [
-                isActive !== undefined ? isActive : null,
-                id
-            ]
-        );
-
-        return result.affectedRows > 0;
-    },
-
-    /**
-     * Toggle assistant active status
-     * @param {number} id - Assistant ID
-     * @param {boolean} isActive - New status
-     * @returns {Promise<boolean>} Success status
-     */
-    async setActiveStatus(id, isActive) {
-        const [result] = await pool.execute(
-            'UPDATE assistants SET is_active = ? WHERE id = ?',
-            [isActive, id]
-        );
-
-        return result.affectedRows > 0;
-    },
 
     /**
      * Delete assistant

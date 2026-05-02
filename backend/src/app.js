@@ -308,8 +308,7 @@ async function runMigrations(pool) {
         UPDATE catalogues
         SET
             name = COALESCE(NULLIF(TRIM(name), ''), 'Catalogue'),
-            is_active = COALESCE(is_active, is_published, TRUE),
-            is_published = COALESCE(is_active, is_published, TRUE)
+            is_active = COALESCE(is_active, TRUE)
     `);
 
     await pool.execute(`

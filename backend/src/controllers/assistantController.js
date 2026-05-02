@@ -148,11 +148,6 @@ async function update(req, res) {
             await User.updateName(assistant.user_id, firstName, lastName);
         }
 
-        // Update assistant-specific fields (only is_active)
-        if (isActive !== undefined) {
-            await Assistant.update(id, { isActive });
-        }
-
         // Also update user active status if changing isActive
         if (isActive !== undefined) {
             await User.updateActiveStatus(assistant.user_id, isActive);
@@ -201,7 +196,6 @@ async function toggleStatus(req, res) {
 
         // Toggle status
         const newStatus = !assistant.is_active;
-        await Assistant.setActiveStatus(id, newStatus);
         await User.updateActiveStatus(assistant.user_id, newStatus);
 
         res.json({
