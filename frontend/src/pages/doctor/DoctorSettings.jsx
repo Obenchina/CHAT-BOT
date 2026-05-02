@@ -95,13 +95,12 @@ const TABS = [
     { id: 'ai', label: 'Configuration IA', description: 'Fournisseur, modèle et langue des réponses IA', icon: <SmartToyIcon fontSize="small" /> },
     { id: 'prescription', label: 'Edition Ordonnance', description: 'PDF ordonnance, bilans et lettre orientation', icon: <DescriptionIcon fontSize="small" /> },
     { id: 'medications', label: 'Médicaments', description: 'Import CSV et base médicamenteuse locale', icon: <MedicationIcon fontSize="small" /> },
-    { id: 'growth_curves', label: 'Courbes Pediatriques', description: 'Modeles PDF pour tracer les mesures patients', icon: <TimelineIcon fontSize="small" /> },
+    { id: 'growth_curves', label: 'Courbes Pediatriques', description: 'Modeles PDF pour tracer les mesures patients', icon: <TimelineIcon fontSize="small" /> }
 ];
 
 function DoctorSettings() {
     const location = useLocation();
-    const [activeTab, setActiveTab] = useState('profile');
-    const [mobileNavOpen, setMobileNavOpen] = useState(false);
+    const [activeTab, setActiveTab] = useState(null); // null = show list
 
     useEffect(() => {
         const hash = location.hash;
@@ -112,11 +111,12 @@ function DoctorSettings() {
         else if (hash === '#prescription' || tab === 'prescription') nextTab = 'prescription';
         else if (hash === '#medications' || tab === 'medications') nextTab = 'medications';
         else if (hash === '#growth_curves' || tab === 'growth_curves') nextTab = 'growth_curves';
+        else if (hash === '#profile' || tab === 'profile') nextTab = 'profile';
         if (!nextTab) return;
         queueMicrotask(() => setActiveTab((prev) => (prev !== nextTab ? nextTab : prev)));
     }, [location]);
 
-    const current = TABS.find((tt) => tt.id === activeTab) || TABS[0];
+    const current = TABS.find((tt) => tt.id === activeTab);
 
     return (
         <div className="layout internal-shell set-shell">
@@ -128,53 +128,59 @@ function DoctorSettings() {
                         <h1>Paramètres</h1>
                         <p>Configurez votre espace clinique et vos préférences IA.</p>
                     </div>
-                    <button
-                        type="button"
-                        className="set-mobile-toggle"
-                        onClick={() => setMobileNavOpen((s) => !s)}
-                    >
-                        ☰ {current.label}
-                    </button>
                 </header>
 
                 <div className="set-workspace">
-                    {/* LEFT NAV */}
-                    <nav className={`set-nav ${mobileNavOpen ? 'is-open' : ''}`}>
-                        <div className="set-nav__group-label">Espace</div>
-                        {TABS.map((tab) => (
-                            <button
-                                key={tab.id}
-                                type="button"
-                                onClick={() => { setActiveTab(tab.id); setMobileNavOpen(false); }}
-                                className={`set-nav__item ${activeTab === tab.id ? 'is-active' : ''}`}
-                            >
-                                <span className="set-nav__icon">{tab.icon}</span>
-                                <span className="set-nav__label">
-                                    <span className="set-nav__title">{tab.label}</span>
-                                    <span className="set-nav__desc">{tab.description}</span>
-                                </span>
-                            </button>
-                        ))}
-                    </nav>
-
-                    {/* CONTENT */}
-                    <section className="set-content">
-                        <div className="set-content__head">
-                            <span className="set-content__icon">{current.icon}</span>
+                    {!activeTab ? (
+                        /* ── LIST VIEW ── */
+                        <div className="set-list">
                             <div>
-                                <h2>{current.label}</h2>
-                                <p>{current.description}</p>
+                                <div className="set-list__group-label">Espace</div>
+                                <div className="set-list__grid">
+                                    {TABS.map((tab) => (
+                                        <button
+                                            key={tab.id}
+                                            type="button"
+                                            onClick={() => setActiveTab(tab.id)}
+                                            className="set-list__item"
+                                        >
+                                            <span className="set-list__item-icon">{tab.icon}</span>
+                                            <span className="set-list__item-label">
+                                                <span className="set-list__item-title">{tab.label}</span>
+                                                <span className="set-list__item-desc">{tab.description}</span>
+                                            </span>
+                                        </button>
+                                    ))}
+                                </div>
                             </div>
                         </div>
-                        <div className="set-content__body">
-                            {activeTab === 'profile' && <ProfileTab />}
-                            {activeTab === 'assistants' && <AssistantsTab />}
-                            {activeTab === 'ai' && <AiConfigTab />}
-                            {activeTab === 'prescription' && <PrescriptionPdfTab />}
-                            {activeTab === 'medications' && <MedicationCsvTab />}
-                            {activeTab === 'growth_curves' && <GrowthCurveManager />}
+                    ) : (
+                        /* ── DETAIL VIEW ── */
+                        <div className="set-detail">
+                            <div className="set-detail__head">
+                                <button
+                                    type="button"
+                                    className="set-detail__back"
+                                    onClick={() => setActiveTab(null)}
+                                >
+                                    <ArrowBackIcon fontSize="small" /> Retour
+                                </button>
+                                <span className="set-detail__icon">{current?.icon}</span>
+                                <div className="set-detail__head-text">
+                                    <h2>{current?.label}</h2>
+                                    <p>{current?.description}</p>
+                                </div>
+                            </div>
+                            <div className="set-detail__body">
+                                {activeTab === 'profile' && <ProfileTab />}
+                                {activeTab === 'assistants' && <AssistantsTab />}
+                                {activeTab === 'ai' && <AiConfigTab />}
+                                {activeTab === 'prescription' && <PrescriptionPdfTab />}
+                                {activeTab === 'medications' && <MedicationCsvTab />}
+                                {activeTab === 'growth_curves' && <GrowthCurveManager />}
+                            </div>
                         </div>
-                    </section>
+                    )}
                 </div>
             </main>
         </div>

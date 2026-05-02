@@ -1,29 +1,6 @@
 import { Link } from 'react-router-dom';
 import '../../styles/pages.css';
 
-const proofItems = [
-    {
-        value: '3',
-        label: 'Espaces Interconnectés',
-        detail: 'Assistant, Patient et Praticien'
-    },
-    {
-        value: '1',
-        label: 'Dossier Clinique Unifié',
-        detail: 'Audio, Imagerie, PDF et Notes'
-    },
-    {
-        value: '4',
-        label: 'Phases Opérationnelles',
-        detail: 'Création, Collecte, Revue et Décision'
-    },
-    {
-        value: 'OTP',
-        label: 'Sécurisation des Accès',
-        detail: 'Authentification multifacteur par e-mail'
-    }
-];
-
 const capabilities = [
     {
         kicker: 'Anamnèse',
@@ -201,18 +178,6 @@ function LandingPage() {
                     </div>
                 </div>
             </header>
-
-            <section className="landing-proof-strip">
-                <div className="landing-proof-grid">
-                    {proofItems.map((item) => (
-                        <article key={item.label} className="landing-proof-card">
-                            <span className="landing-proof-value">{item.value}</span>
-                            <strong>{item.label}</strong>
-                            <p>{item.detail}</p>
-                        </article>
-                    ))}
-                </div>
-            </section>
 
             <section className="landing-section">
                 <div className="landing-section-head">

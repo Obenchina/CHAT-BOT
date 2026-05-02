@@ -1,14 +1,7 @@
 /**
- * Settings — left rail + content pane
- *  ┌─────────────────────────────────────────────────────────┐
- *  │ TOPBAR  Paramètres + sub                                │
- *  ├──────────────┬──────────────────────────────────────────┤
- *  │ NAV          │ HEAD (icon + title + desc)               │
- *  │  Profil •    ├──────────────────────────────────────────┤
- *  │  Assistants  │ BODY (existing tab content)              │
- *  │  Config IA   │                                          │
- *  │  …           │                                          │
- *  └──────────────┴──────────────────────────────────────────┘
+ * Settings — List / Detail navigation
+ *  - Landing: shows a grid of setting cards (list)
+ *  - After selection: shows the detail panel only (with back button)
  */
 
 .set-shell { background: var(--color-surface-0); }
@@ -42,74 +35,59 @@
   font-size: var(--font-size-sm);
   color: var(--color-text-muted);
 }
-.set-mobile-toggle {
-  display: none;
-  padding: 8px 14px;
-  border: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-1);
-  color: var(--color-text-primary);
-  border-radius: var(--radius-md);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-}
+.set-mobile-toggle { display: none; }
 
 /* === WORKSPACE ====================================================== */
 .set-workspace {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  flex: 1;
-  min-height: 0;
-}
-
-/* === NAV ============================================================ */
-.set-nav {
-  border-right: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-0);
-  padding: var(--space-3);
-  overflow-y: auto;
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  flex: 1;
   min-height: 0;
+  overflow-y: auto;
 }
-.set-nav__group-label {
+
+/* === LIST VIEW (landing) ============================================ */
+.set-list {
+  padding: var(--space-6);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+}
+.set-list__group-label {
   font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--color-text-muted);
   font-weight: var(--font-weight-semibold);
-  padding: 10px 12px 6px;
+  margin-bottom: var(--space-3);
 }
-.set-nav__item {
+.set-list__grid {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.set-list__item {
   display: flex;
   align-items: flex-start;
   gap: 12px;
-  padding: 10px 12px;
-  border: none;
-  background: transparent;
-  border-radius: var(--radius-md);
+  padding: 16px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-1);
+  border-radius: var(--radius-lg);
   text-align: left;
   cursor: pointer;
   color: var(--color-text-secondary);
   width: 100%;
-  transition: background var(--duration-fast), color var(--duration-fast);
+  transition: background var(--duration-fast), border-color var(--duration-fast), box-shadow var(--duration-fast);
 }
-.set-nav__item:hover {
-  background: var(--color-surface-1);
+.set-list__item:hover {
+  background: var(--color-surface-2);
+  border-color: var(--color-brand-300);
   color: var(--color-text-primary);
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
 }
-.set-nav__item.is-active {
-  background: var(--color-brand-50);
-  color: var(--color-brand-700);
-  box-shadow: inset 3px 0 0 var(--color-brand-500);
-}
-[data-theme="dark"] .set-nav__item.is-active {
-  background: rgba(6,182,212,0.10);
-  color: var(--color-brand-300);
-}
-.set-nav__icon {
-  width: 28px; height: 28px;
+.set-list__item-icon {
+  width: 36px; height: 36px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -117,57 +95,74 @@
   background: var(--color-surface-2);
   color: var(--color-text-muted);
   flex-shrink: 0;
-  margin-top: 1px;
   transition: background var(--duration-fast), color var(--duration-fast);
 }
-.set-nav__item.is-active .set-nav__icon {
+.set-list__item:hover .set-list__item-icon {
   background: var(--color-brand-500);
   color: white;
 }
-.set-nav__label { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.set-nav__title {
+[data-theme="dark"] .set-list__item:hover .set-list__item-icon {
+  background: var(--color-brand-400);
+}
+.set-list__item-label {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  flex: 1;
+}
+.set-list__item-title {
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   line-height: 1.3;
+  color: var(--color-text-primary);
 }
-.set-nav__desc {
+.set-list__item-desc {
   font-size: 11px;
   color: var(--color-text-muted);
-  line-height: 1.35;
+  line-height: 1.4;
   white-space: normal;
 }
-.set-nav__item.is-active .set-nav__desc { color: inherit; opacity: 0.7; }
 
-/* === CONTENT ======================================================== */
-.set-content {
-  background: var(--color-surface-1);
-  overflow-y: auto;
+/* === DETAIL VIEW ==================================================== */
+.set-detail {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
   min-height: 0;
 }
-.set-content__head {
+.set-detail__head {
   display: flex;
   align-items: center;
   gap: 14px;
-  padding: var(--space-5) var(--space-6);
+  padding: var(--space-4) var(--space-6);
   border-bottom: 1px solid var(--color-border-subtle);
-  background: var(--color-surface-1);
+  background: var(--color-surface-0);
+  flex-shrink: 0;
   position: sticky;
   top: 0;
-  z-index: 1;
+  z-index: 5;
 }
-.set-content__head h2 {
-  margin: 0;
-  font-size: 18px;
-  font-weight: var(--font-weight-semibold);
-  color: var(--color-text-primary);
-  letter-spacing: -0.01em;
-}
-.set-content__head p {
-  margin: 2px 0 0;
+.set-detail__back {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-1);
+  color: var(--color-text-secondary);
+  border-radius: var(--radius-md);
   font-size: var(--font-size-sm);
-  color: var(--color-text-muted);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--duration-fast), color var(--duration-fast);
+  flex-shrink: 0;
 }
-.set-content__icon {
+.set-detail__back:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
+.set-detail__icon {
   width: 38px; height: 38px;
   border-radius: var(--radius-md);
   background: var(--color-brand-50);
@@ -175,33 +170,35 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
 }
-[data-theme="dark"] .set-content__icon {
+[data-theme="dark"] .set-detail__icon {
   background: rgba(6,182,212,0.15);
   color: var(--color-brand-300);
 }
-
-.set-content__body {
+.set-detail__head-text h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-primary);
+  letter-spacing: -0.01em;
+}
+.set-detail__head-text p {
+  margin: 2px 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+}
+.set-detail__body {
   padding: var(--space-6);
+  overflow-y: auto;
+  flex: 1;
 }
 
 /* === MOBILE ========================================================= */
-@media (max-width: 900px) {
-  .set-topbar { padding: var(--space-3) var(--space-4); flex-wrap: wrap; }
-  .set-mobile-toggle { display: inline-flex; align-items: center; gap: 6px; }
-  .set-workspace { grid-template-columns: 1fr; position: relative; }
-  .set-nav {
-    position: absolute;
-    left: 0; top: 0; bottom: 0;
-    width: 280px;
-    z-index: 20;
-    background: var(--color-surface-0);
-    border-right: 1px solid var(--color-border-subtle);
-    transform: translateX(-100%);
-    transition: transform 0.25s var(--ease-out-cubic);
-    box-shadow: var(--shadow-lg);
-  }
-  .set-nav.is-open { transform: translateX(0); }
-  .set-content__head { padding: var(--space-3) var(--space-4); }
-  .set-content__body { padding: var(--space-4); }
+@media (max-width: 767px) {
+  .set-topbar { padding: var(--space-3) var(--space-4); }
+  .set-list { padding: var(--space-4); }
+  .set-list__grid { grid-template-columns: 1fr; }
+  .set-detail__head { padding: var(--space-3) var(--space-4); }
+  .set-detail__body { padding: var(--space-4); }
 }

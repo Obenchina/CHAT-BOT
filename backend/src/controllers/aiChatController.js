@@ -141,12 +141,12 @@ async function sendWithFullHistory(req, res) {
         // Get ALL cases for this patient (full history)
         const allCases = await Case.findByPatientId(caseData.patient_id);
         
-        let fullHistoryContext = `══════════════════════════════\nالدوسييه الكامل للمريض (جميع الزيارات):\n══════════════════════════════\n`;
+        let fullHistoryContext = `══════════════════════════════\nDossier complet du patient (toutes les visites):\n══════════════════════════════\n`;
         
         for (const historicCase of allCases) {
             const fullCase = await Case.getFullDetails(historicCase.id);
             if (fullCase) {
-                fullHistoryContext += `\n--- زيارة ${new Date(historicCase.created_at).toLocaleDateString()} ---\n`;
+                fullHistoryContext += `\n--- Visite du ${new Date(historicCase.created_at).toLocaleDateString('fr-FR')} ---\n`;
                 if (fullCase.answers) {
                     fullCase.answers.forEach(a => {
                         fullHistoryContext += `${a.question_text}: ${a.text_answer || 'N/A'}\n`;
@@ -154,7 +154,7 @@ async function sendWithFullHistory(req, res) {
                 }
                 const analysis = fullCase.ai_analysis;
                 if (analysis && analysis.summary) {
-                    fullHistoryContext += `ملخص IA: ${analysis.summary}\n`;
+                    fullHistoryContext += `Résumé IA: ${analysis.summary}\n`;
                 }
             }
         }
@@ -172,7 +172,7 @@ async function sendWithFullHistory(req, res) {
             return res.status(400).json({ success: false, message: 'Clé API IA non configurée' });
         }
 
-        const doctorMsg = await AiChat.addMessage(caseId, doctor.id, 'doctor', `[مع الدوسييه الكامل] ${message}`);
+        const doctorMsg = await AiChat.addMessage(caseId, doctor.id, 'doctor', `[avec le dossier complet] ${message}`);
 
         const chatHistory = await AiChat.getMessages(caseId);
         const filteredHistory = chatHistory.filter(m => m.id !== doctorMsg.id);

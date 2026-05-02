@@ -416,14 +416,23 @@ async function create(req, res) {
             });
         }
 
-        if (!catalogueId) {
-            return res.status(400).json({
-                success: false,
-                message: 'Catalogue ID is required'
-            });
+        let effectiveCatalogueId = catalogueId;
+
+        if (!effectiveCatalogueId) {
+            const activeCatalogues = await Catalogue.findActiveByDoctorId(assistant.doctor_id);
+            const fallbackCatalogue = activeCatalogues[0];
+
+            if (!fallbackCatalogue) {
+                return res.status(400).json({
+                    success: false,
+                    message: 'Aucun catalogue actif avec des questions disponibles'
+                });
+            }
+
+            effectiveCatalogueId = fallbackCatalogue.id;
         }
 
-        const catalogue = await Catalogue.findById(catalogueId);
+        const catalogue = await Catalogue.findById(effectiveCatalogueId);
         if (!catalogue || catalogue.doctor_id !== assistant.doctor_id) {
             return res.status(404).json({
                 success: false,
@@ -837,7 +846,7 @@ async function addTextAnswer(req, res) {
         let savedAnswer;
         if (existingAnswer) {
             await Case.updateAnswer(existingAnswer.id, {
-                audioPath: null,
+                audioPath: existingAnswer.audio_path || null,
                 textAnswer: normalizedAnswer,
                 transcribedText: null,
                 questionTextSnapshot: existingAnswer.question_text_snapshot || questionContext.snapshot.questionTextSnapshot,

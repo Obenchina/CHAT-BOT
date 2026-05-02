@@ -42,19 +42,19 @@
     margin: 0 auto;
     display: grid;
     grid-template-columns: minmax(0, 1.08fr) minmax(420px, 0.92fr);
-    gap: 24px;
+    gap: 0;
+    border-radius: 36px;
+    overflow: hidden;
+    border: 1px solid var(--auth-border);
+    box-shadow: 0 22px 60px rgba(3, 10, 21, 0.4);
 }
 
-.auth-cover,
-.auth-container {
-    border: 1px solid var(--auth-border);
-    box-shadow: 0 22px 60px rgba(3, 10, 21, 0.35);
-}
+
 
 .auth-cover {
     position: relative;
     overflow: hidden;
-    border-radius: 32px;
+    border-radius: 0;
     padding: 40px;
     display: flex;
     flex-direction: column;
@@ -234,7 +234,7 @@
     width: min(100%, 540px);
     max-width: none;
     padding: 40px;
-    border-radius: 30px;
+    border-radius: 0;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 22%),
         linear-gradient(180deg, rgba(8, 24, 43, 0.9) 0%, rgba(7, 20, 37, 0.94) 100%);
@@ -993,13 +993,18 @@
     position: relative;
     overflow: hidden;
     padding: 40px;
-    border-radius: 32px;
+    border-radius: 28px;
     display: flex;
     flex-direction: column;
     justify-content: space-between;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 28%),
         linear-gradient(140deg, rgba(18, 45, 79, 0.96) 0%, rgba(7, 20, 37, 0.98) 100%);
+}
+
+.auth-page .auth-cover::before,
+.auth-page .auth-cover::after {
+    content: none !important;
 }
 
 .auth-page .auth-panel {
@@ -1016,7 +1021,7 @@
     width: min(100%, 540px);
     max-width: none;
     padding: 40px;
-    border-radius: 30px;
+    border-radius: 28px;
     background:
         linear-gradient(180deg, rgba(255, 255, 255, 0.03), transparent 22%),
         linear-gradient(180deg, rgba(8, 24, 43, 0.9) 0%, rgba(7, 20, 37, 0.94) 100%);

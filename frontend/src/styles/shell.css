@@ -1208,6 +1208,31 @@ select.form-select option {
     transition: background var(--transition-fast), color var(--transition-fast);
 }
 
+.sidebar-header {
+    gap: var(--space-md);
+}
+
+.sidebar-header .sidebar-logo {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.sidebar-header .sidebar-brand-copy {
+    min-width: 0;
+}
+
+.sidebar-header .sidebar-brand-name,
+.sidebar-header .sidebar-brand-subtitle {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sidebar-header .chatgpt-toggle-btn {
+    flex: 0 0 auto;
+    margin-left: var(--space-md);
+}
+
 .chatgpt-toggle-btn:hover {
     background: rgba(255, 255, 255, 0.1);
     color: rgba(255, 255, 255, 0.9);

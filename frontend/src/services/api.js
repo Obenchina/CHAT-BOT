@@ -39,10 +39,15 @@ api.interceptors.response.use(
         // Handle specific error codes
         if (error.response) {
             const { status } = error.response;
+            const responseData = error.response.data || {
+                success: false,
+                message: 'Erreur de connexion au serveur'
+            };
 
             // Unauthorized - redirect to login (unless we are already logging in or checking session)
-            const isLoginRequest = error.config.url.includes('/auth/login');
-            const isMeRequest = error.config.url.includes('/auth/me');
+            const requestUrl = error.config?.url || '';
+            const isLoginRequest = requestUrl.includes('/auth/login');
+            const isMeRequest = requestUrl.includes('/auth/me');
             const isLoginPage = window.location.pathname === '/login';
 
             if (status === 401 && !isLoginRequest && !isMeRequest && !isLoginPage) {
@@ -51,7 +56,7 @@ api.interceptors.response.use(
             }
 
             // Return error response
-            return Promise.reject(error.response.data);
+            return Promise.reject({ ...responseData, status });
         }
 
         // Network error

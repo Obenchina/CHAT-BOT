@@ -27,12 +27,6 @@ const coverHighlights = [
     }
 ];
 
-const coverStats = [
-    { value: '3', label: 'Espaces Connectés' },
-    { value: '1', label: 'Flux Unifié' },
-    { value: 'OTP', label: 'Accès Sécurisé' }
-];
-
 function LoginPage() {
     const [formData, setFormData] = useState({
         email: '',
@@ -74,7 +68,6 @@ function LoginPage() {
             coverTitle="Un environnement clinique structuré."
             coverSubtitle="Connectez-vous pour superviser vos dossiers, coordonner votre équipe et maintenir une continuité de soins sans friction."
             coverHighlights={coverHighlights}
-            coverStats={coverStats}
             panelTitle="Ravi de vous revoir, Docteur"
             panelSubtitle="Accédez à votre espace professionnel MediConsult."
             footer={

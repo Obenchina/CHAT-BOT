@@ -365,10 +365,18 @@ export default function Entretien() {
               ...prev,
               [question.id]: {
                 ...prev[question.id],
-                value: res.data.transcribedText
+                audioBlob: undefined,
+                value: String(prev[question.id]?.value || '').trim()
+                  ? prev[question.id].value
+                  : res.data.transcribedText
               }
             }));
           }
+        } else if (answerData.type === 'voice' && String(answerData.value || '').trim()) {
+          await caseService.addTextAnswer(caseId, {
+            questionId: question.id,
+            answer: String(answerData.value || '').trim(),
+          });
         } else if (['yes_no', 'choices', 'text_short', 'text_long', 'number'].includes(answerData.type)) {
           await caseService.addTextAnswer(caseId, {
             questionId: question.id,
@@ -444,6 +452,17 @@ export default function Entretien() {
   // ---- Setters ----
   const setAnswer = (val, type) => {
     setAnswers(prev => ({ ...prev, [currentQuestion.id]: { type, value: val } }));
+  };
+
+  const setVoiceTranscript = (questionId, value) => {
+    setAnswers(prev => ({
+      ...prev,
+      [questionId]: {
+        ...(prev[questionId] || {}),
+        type: 'voice',
+        value,
+      },
+    }));
   };
 
   // ---- Validation ----
@@ -758,14 +777,35 @@ export default function Entretien() {
                     />
                   )}
                   {answerType === 'voice' && (
-                    <VoiceQuestion
-                      recording={isRecording}
-                      recordTime={recordTime}
-                      audioUrl={currentAnswer?.audioUrl}
-                      onStart={startRecording}
-                      onStop={stopRecording}
-                      onClear={clearRecording}
-                    />
+                    <>
+                      <VoiceQuestion
+                        recording={isRecording}
+                        recordTime={recordTime}
+                        audioUrl={currentAnswer?.audioUrl}
+                        onStart={startRecording}
+                        onStop={stopRecording}
+                        onClear={clearRecording}
+                      />
+                      {currentAnswer?.value !== undefined ? (
+                        <div className="entretien-transcript">
+                          <label className="entretien-transcript__label" htmlFor={`transcript-${currentQuestion.id}`}>
+                            Transcription modifiable
+                          </label>
+                          <textarea
+                            id={`transcript-${currentQuestion.id}`}
+                            className="entretien-input entretien-textarea entretien-transcript__textarea"
+                            value={currentAnswer?.value || ''}
+                            onChange={(e) => setVoiceTranscript(currentQuestion.id, e.target.value)}
+                            onBlur={(e) => saveAnswer(currentQuestion, { ...currentAnswer, type: 'voice', value: e.target.value })}
+                            placeholder="La transcription IA apparaitra ici, vous pouvez la corriger au clavier."
+                          />
+                        </div>
+                      ) : currentAnswer?.audioUrl ? (
+                        <div className="entretien-transcript__pending">
+                          Transcription en cours...
+                        </div>
+                      ) : null}
+                    </>
                   )}
 
                   {/* internal note removed */}
@@ -798,7 +838,17 @@ export default function Entretien() {
                         return (
                           <div key={q.id} className="entretien-recap__entry">
                             <div className="entretien-recap__q">{q.questionText || q.question_text}</div>
-                            <div className="entretien-recap__a">{display}</div>
+                            {a.type === 'voice' && a.value !== undefined ? (
+                              <textarea
+                                className="entretien-recap__edit"
+                                value={a.value || ''}
+                                onChange={(e) => setVoiceTranscript(q.id, e.target.value)}
+                                onBlur={(e) => saveAnswer(q, { ...a, type: 'voice', value: e.target.value })}
+                                placeholder={a.audioUrl ? 'Transcription en cours...' : 'Saisir la transcription'}
+                              />
+                            ) : (
+                              <div className="entretien-recap__a">{display}</div>
+                            )}
                           </div>
                         );
                       })}

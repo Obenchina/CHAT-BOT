@@ -44,7 +44,9 @@ export function AuthProvider({ children }) {
                 setProfile(null);
             }
         } catch (error) {
-            console.error('Auth check error:', error);
+            if (error?.status !== 401) {
+                console.error('Auth check error:', error);
+            }
             setUser(null);
             setProfile(null);
         } finally {
