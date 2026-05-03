@@ -189,7 +189,6 @@ function ForgotPasswordPage() {
             coverTitle="Retrouvez l acces sans fragiliser le compte."
             coverSubtitle="Le parcours de recuperation garde la meme logique que le produit: verification claire, action tracee et retour rapide a l espace praticien."
             coverHighlights={coverHighlights}
-            coverStats={coverStats}
             panelTitle={panelTitle}
             panelSubtitle={panelSubtitle}
             steps={['Email', 'Code', 'Mot de passe']}

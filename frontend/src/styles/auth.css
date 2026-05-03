@@ -704,14 +704,14 @@
     padding: var(--space-xl);
     position: relative;
     z-index: 2;
-    background: var(--bg-surface);
+    /* Removed background: var(--bg-surface) to prevent white background */
 }
 
 .auth-container {
     width: 100%;
     max-width: 420px;
     /* Glassmorphism/premium feeling */
-    background: var(--bg-card);
+    /* background: var(--bg-card); removed to keep dark theme background */
     border-radius: var(--radius-2xl, 20px);
     padding: var(--space-2xl);
     box-shadow: var(--shadow-xl);

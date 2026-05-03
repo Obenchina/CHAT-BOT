@@ -15,7 +15,7 @@ function AuthShell({
     children
 }) {
     return (
-        <div className="auth-page">
+        <div className="auth-page" data-theme="dark">
             <div className="auth-shell">
                 <aside className="auth-cover">
                     <div className="auth-cover-top">
