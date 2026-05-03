@@ -202,7 +202,6 @@ function RegisterPage() {
             coverTitle="Définissez votre cadre clinique en quelques clics."
             coverSubtitle="L'inscription initialise un point de contrôle unique pour la coordination de vos soins et le pilotage de votre équipe."
             coverHighlights={coverHighlights}
-            coverStats={coverStats}
             panelTitle={showOTP ? 'Vérification de l\'adresse e-mail' : t.auth.registerTitle}
             panelSubtitle={
                 showOTP
