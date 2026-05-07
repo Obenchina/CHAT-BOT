@@ -332,7 +332,7 @@ async function runMigrations(pool) {
             id INT PRIMARY KEY AUTO_INCREMENT,
             doctor_id INT NOT NULL,
             measure_key VARCHAR(50) NOT NULL,
-            gender ENUM('male', 'female', 'both') NOT NULL DEFAULT 'both',
+            gender ENUM('male', 'female') NOT NULL DEFAULT 'male',
             file_path VARCHAR(255) NOT NULL,
             template_config JSON NULL,
             is_calibrated BOOLEAN DEFAULT FALSE,

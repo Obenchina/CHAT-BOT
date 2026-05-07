@@ -204,7 +204,7 @@ function inferGender(originalName, fallbackGender) {
     const name = normalizeText(originalName);
     if (name.includes('garcon') || name.includes('boys')) return 'male';
     if (name.includes('fille') || name.includes('girls')) return 'female';
-    return fallbackGender || 'both';
+    return fallbackGender || 'male';
 }
 
 function inferAgeDomainMonths(originalName) {

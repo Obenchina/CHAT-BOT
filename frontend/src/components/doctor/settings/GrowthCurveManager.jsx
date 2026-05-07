@@ -43,7 +43,7 @@ function GrowthCurveManager() {
     const [uploading, setUploading] = useState(false);
     const [selectedFile, setSelectedFile] = useState(null);
     const [measureKey, setMeasureKey] = useState('weight');
-    const [gender, setGender] = useState('both');
+    const [gender, setGender] = useState('male');
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [curveToDelete, setCurveToDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
@@ -246,7 +246,6 @@ function GrowthCurveManager() {
                     <div className="input-group">
                         <label>Sexe</label>
                         <select className="input-field" value={gender} onChange={e => setGender(e.target.value)}>
-                            <option value="both">Mixte</option>
                             <option value="male">Garçon</option>
                             <option value="female">Fille</option>
                         </select>

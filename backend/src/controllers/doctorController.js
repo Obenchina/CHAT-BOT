@@ -405,13 +405,13 @@ async function uploadGrowthCurve(req, res) {
                             originalName: curveFile.originalname,
                             fallbackConfig: chart.templateConfig,
                             fallbackMeasureKey: chart.measureKey,
-                            fallbackGender: chart.gender || gender || 'both',
+                            fallbackGender: chart.gender || gender || 'male',
                             aiConfig: activeAiConfig
                         })
                         : null;
                     const templateConfig = aiTemplateConfig || chart.templateConfig;
                     const resolvedMeasureKey = templateConfig.measure_key || chart.measureKey;
-                    const resolvedGender = templateConfig.gender || chart.gender || gender || 'both';
+                    const resolvedGender = templateConfig.gender || chart.gender || gender || 'male';
                     const filePath = saveExtractedChartImage(chart.image);
                     const curve = await GrowthCurve.create({
                         doctor_id: doctor.id,
@@ -466,7 +466,7 @@ async function uploadGrowthCurve(req, res) {
 
         const fallbackTemplateConfig = {
             source: 'manual_upload',
-            label: `${measureKey} (${gender || 'both'})`,
+            label: `${measureKey} (${gender || 'male'})`,
             x_min: 0, x_max: 216,
             y_min: yDomain.y_min, y_max: yDomain.y_max,
             x_unit: 'months',
@@ -482,7 +482,7 @@ async function uploadGrowthCurve(req, res) {
                 mimeType: imageFile.mimetype,
                 originalName: curveFile.originalname,
                 fallbackMeasureKey: measureKey,
-                fallbackGender: gender || 'both',
+                fallbackGender: gender || 'male',
                 fallbackConfig: fallbackTemplateConfig,
                 aiConfig: activeAiConfig
             });
@@ -492,7 +492,7 @@ async function uploadGrowthCurve(req, res) {
         const curve = await GrowthCurve.create({
             doctor_id: doctor.id,
             measure_key: templateConfig.measure_key || measureKey,
-            gender: templateConfig.gender || gender || 'both',
+            gender: templateConfig.gender || gender || 'male',
             file_path: `uploads/curves/${imageFile.filename}`,
             template_config: templateConfig,
             is_calibrated: true

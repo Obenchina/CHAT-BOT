@@ -77,7 +77,7 @@ function normalizeGender(value, fallback) {
     const raw = String(value || fallback || '').toLowerCase();
     if (['male', 'boy', 'boys', 'garcon', 'garcons', 'm'].includes(raw)) return 'male';
     if (['female', 'girl', 'girls', 'fille', 'filles', 'f'].includes(raw)) return 'female';
-    return fallback || 'both';
+    return fallback || 'male';
 }
 
 function validateCalibration(candidate, fallbackConfig, fallbackMeasureKey, fallbackGender) {
@@ -155,7 +155,7 @@ Allowed gender values: male, female, both.
 
 Original filename: ${originalName || 'unknown'}
 Fallback measure_key: ${fallbackMeasureKey || 'unknown'}
-Fallback gender: ${fallbackGender || 'both'}
+Fallback gender: ${fallbackGender || 'male'}
 Fallback config: ${JSON.stringify(fallbackConfig || {})}
 
 Return this JSON shape:

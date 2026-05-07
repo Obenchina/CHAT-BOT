@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS doctors (
     id INT PRIMARY KEY AUTO_INCREMENT,
     user_id INT NOT NULL UNIQUE,
-    gender ENUM('male', 'female', 'other') NULL,
+    gender ENUM('male', 'female') NULL,
     phone VARCHAR(20) NOT NULL,
     address TEXT,
     specialty VARCHAR(100) NOT NULL,
@@ -70,7 +70,7 @@ CREATE TABLE IF NOT EXISTS patients (
     doctor_id INT NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    gender ENUM('male', 'female', 'other') NOT NULL,
+    gender ENUM('male', 'female') NOT NULL,
     date_of_birth DATE NOT NULL,
     phone VARCHAR(20) NOT NULL,
     address TEXT NULL,
@@ -98,19 +98,6 @@ CREATE TABLE IF NOT EXISTS catalogues (
     INDEX idx_active (doctor_id, is_active)
 ) ENGINE=InnoDB;
 
--- ======================
--- CATALOGUE SECTIONS TABLE
--- ======================
-CREATE TABLE IF NOT EXISTS catalogue_sections (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    catalogue_id INT NOT NULL,
-    name VARCHAR(150) NOT NULL,
-    section_order INT NOT NULL DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uq_catalogue_section_name (catalogue_id, name),
-    FOREIGN KEY (catalogue_id) REFERENCES catalogues(id) ON DELETE CASCADE,
-    INDEX idx_catalogue_order (catalogue_id, section_order)
-) ENGINE=InnoDB;
 
 -- ======================
 -- QUESTIONS TABLE
@@ -186,13 +173,12 @@ CREATE TABLE IF NOT EXISTS case_answers (
 CREATE TABLE IF NOT EXISTS documents (
     id INT PRIMARY KEY AUTO_INCREMENT,
     case_id INT NOT NULL,
-    document_type ENUM('analysis', 'imagery', 'prescription', 'report') NOT NULL,
+    document_type VARCHAR(50) NOT NULL DEFAULT 'general',
     file_path VARCHAR(500) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
-    INDEX idx_case_id (case_id),
-    INDEX idx_type (document_type)
+    INDEX idx_case_id (case_id)
 ) ENGINE=InnoDB;
 
 -- ======================
@@ -205,7 +191,7 @@ CREATE TABLE IF NOT EXISTS pending_registrations (
     password VARCHAR(255) NOT NULL,
     first_name VARCHAR(100) NOT NULL,
     last_name VARCHAR(100) NOT NULL,
-    gender ENUM('male', 'female', 'other') NULL,
+    gender ENUM('male', 'female') NULL,
     phone VARCHAR(20) NOT NULL,
     address TEXT,
     specialty VARCHAR(100) NOT NULL,
@@ -229,7 +215,7 @@ CREATE TABLE IF NOT EXISTS ai_config (
     is_active BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    response_language ENUM('ar', 'fr') NOT NULL DEFAULT 'ar',
+    response_language ENUM('ar', 'fr') NOT NULL DEFAULT 'fr',
     UNIQUE KEY doctor_provider_unique (doctor_id, provider),
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
@@ -257,7 +243,7 @@ CREATE TABLE IF NOT EXISTS doctor_growth_curves (
     id INT PRIMARY KEY AUTO_INCREMENT,
     doctor_id INT NOT NULL,
     measure_key VARCHAR(50) NOT NULL, -- 'weight', 'height', 'head', 'bmi'
-    gender ENUM('male', 'female', 'both') NOT NULL DEFAULT 'both',
+    gender ENUM('male', 'female') NOT NULL DEFAULT 'male',
     file_path VARCHAR(255) NOT NULL,
     -- Template Configuration: Stores min_age, max_age, min_y, max_y, and plot_area
     template_config JSON NULL,
