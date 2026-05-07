@@ -1,4 +1,6 @@
 const zlib = require('zlib');
+const fs = require('fs');
+const path = require('path');
 
 function crc32(buffer) {
     let crc = 0xffffffff;
@@ -271,6 +273,64 @@ async function calibrateGrowthChartWithAI({ image, originalName, fallbackConfig,
     }
 }
 
+/**
+ * Calibrate a plain image file (JPG/PNG) directly using AI — no raw pixel decoding needed.
+ * @param {object} params
+ * @param {string} params.filePath - Absolute path to the image file on disk
+ * @param {string} params.mimeType - e.g. 'image/jpeg' or 'image/png'
+ * @param {string} params.originalName - Original filename for hints
+ * @param {string} params.fallbackMeasureKey - measureKey chosen by doctor
+ * @param {string} params.fallbackGender - gender chosen by doctor
+ * @param {object} params.fallbackConfig - Default config to use if AI fails
+ * @param {object} params.aiConfig - { provider, apiKey, model }
+ * @returns {Promise<object|null>} Calibrated template config or null
+ */
+async function calibrateImageFileWithAI({ filePath, mimeType, originalName, fallbackMeasureKey, fallbackGender, fallbackConfig, aiConfig }) {
+    if (!aiConfig?.apiKey) return null;
+    try {
+        const fileBuffer = fs.readFileSync(filePath);
+        const pngBase64 = fileBuffer.toString('base64');
+        const prompt = buildCalibrationPrompt({ originalName, fallbackConfig, fallbackMeasureKey, fallbackGender });
+        const provider = aiConfig.provider === 'openai' ? 'openai' : 'gemini';
+
+        // For Gemini we can send the image as its native mime type directly
+        let text;
+        if (provider === 'openai') {
+            text = await callOpenAiCalibration(prompt, pngBase64, aiConfig);
+        } else {
+            // Override the mimeType for Gemini inline data
+            const model = aiConfig.model || 'gemini-2.5-flash';
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${aiConfig.apiKey}`;
+            const response = await fetchWithTimeout(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    contents: [{
+                        parts: [
+                            { text: prompt },
+                            { inlineData: { mimeType: mimeType || 'image/jpeg', data: pngBase64 } }
+                        ]
+                    }],
+                    generationConfig: { temperature: 0, maxOutputTokens: 1200, responseMimeType: 'application/json' }
+                })
+            });
+            if (!response.ok) throw new Error(`Gemini calibration failed: ${response.status}`);
+            const data = await response.json();
+            text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+        }
+
+        const jsonText = stripJsonEnvelope(text);
+        if (!jsonText) return null;
+        const parsed = JSON.parse(jsonText);
+        parsed.ai_provider = provider;
+        return validateCalibration(parsed, fallbackConfig, fallbackMeasureKey, fallbackGender);
+    } catch (error) {
+        console.warn('Image file AI calibration skipped:', error.message);
+        return null;
+    }
+}
+
 module.exports = {
-    calibrateGrowthChartWithAI
+    calibrateGrowthChartWithAI,
+    calibrateImageFileWithAI
 };

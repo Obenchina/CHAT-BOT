@@ -4,6 +4,38 @@ import { getAuthUploadUrl } from '../../../constants/config';
 import { showSuccess, showError } from '../../../utils/toast';
 import Modal from '../../common/Modal';
 import Button from '../../common/Button';
+import * as pdfjsLib from 'pdfjs-dist';
+
+// Configure pdf.js worker
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
+    'pdfjs-dist/build/pdf.worker.min.mjs',
+    import.meta.url
+).toString();
+
+/**
+ * Render page 1 of a PDF file to a PNG Blob using the browser's canvas.
+ * @param {File} pdfFile
+ * @returns {Promise<Blob>} PNG blob
+ */
+async function renderPdfToImage(pdfFile) {
+    const arrayBuffer = await pdfFile.arrayBuffer();
+    const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const page = await pdf.getPage(1);
+
+    // Render at 2× scale for good quality
+    const scale = 2;
+    const viewport = page.getViewport({ scale });
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width;
+    canvas.height = viewport.height;
+    const ctx = canvas.getContext('2d');
+
+    await page.render({ canvasContext: ctx, viewport }).promise;
+
+    return new Promise((resolve) => {
+        canvas.toBlob((blob) => resolve(blob), 'image/png');
+    });
+}
 
 function GrowthCurveManager() {
     const [curves, setCurves] = useState([]);
@@ -92,7 +124,19 @@ function GrowthCurveManager() {
         fd.append('curve', selectedFile);
         fd.append('measureKey', measureKey);
         fd.append('gender', gender);
-        
+
+        // If PDF, also render page 1 as image and attach it as fallback
+        const isPdf = selectedFile.type === 'application/pdf' || /\.pdf$/i.test(selectedFile.name);
+        if (isPdf) {
+            try {
+                const imageBlob = await renderPdfToImage(selectedFile);
+                fd.append('curveImage', imageBlob, selectedFile.name.replace(/\.pdf$/i, '.png'));
+            } catch (e) {
+                console.warn('PDF-to-image conversion failed:', e);
+                // Continue anyway — backend will use defaults
+            }
+        }
+
         try {
             const res = await doctorService.uploadGrowthCurve(fd);
             if (res.success) {
@@ -324,6 +368,10 @@ function GrowthCurveManager() {
                         ) : previewError ? (
                             <div className="alert alert-error" style={{ maxWidth: 520 }}>
                                 {previewError}
+                            </div>
+                        ) : !previewFileUrl ? (
+                            <div style={{ color: 'var(--text-secondary)' }}>
+                                Chargement du fichier...
                             </div>
                         ) : String(previewCurve.file_path || '').toLowerCase().endsWith('.pdf') ? (
                             <iframe

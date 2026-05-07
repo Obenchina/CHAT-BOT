@@ -48,7 +48,10 @@ router.put('/letter-config', doctorController.updateLetterConfig);
 router.get('/growth-curves', doctorController.getGrowthCurves);
 router.post(
     '/growth-curves',
-    uploadCurve.single('curve'),
+    uploadCurve.fields([
+        { name: 'curve', maxCount: 1 },
+        { name: 'curveImage', maxCount: 1 }
+    ]),
     handleUploadError,
     doctorController.uploadGrowthCurve
 );

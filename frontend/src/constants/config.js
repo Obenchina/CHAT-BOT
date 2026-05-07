@@ -15,7 +15,7 @@ export const UPLOAD_URL = import.meta.env.VITE_UPLOAD_URL || 'http://localhost:5
  * @returns {string} Full authenticated URL
  */
 export function getAuthUploadUrl(relativePath) {
-    if (!relativePath) return '';
+    if (!relativePath) return null;
     const token = localStorage.getItem('token');
     const normalizedPath = String(relativePath).replace(/^uploads[\\/]/, '').replace(/\\/g, '/');
     return `${UPLOAD_URL}/${normalizedPath}${token ? `?token=${token}` : ''}`;

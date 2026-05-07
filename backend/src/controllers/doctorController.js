@@ -6,7 +6,7 @@ const GrowthCurve = require('../models/GrowthCurve');
 const { pool } = require('../config/database');
 const { getValidatedOfficialTemplates } = require('../config/growthCurveTemplates');
 const { buildExtractedCharts, saveExtractedChartImage } = require('../services/growthCurvePdfService');
-const { calibrateGrowthChartWithAI } = require('../services/growthCurveAiCalibrationService');
+const { calibrateGrowthChartWithAI, calibrateImageFileWithAI } = require('../services/growthCurveAiCalibrationService');
 
 function normalizeOptionalText(value, maxLength) {
     if (value === undefined || value === null) {
@@ -337,15 +337,29 @@ async function getGrowthCurves(req, res) {
         }));
 
         const mappedCustom = (customCurves || []).map((c) => {
-            const canPlot = Boolean(c.is_calibrated && c.template_config && c.file_path);
+            // Every curve with a file is plottable — generate a fallback config if missing
+            const defaultYDomains = { weight: [0, 110], height: [40, 210], head: [30, 60], bmi: [8, 35] };
+            const [y_min, y_max] = defaultYDomains[c.measure_key] || [0, 100];
+            const templateConfig = c.template_config || {
+                source: 'manual_upload',
+                label: `${c.measure_key} (${c.gender})`,
+                x_min: 0, x_max: 216,
+                y_min, y_max,
+                x_unit: 'months',
+                y_unit: c.measure_key === 'weight' ? 'kg' : (c.measure_key === 'height' || c.measure_key === 'head') ? 'cm' : '',
+                plot_area: { left: 8, top: 8, right: 92, bottom: 92 },
+                auto_confidence: 0.5
+            };
+            const canPlot = Boolean(c.file_path);
             return {
                 ...c,
+                template_config: templateConfig,
                 source_type: canPlot ? 'custom_calibrated' : 'custom_upload',
                 is_official: false,
                 is_custom_upload: true,
-                display_name: c.template_config?.label || `${c.measure_key} (${c.gender})`,
+                display_name: templateConfig.label || `${c.measure_key} (${c.gender})`,
                 is_plot_enabled: canPlot,
-                is_calibrated: Boolean(c.is_calibrated)
+                is_calibrated: canPlot
             };
         });
 
@@ -361,13 +375,18 @@ async function getGrowthCurves(req, res) {
 async function uploadGrowthCurve(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
-        if (!req.file) return res.status(400).json({ success: false, message: 'File is required' });
+
+        // With multer.fields(), files come as req.files.curve[0] and req.files.curveImage[0]
+        const curveFile = req.files?.curve?.[0];
+        const curveImageFile = req.files?.curveImage?.[0];
+        if (!curveFile) return res.status(400).json({ success: false, message: 'File is required' });
 
         const { measureKey, gender } = req.body;
-        const isPdf = req.file.mimetype === 'application/pdf' || /\.pdf$/i.test(req.file.originalname);
+        const isPdf = curveFile.mimetype === 'application/pdf' || /\.pdf$/i.test(curveFile.originalname);
 
+        // ─── AFPA-style PDF extraction (UNCHANGED — do NOT touch) ───
         if (isPdf) {
-            const extractedCharts = buildExtractedCharts(req.file, { measureKey, gender });
+            const extractedCharts = buildExtractedCharts(curveFile, { measureKey, gender });
 
             if (extractedCharts.length > 0) {
                 const createdCurves = [];
@@ -383,7 +402,7 @@ async function uploadGrowthCurve(req, res) {
                     const aiTemplateConfig = activeAiConfig
                         ? await calibrateGrowthChartWithAI({
                             image: chart.image,
-                            originalName: req.file.originalname,
+                            originalName: curveFile.originalname,
                             fallbackConfig: chart.templateConfig,
                             fallbackMeasureKey: chart.measureKey,
                             fallbackGender: chart.gender || gender || 'both',
@@ -415,7 +434,9 @@ async function uploadGrowthCurve(req, res) {
                     });
                 }
 
-                require('fs').unlink(req.file.path, () => { });
+                // Clean up uploaded files
+                require('fs').unlink(curveFile.path, () => { });
+                if (curveImageFile) require('fs').unlink(curveImageFile.path, () => { });
 
                 return res.status(201).json({
                     success: true,
@@ -423,28 +444,70 @@ async function uploadGrowthCurve(req, res) {
                     data: createdCurves
                 });
             }
+
+            // AFPA extraction failed — clean up the original PDF
+            require('fs').unlink(curveFile.path, () => { });
+        }
+
+        // ─── Fallback: use curveImage (browser-rendered PNG) or original image file ───
+        const imageFile = (isPdf && curveImageFile) ? curveImageFile : curveFile;
+
+        // Try AI calibration on the image
+        let activeAiConfig = null;
+        try { activeAiConfig = await AiConfig.getEffectiveConfig(doctor.id); } catch (_) {}
+
+        const defaultYDomains = {
+            weight: { y_min: 0, y_max: 110 },
+            height: { y_min: 40, y_max: 210 },
+            head:   { y_min: 30, y_max: 60 },
+            bmi:    { y_min: 8,  y_max: 35 }
+        };
+        const yDomain = defaultYDomains[measureKey] || { y_min: 0, y_max: 100 };
+
+        const fallbackTemplateConfig = {
+            source: 'manual_upload',
+            label: `${measureKey} (${gender || 'both'})`,
+            x_min: 0, x_max: 216,
+            y_min: yDomain.y_min, y_max: yDomain.y_max,
+            x_unit: 'months',
+            y_unit: measureKey === 'weight' ? 'kg' : (measureKey === 'height' || measureKey === 'head') ? 'cm' : '',
+            plot_area: { left: 8, top: 8, right: 92, bottom: 92 },
+            auto_confidence: 0.5
+        };
+
+        let templateConfig = fallbackTemplateConfig;
+        if (activeAiConfig) {
+            const aiResult = await calibrateImageFileWithAI({
+                filePath: imageFile.path,
+                mimeType: imageFile.mimetype,
+                originalName: curveFile.originalname,
+                fallbackMeasureKey: measureKey,
+                fallbackGender: gender || 'both',
+                fallbackConfig: fallbackTemplateConfig,
+                aiConfig: activeAiConfig
+            });
+            if (aiResult) templateConfig = aiResult;
         }
 
         const curve = await GrowthCurve.create({
             doctor_id: doctor.id,
-            measure_key: measureKey,
-            gender: gender || 'both',
-            file_path: `uploads/curves/${req.file.filename}`,
-            // Manual calibration is forbidden in this phase.
-            template_config: null,
-            is_calibrated: false
+            measure_key: templateConfig.measure_key || measureKey,
+            gender: templateConfig.gender || gender || 'both',
+            file_path: `uploads/curves/${imageFile.filename}`,
+            template_config: templateConfig,
+            is_calibrated: true
         });
 
         res.status(201).json({
             success: true,
             data: {
                 ...curve,
-                source_type: 'custom_upload',
+                source_type: 'custom_calibrated',
                 is_official: false,
                 is_custom_upload: true,
-                display_name: `${curve.measure_key} (${curve.gender})`,
-                is_plot_enabled: false,
-                is_calibrated: false
+                display_name: templateConfig.label || `${curve.measure_key} (${curve.gender})`,
+                is_plot_enabled: true,
+                is_calibrated: true
             }
         });
     } catch (error) {
