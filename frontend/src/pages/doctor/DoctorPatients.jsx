@@ -18,6 +18,7 @@ import Button from '../../components/common/Button';
 import LoadingSpinner from '../../components/common/LoadingSpinner';
 import Modal from '../../components/common/Modal';
 import Input from '../../components/common/Input';
+import DocumentPreviewModal from '../../components/common/DocumentPreviewModal';
 import patientService from '../../services/patientService';
 import caseService from '../../services/caseService';
 import { showError, showConfirm } from '../../utils/toast';
@@ -33,6 +34,7 @@ import GroupOffIcon from '@mui/icons-material/GroupOff';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital';
 import TimelineIcon from '@mui/icons-material/Timeline';
+import DescriptionIcon from '@mui/icons-material/Description';
 import PersonOutlineIcon from '@mui/icons-material/PersonOutline';
 import CallIcon from '@mui/icons-material/Call';
 import HomeIcon from '@mui/icons-material/Home';
@@ -87,6 +89,9 @@ export default function DoctorPatients() {
   const [measurements, setMeasurements] = useState({});
   const [measurementsLoading, setMeasurementsLoading] = useState(false);
   const [activeMeasure, setActiveMeasure] = useState(null);
+  const [patientDocuments, setPatientDocuments] = useState([]);
+  const [documentsLoading, setDocumentsLoading] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState(null);
 
   const [showModal, setShowModal] = useState(false);
   const [modalLoading, setModalLoading] = useState(false);
@@ -152,6 +157,14 @@ export default function DoctorPatients() {
         if (keys.length) setActiveMeasure(keys[0]); else setActiveMeasure(null);
       }).catch(() => {})
       .finally(() => setMeasurementsLoading(false));
+
+    setPatientDocuments([]); setDocumentsLoading(true);
+    patientService.getDocuments(selected.id)
+      .then((r) => {
+        setPatientDocuments(Array.isArray(r?.data) ? r.data : []);
+      }).catch(() => {
+        setPatientDocuments([]);
+      }).finally(() => setDocumentsLoading(false));
   }, [selected?.id]);
 
   /* edit */
@@ -345,6 +358,7 @@ export default function DoctorPatients() {
                       { v:'profile',     l:'Profil',         icon: <PersonOutlineIcon fontSize="small" /> },
                       { v:'consultations', l:`Consultations (${history.length})`, icon: <LocalHospitalIcon fontSize="small" /> },
                       { v:'mesures',    l:'Courbes',        icon: <TimelineIcon fontSize="small" /> },
+                      { v:'documents',  l:`Documents (${patientDocuments.length})`, icon: <DescriptionIcon fontSize="small" /> },
                     ].map((x) => (
                       <button
                         key={x.v}
@@ -428,11 +442,40 @@ export default function DoctorPatients() {
                                 <PatientMeasurementsChart
                                   patient={selected}
                                   data={measurements[activeMeasure]}
+                                  allData={measurements}
                                   measureKey={activeMeasure}
                                   height={480}
                                 />
                               )}
                             </>
+                          )}
+                        </Motion.div>
+                      )}
+
+                      {tab === 'documents' && (
+                        <Motion.div key="docs" initial={{ opacity:0, y:6 }} animate={{ opacity:1, y:0 }} exit={{ opacity:0 }} className="pat-block">
+                          <h3>Documents</h3>
+                          {documentsLoading ? (
+                            <div className="pat-loading-inline"><LoadingSpinner size="sm" /></div>
+                          ) : patientDocuments.length === 0 ? (
+                            <div className="pat-empty pat-empty--small"><DescriptionIcon style={{ fontSize: 40, opacity: 0.4 }} /><p>Aucun document enregistrÃ© pour ce patient.</p></div>
+                          ) : (
+                            <div className="pat-documents-grid">
+                              {patientDocuments.map((doc) => (
+                                <button
+                                  type="button"
+                                  key={doc.id}
+                                  className="pat-document-card"
+                                  onClick={() => setPreviewDoc(doc)}
+                                >
+                                  <DescriptionIcon fontSize="medium" />
+                                  <span className="pat-document-card__name">{doc.fileName || doc.file_name || `Document #${doc.id}`}</span>
+                                  <span className="pat-document-card__meta">
+                                    Cas #{doc.caseId || doc.case_id} Â· {formatDate(doc.uploadedAt || doc.uploaded_at)}
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
                           )}
                         </Motion.div>
                       )}
@@ -442,6 +485,14 @@ export default function DoctorPatients() {
               )}
             </section>
           </div>
+        )}
+
+        {previewDoc && (
+          <DocumentPreviewModal
+            document={previewDoc}
+            isOpen={Boolean(previewDoc)}
+            onClose={() => setPreviewDoc(null)}
+          />
         )}
 
         {/* EDIT MODAL */}

@@ -14,6 +14,155 @@ function clampSummaryToMaxLines(summary, maxLines = 4) {
     return lines.slice(0, maxLines).join('\n').trim();
 }
 
+function safeJsonParse(value, fallback = null) {
+    if (!value) return fallback;
+    if (typeof value === 'object') return value;
+    try {
+        return JSON.parse(value);
+    } catch {
+        return fallback;
+    }
+}
+
+function calculateAgeDisplay(patient = {}) {
+    const rawDate = patient.date_of_birth || patient.dateOfBirth || patient.birth_date || patient.birthDate;
+    if (!rawDate) return patient.age || 'unknown';
+    const dob = new Date(rawDate);
+    if (Number.isNaN(dob.getTime())) return patient.age || 'unknown';
+
+    const now = new Date();
+    let years = now.getFullYear() - dob.getFullYear();
+    let months = now.getMonth() - dob.getMonth();
+    if (months < 0 || (months === 0 && now.getDate() < dob.getDate())) {
+        years -= 1;
+        months += 12;
+    }
+    return years > 0 ? `${years} years` : `${Math.max(0, months)} months`;
+}
+
+function formatDateForPrompt(value) {
+    if (!value) return 'unknown';
+    const d = new Date(value);
+    return Number.isNaN(d.getTime()) ? String(value) : d.toISOString().slice(0, 10);
+}
+
+function formatMedicationList(rawPrescription) {
+    const list = safeJsonParse(rawPrescription, Array.isArray(rawPrescription) ? rawPrescription : []);
+    if (!Array.isArray(list) || list.length === 0) return 'none recorded';
+    return list.map((m, index) => {
+        const parts = [m.name, m.dosage, m.frequency, m.duration].filter(Boolean);
+        return `${index + 1}. ${parts.join(' | ') || 'Unnamed medication'}`;
+    }).join('\n');
+}
+
+function buildComprehensiveCaseContext(caseData = {}, responseLanguage = 'ar') {
+    const patient = caseData.patient || {};
+    const answers = Array.isArray(caseData.answers) ? caseData.answers : [];
+    const documents = Array.isArray(caseData.documents) ? caseData.documents : [];
+    const aiAnalysis = safeJsonParse(caseData.ai_analysis || caseData.aiAnalysis, caseData.aiAnalysis || null);
+    const language = responseLanguage === 'fr' ? 'French' : 'Arabic';
+
+    const lines = [
+        'COMPREHENSIVE ANONYMIZED CASE DATA',
+        'Never mention patient first name or last name. These fields are intentionally excluded.',
+        `Expected response language: ${language}.`,
+        '',
+        'Patient facts:',
+        `- Gender: ${patient.gender || 'unknown'}`,
+        `- Date of birth: ${formatDateForPrompt(patient.date_of_birth || patient.dateOfBirth)}`,
+        `- Age: ${calculateAgeDisplay(patient)}`,
+        `- Phone: ${patient.phone || 'not provided'}`,
+        `- Address: ${patient.address || 'not provided'}`,
+        `- Siblings alive: ${patient.siblings_alive ?? patient.siblingsAlive ?? 'unknown'}`,
+        `- Siblings deceased: ${patient.siblings_deceased ?? patient.siblingsDeceased ?? 'unknown'}`,
+        '',
+        `Case metadata: status=${caseData.status || 'unknown'}, created=${formatDateForPrompt(caseData.created_at || caseData.createdAt)}, submitted=${formatDateForPrompt(caseData.submitted_at || caseData.submittedAt)}, reviewed=${formatDateForPrompt(caseData.reviewed_at || caseData.reviewedAt)}.`,
+        `Catalogue: ${caseData.catalogue?.name || caseData.catalogueName || 'unknown'}`,
+        '',
+        'Questionnaire answers and clinical measures:'
+    ];
+
+    if (answers.length === 0) {
+        lines.push('- No answers recorded.');
+    } else {
+        answers.forEach((answer, index) => {
+            const question = answer.question_text || answer.questionText || answer.question_text_snapshot || `Question ${index + 1}`;
+            const answerText = answer.text_answer || answer.textAnswer || answer.transcribed_text || 'No answer recorded';
+            const measure = answer.clinical_measure || answer.clinicalMeasure || 'none';
+            const type = answer.answer_type || answer.answerType || answer.answer_type_snapshot || 'unknown';
+            const section = answer.section_name || answer.sectionName || 'Unsectioned';
+            lines.push(`${index + 1}. [${section}] ${question}`);
+            lines.push(`   Answer: ${answerText}`);
+            lines.push(`   Type: ${type}; clinical_measure: ${measure}; date: ${formatDateForPrompt(answer.created_at || answer.createdAt)}`);
+        });
+    }
+
+    lines.push('', 'Attached documents:');
+    if (documents.length === 0) {
+        lines.push('- No documents attached.');
+    } else {
+        documents.forEach((doc, index) => {
+            lines.push(`${index + 1}. ${doc.file_name || doc.fileName || 'Document'} (${doc.document_type || doc.type || 'general'}) uploaded ${formatDateForPrompt(doc.uploaded_at || doc.uploadedAt)}.`);
+        });
+    }
+
+    lines.push('', 'Doctor review data:');
+    lines.push(`- Doctor diagnosis: ${caseData.doctor_diagnosis || caseData.doctorDiagnosis || 'none recorded'}`);
+    lines.push(`- Doctor prescription:\n${formatMedicationList(caseData.doctor_prescription || caseData.doctorPrescription)}`);
+
+    if (aiAnalysis) {
+        lines.push('', 'Previous AI analysis:');
+        if (aiAnalysis.summary) lines.push(`- Summary: ${aiAnalysis.summary}`);
+        const diagnoses = aiAnalysis.diagnoses || aiAnalysis.diagnostics || [];
+        if (Array.isArray(diagnoses) && diagnoses.length > 0) {
+            diagnoses.forEach((d, index) => {
+                lines.push(`- Diagnosis ${index + 1}: ${d.name || d.diagnosis || d.label || 'unknown'} (${d.probability || d.percentage || '?'}%) ${d.reasoning || ''}`);
+            });
+        }
+        if (aiAnalysis.additionalNotes) lines.push(`- Additional notes: ${aiAnalysis.additionalNotes}`);
+    }
+
+    lines.push(
+        '',
+        'Summary requirement:',
+        '- Produce a clinically useful synthesis that covers all relevant patient facts, answers, measures, documents, previous AI analysis, doctor diagnosis, and prescription.',
+        '- Keep it concise but complete; do not omit major changes or recorded values.',
+        '- Do not include patient first name or last name.'
+    );
+
+    return lines.join('\n');
+}
+
+function buildImageAttachmentParts(attachments = [], provider = 'gemini') {
+    if (!Array.isArray(attachments) || attachments.length === 0) return [];
+    const fs = require('fs');
+    const path = require('path');
+
+    return attachments.flatMap((attachment) => {
+        try {
+            if (!attachment?.path) return [];
+            const abs = path.isAbsolute(attachment.path)
+                ? attachment.path
+                : path.join(__dirname, '../../uploads', attachment.path);
+            const buffer = fs.readFileSync(abs);
+            const mimeType = attachment.mime || 'image/png';
+            const data = buffer.toString('base64');
+
+            if (provider === 'openai') {
+                return [{
+                    type: 'image_url',
+                    image_url: { url: `data:${mimeType};base64,${data}`, detail: 'high' }
+                }];
+            }
+
+            return [{ inlineData: { mimeType, data } }];
+        } catch (error) {
+            console.warn('Skipping chat image attachment:', error.message);
+            return [];
+        }
+    });
+}
+
 /**
  * Analyze medical case using Gemini AI
  * @param {Object} caseData - Full case data including patient, answers, documents
@@ -44,6 +193,7 @@ async function analyzeCase(caseData, aiConfig = null) {
 
         // Build base text prompt
         let baseTextPrompt = buildAnalysisPrompt(caseData, cfg.responseLanguage || 'ar');
+        baseTextPrompt += `\n\n${buildComprehensiveCaseContext(caseData, cfg.responseLanguage || 'ar')}`;
 
         if (cfg.provider === 'openai') {
             // OpenAI multimodal path (Text extraction for PDFs)
@@ -412,7 +562,7 @@ function parseAnalysisResponse(response) {
             // Validate that we got at least a summary
             if (parsed.summary || parsed.diagnoses || parsed.medications) {
                 if (parsed.summary) {
-                    parsed.summary = clampSummaryToMaxLines(parsed.summary, 4);
+                    parsed.summary = clampSummaryToMaxLines(parsed.summary, 8);
                 }
                 return parsed;
             }
@@ -420,7 +570,7 @@ function parseAnalysisResponse(response) {
 
         // Fallback: return raw response as summary
         return {
-            summary: clampSummaryToMaxLines(response, 4),
+            summary: clampSummaryToMaxLines(response, 8),
             diagnoses: [],
             medications: [],
             additionalNotes: ''
@@ -878,6 +1028,7 @@ Conserve les termes du patient en darija algerienne uniquement lorsqu'ils sont c
         }
     }
 
+    context += `\n\n${buildComprehensiveCaseContext(caseData, responseLanguage)}`;
     return context;
 }
 
@@ -887,9 +1038,10 @@ Conserve les termes du patient en darija algerienne uniquement lorsqu'ils sont c
  * @param {Array} chatHistory - Previous messages [{role, content}]
  * @param {string} newMessage - Doctor's new message
  * @param {Object} aiConfig - AI configuration
+ * @param {Array} attachments - Optional image attachments for the new doctor message
  * @returns {Promise<string>} AI response text
  */
-async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = null) {
+async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = null, attachments = []) {
     const cfg = aiConfig || { provider: 'gemini', apiKey: config.ai.apiKey, model: config.ai.model };
 
     if (!cfg.apiKey) {
@@ -898,13 +1050,20 @@ async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = nul
 
     if (cfg.provider === 'openai') {
         // OpenAI Chat Completions format
+        const imageParts = buildImageAttachmentParts(attachments, 'openai');
+        const userContent = imageParts.length > 0
+            ? [{ type: 'text', text: newMessage || 'Please analyze the attached medical image in the case context.' }, ...imageParts]
+            : newMessage;
+
         const messages = [
             { role: 'system', content: systemContext },
             ...chatHistory.map(m => ({
                 role: m.role === 'doctor' ? 'user' : 'assistant',
-                content: m.content
+                content: m.attachment_path
+                    ? `${m.content || ''}\n[Previous image attachment: ${m.attachment_name || 'image'}]`.trim()
+                    : m.content
             })),
-            { role: 'user', content: newMessage }
+            { role: 'user', content: userContent }
         ];
 
         const response = await fetch('https://api.openai.com/v1/chat/completions', {
@@ -946,12 +1105,23 @@ async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = nul
     chatHistory.forEach(m => {
         contents.push({
             role: m.role === 'doctor' ? 'user' : 'model',
-            parts: [{ text: m.content }]
+            parts: [{
+                text: m.attachment_path
+                    ? `${m.content || ''}\n[Previous image attachment: ${m.attachment_name || 'image'}]`.trim()
+                    : m.content
+            }]
         });
     });
 
     // Add new message
-    contents.push({ role: 'user', parts: [{ text: newMessage }] });
+    const imageParts = buildImageAttachmentParts(attachments, 'gemini');
+    contents.push({
+        role: 'user',
+        parts: [
+            { text: newMessage || 'Please analyze the attached medical image in the case context.' },
+            ...imageParts
+        ]
+    });
 
     const response = await fetch(url, {
         method: 'POST',
@@ -1041,6 +1211,7 @@ module.exports = {
     transcribeAudio,
     chatWithAI,
     buildChatSystemPrompt,
+    buildComprehensiveCaseContext,
     suggestMedications,
     clampSummaryToMaxLines
 };

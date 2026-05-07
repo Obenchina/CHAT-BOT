@@ -219,6 +219,10 @@ function inferAgeDomainMonths(originalName) {
 function inferYDomain(measureKey, originalName) {
     const name = normalizeText(originalName);
 
+    if (measureKey === 'weight_height') {
+        return [40, 210];
+    }
+
     if (measureKey === 'height') {
         if (name.includes('1-18') || name.includes('1 a 18')) return [60, 210];
         if (name.includes('1-mois-3-ans') || name.includes('1 mois 3 ans')) return [40, 110];
@@ -265,6 +269,14 @@ function getKnownPlotArea(originalName, measureKey) {
 function inferMeasureKeys(originalName, fallbackMeasure, imageCount) {
     const name = normalizeText(originalName);
 
+    if (fallbackMeasure === 'weight_height') {
+        return ['weight_height'];
+    }
+
+    if ((name.includes('taille-et-poids') || name.includes('taille et poids')) && imageCount <= 1) {
+        return ['weight_height'];
+    }
+
     if ((name.includes('taille-et-poids') || name.includes('taille et poids')) && imageCount >= 2) {
         return ['height', 'weight'];
     }
@@ -275,6 +287,63 @@ function inferMeasureKeys(originalName, fallbackMeasure, imageCount) {
     if (name.includes('imc') || name.includes('corpulence')) return ['bmi'];
 
     return [fallbackMeasure || 'weight'];
+}
+
+function buildCombinedWeightHeightConfig(originalName, ageDomain, gender) {
+    const heightPlot = getKnownPlotArea(originalName, 'height') || { left: 8, top: 8, right: 92, bottom: 62, confidence: 0.5 };
+    const weightPlot = getKnownPlotArea(originalName, 'weight') || { left: 8, top: 38, right: 92, bottom: 92, confidence: 0.5 };
+    const heightDomain = inferYDomain('height', originalName);
+    const weightDomain = inferYDomain('weight', originalName);
+
+    return {
+        source: 'pdf_extracted',
+        label: `Poids + Taille ${gender}`,
+        measure_key: 'weight_height',
+        gender,
+        x_min: ageDomain[0],
+        x_max: ageDomain[1],
+        y_min: heightDomain[0],
+        y_max: heightDomain[1],
+        x_unit: 'months',
+        y_unit: 'cm',
+        plot_area: {
+            left: Math.min(heightPlot.left, weightPlot.left),
+            top: Math.min(heightPlot.top, weightPlot.top),
+            right: Math.max(heightPlot.right, weightPlot.right),
+            bottom: Math.max(heightPlot.bottom, weightPlot.bottom)
+        },
+        measure_configs: {
+            height: {
+                x_min: ageDomain[0],
+                x_max: ageDomain[1],
+                y_min: heightDomain[0],
+                y_max: heightDomain[1],
+                x_unit: 'months',
+                y_unit: 'cm',
+                plot_area: {
+                    left: heightPlot.left,
+                    top: heightPlot.top,
+                    right: heightPlot.right,
+                    bottom: heightPlot.bottom
+                }
+            },
+            weight: {
+                x_min: ageDomain[0],
+                x_max: ageDomain[1],
+                y_min: weightDomain[0],
+                y_max: weightDomain[1],
+                x_unit: 'months',
+                y_unit: 'kg',
+                plot_area: {
+                    left: weightPlot.left,
+                    top: weightPlot.top,
+                    right: weightPlot.right,
+                    bottom: weightPlot.bottom
+                }
+            }
+        },
+        auto_confidence: Math.min(heightPlot.confidence || 0.5, weightPlot.confidence || 0.5)
+    };
 }
 
 function buildExtractedCharts(file, options = {}) {
@@ -302,12 +371,9 @@ function buildExtractedCharts(file, options = {}) {
         const image = shouldRotateClockwise(file.originalname, rawImage, measureKey) ? rotateClockwise(rawImage) : rawImage;
         const plotArea = getKnownPlotArea(file.originalname, measureKey) || detectPlotArea(image);
         const yDomain = inferYDomain(measureKey, file.originalname);
-
-        return {
-            image,
-            measureKey,
-            gender,
-            templateConfig: {
+        const templateConfig = measureKey === 'weight_height'
+            ? buildCombinedWeightHeightConfig(file.originalname, ageDomain, gender)
+            : {
                 source: 'pdf_extracted',
                 label: `${measureKey} ${gender}`,
                 x_min: ageDomain[0],
@@ -323,7 +389,13 @@ function buildExtractedCharts(file, options = {}) {
                     bottom: plotArea.bottom
                 },
                 auto_confidence: plotArea.confidence
-            }
+            };
+
+        return {
+            image,
+            measureKey,
+            gender,
+            templateConfig
         };
     });
 }

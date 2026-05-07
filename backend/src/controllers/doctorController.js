@@ -338,15 +338,15 @@ async function getGrowthCurves(req, res) {
 
         const mappedCustom = (customCurves || []).map((c) => {
             // Every curve with a file is plottable — generate a fallback config if missing
-            const defaultYDomains = { weight: [0, 110], height: [40, 210], head: [30, 60], bmi: [8, 35] };
+            const defaultYDomains = { weight: [0, 110], height: [40, 210], weight_height: [40, 210], head: [30, 60], bmi: [8, 35] };
             const [y_min, y_max] = defaultYDomains[c.measure_key] || [0, 100];
             const templateConfig = c.template_config || {
                 source: 'manual_upload',
-                label: `${c.measure_key} (${c.gender})`,
+                label: `${c.measure_key === 'weight_height' ? 'Poids + Taille' : c.measure_key} (${c.gender})`,
                 x_min: 0, x_max: 216,
                 y_min, y_max,
                 x_unit: 'months',
-                y_unit: c.measure_key === 'weight' ? 'kg' : (c.measure_key === 'height' || c.measure_key === 'head') ? 'cm' : '',
+                y_unit: c.measure_key === 'weight' ? 'kg' : (c.measure_key === 'height' || c.measure_key === 'head' || c.measure_key === 'weight_height') ? 'cm' : '',
                 plot_area: { left: 8, top: 8, right: 92, bottom: 92 },
                 auto_confidence: 0.5
             };
@@ -409,7 +409,9 @@ async function uploadGrowthCurve(req, res) {
                             aiConfig: activeAiConfig
                         })
                         : null;
-                    const templateConfig = aiTemplateConfig || chart.templateConfig;
+                    const templateConfig = chart.measureKey === 'weight_height' && !aiTemplateConfig?.measure_configs
+                        ? chart.templateConfig
+                        : (aiTemplateConfig || chart.templateConfig);
                     const resolvedMeasureKey = templateConfig.measure_key || chart.measureKey;
                     const resolvedGender = templateConfig.gender || chart.gender || gender || 'male';
                     const filePath = saveExtractedChartImage(chart.image);
@@ -459,6 +461,7 @@ async function uploadGrowthCurve(req, res) {
         const defaultYDomains = {
             weight: { y_min: 0, y_max: 110 },
             height: { y_min: 40, y_max: 210 },
+            weight_height: { y_min: 40, y_max: 210 },
             head:   { y_min: 30, y_max: 60 },
             bmi:    { y_min: 8,  y_max: 35 }
         };
@@ -466,12 +469,28 @@ async function uploadGrowthCurve(req, res) {
 
         const fallbackTemplateConfig = {
             source: 'manual_upload',
-            label: `${measureKey} (${gender || 'male'})`,
+            label: `${measureKey === 'weight_height' ? 'Poids + Taille' : measureKey} (${gender || 'male'})`,
             x_min: 0, x_max: 216,
             y_min: yDomain.y_min, y_max: yDomain.y_max,
             x_unit: 'months',
             y_unit: measureKey === 'weight' ? 'kg' : (measureKey === 'height' || measureKey === 'head') ? 'cm' : '',
             plot_area: { left: 8, top: 8, right: 92, bottom: 92 },
+            measure_configs: measureKey === 'weight_height' ? {
+                height: {
+                    x_min: 0, x_max: 216,
+                    y_min: 40, y_max: 210,
+                    x_unit: 'months',
+                    y_unit: 'cm',
+                    plot_area: { left: 8, top: 8, right: 92, bottom: 92 }
+                },
+                weight: {
+                    x_min: 0, x_max: 216,
+                    y_min: 0, y_max: 110,
+                    x_unit: 'months',
+                    y_unit: 'kg',
+                    plot_area: { left: 8, top: 20, right: 92, bottom: 92 }
+                }
+            } : null,
             auto_confidence: 0.5
         };
 
@@ -486,7 +505,7 @@ async function uploadGrowthCurve(req, res) {
                 fallbackConfig: fallbackTemplateConfig,
                 aiConfig: activeAiConfig
             });
-            if (aiResult) templateConfig = aiResult;
+            if (aiResult && !(measureKey === 'weight_height' && !aiResult.measure_configs)) templateConfig = aiResult;
         }
 
         const curve = await GrowthCurve.create({

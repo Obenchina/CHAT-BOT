@@ -57,6 +57,27 @@ const Document = {
     },
 
     /**
+     * Get all documents for every case belonging to a patient.
+     * @param {number} patientId - Patient ID
+     * @returns {Promise<Array>} List of documents with case metadata
+     */
+    async findByPatientId(patientId) {
+        const [documents] = await pool.execute(
+            `SELECT d.*,
+                    c.id AS case_id,
+                    c.status AS case_status,
+                    c.created_at AS case_created_at
+             FROM documents d
+             JOIN cases c ON c.id = d.case_id
+             WHERE c.patient_id = ?
+             ORDER BY d.uploaded_at DESC, d.id DESC`,
+            [patientId]
+        );
+
+        return documents;
+    },
+
+    /**
      * Get documents by type for a case
      * @param {number} caseId - Case ID
      * @param {string} documentType - Document type

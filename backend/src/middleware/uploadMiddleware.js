@@ -38,6 +38,20 @@ const audioStorage = multer.diskStorage({
     }
 });
 
+// Configure storage for AI chat image attachments
+const chatImageStorage = multer.diskStorage({
+    destination: (req, file, cb) => {
+        const uploadDir = path.join(__dirname, '../../uploads/chat-images');
+        fs.mkdirSync(uploadDir, { recursive: true });
+        cb(null, uploadDir);
+    },
+    filename: (req, file, cb) => {
+        const ext = path.extname(file.originalname) || '.png';
+        const uniqueName = `${uuidv4()}${ext}`;
+        cb(null, uniqueName);
+    }
+});
+
 // Configure storage for doctor logos
 const logoStorage = multer.diskStorage({
     destination: (req, file, cb) => {
@@ -104,6 +118,18 @@ const audioFilter = (req, file, cb) => {
     }
 };
 
+// Filter for AI chat image attachments
+const chatImageFilter = (req, file, cb) => {
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    const allowedExtensions = /\.(jpg|jpeg|png|webp|gif)$/i;
+
+    if (allowedTypes.includes(file.mimetype) || allowedExtensions.test(file.originalname)) {
+        cb(null, true);
+    } else {
+        cb(new Error('Type d image non autorise. Formats acceptes: JPG, PNG, WebP, GIF'), false);
+    }
+};
+
 // Filter for clinic logo uploads
 const logoFilter = (req, file, cb) => {
     const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp'];
@@ -145,6 +171,15 @@ const uploadDocument = multer({
 const uploadAudio = multer({
     storage: audioStorage,
     fileFilter: audioFilter,
+    limits: {
+        fileSize: config.upload.maxFileSize
+    }
+});
+
+// Upload handler for AI chat images
+const uploadChatImage = multer({
+    storage: chatImageStorage,
+    fileFilter: chatImageFilter,
     limits: {
         fileSize: config.upload.maxFileSize
     }
@@ -206,7 +241,7 @@ function handleUploadError(err, req, res, next) {
 module.exports = {
     uploadDocument,
     uploadAudio,
-    uploadAudio,
+    uploadChatImage,
     uploadLogo,
     uploadCurve,
     handleUploadError

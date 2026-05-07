@@ -32,7 +32,9 @@ export default function PrescriptionBlock({
   onSuggestAi,
   suggestingAi,
   onDownloadDocument,
+  onPrintDocument,
   downloading,
+  printing,
   activeDocumentType = 'ordonnance',
   onDocumentTypeChange,
   allAnalyses = [],
@@ -115,6 +117,7 @@ export default function PrescriptionBlock({
     (activeDocumentType === 'ordonnance' && medications.length === 0) ||
     (activeDocumentType === 'analyses' && selectedAnalyses.length === 0) ||
     (activeDocumentType === 'lettre' && !letterContent.trim());
+  const printDisabled = printing || downloading || activeDocumentType !== 'ordonnance' || medications.length === 0;
 
   return (
     <section className="case-block" id="block-prescription">
@@ -127,6 +130,15 @@ export default function PrescriptionBlock({
           {activeDocumentType === 'ordonnance' && (
             <button className="btn btn--ghost btn--small" onClick={onSuggestAi} disabled={suggestingAi}>
               ✨ {suggestingAi ? 'Suggestion…' : 'Suggérer (IA)'}
+            </button>
+          )}
+          {activeDocumentType === 'ordonnance' && (
+            <button
+              className="btn btn--ghost btn--small"
+              onClick={() => onPrintDocument?.(activeDocumentType)}
+              disabled={printDisabled}
+            >
+              Imprimer
             </button>
           )}
           <button

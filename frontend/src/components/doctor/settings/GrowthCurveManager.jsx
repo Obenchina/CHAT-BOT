@@ -182,6 +182,7 @@ function GrowthCurveManager() {
     const MEASURE_LABELS = {
         weight: 'Poids (kg)',
         height: 'Taille (cm)',
+        weight_height: 'Poids + Taille',
         head: 'PC (cm)',
         bmi: 'IMC'
     };
@@ -239,6 +240,7 @@ function GrowthCurveManager() {
                         <select className="input-field" value={measureKey} onChange={e => setMeasureKey(e.target.value)}>
                             <option value="weight">Poids</option>
                             <option value="height">Taille</option>
+                            <option value="weight_height">Poids + Taille</option>
                             <option value="head">Périmètre crânien</option>
                             <option value="bmi">IMC</option>
                         </select>

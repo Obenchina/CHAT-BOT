@@ -8,7 +8,7 @@ const router = express.Router();
 const aiChatController = require('../controllers/aiChatController');
 const { authenticate } = require('../middleware/authMiddleware');
 const { doctorOnly } = require('../middleware/roleMiddleware');
-const { uploadAudio, handleUploadError } = require('../middleware/uploadMiddleware');
+const { uploadAudio, uploadChatImage, handleUploadError } = require('../middleware/uploadMiddleware');
 
 router.use(authenticate);
 router.use(doctorOnly);
@@ -24,9 +24,17 @@ router.post('/transcribe',
 );
 
 // Send message and get AI response
-router.post('/:caseId', aiChatController.sendMessage);
+router.post('/:caseId',
+    uploadChatImage.single('image'),
+    handleUploadError,
+    aiChatController.sendMessage
+);
 
 // Send with full patient history
-router.post('/:caseId/with-history', aiChatController.sendWithFullHistory);
+router.post('/:caseId/with-history',
+    uploadChatImage.single('image'),
+    handleUploadError,
+    aiChatController.sendWithFullHistory
+);
 
 module.exports = router;

@@ -68,6 +68,7 @@ function normalizeMeasureKey(value, fallback) {
     const raw = String(value || fallback || '').toLowerCase();
     if (['weight', 'poids'].includes(raw)) return 'weight';
     if (['height', 'taille', 'length'].includes(raw)) return 'height';
+    if (['weight_height', 'height_weight', 'poids_taille', 'taille_poids', 'poids-taille', 'taille-poids'].includes(raw)) return 'weight_height';
     if (['head', 'head_circumference', 'pc', 'perimetre_cranien'].includes(raw)) return 'head';
     if (['bmi', 'imc'].includes(raw)) return 'bmi';
     return fallback || 'weight';
@@ -105,6 +106,7 @@ function validateCalibration(candidate, fallbackConfig, fallbackMeasureKey, fall
     const plausible = {
         weight: { yMin: 0, yMax: 250 },
         height: { yMin: 30, yMax: 230 },
+        weight_height: { yMin: 0, yMax: 230 },
         head: { yMin: 20, yMax: 80 },
         bmi: { yMin: 5, yMax: 60 }
     }[measureKey] || { yMin: -1000, yMax: 1000 };
@@ -124,6 +126,7 @@ function validateCalibration(candidate, fallbackConfig, fallbackMeasureKey, fall
         x_unit: candidate.x_unit || candidate.x_axis?.unit || fallbackConfig?.x_unit || 'months',
         y_unit: candidate.y_unit || candidate.y_axis?.unit || fallbackConfig?.y_unit || '',
         plot_area: { left, top, right, bottom },
+        measure_configs: fallbackConfig?.measure_configs || null,
         auto_confidence: Number(confidence.toFixed(3)),
         fallback_config: fallbackConfig ? {
             source: fallbackConfig.source,
@@ -150,7 +153,7 @@ Task:
 - Estimate the plot_area as percentages of the full image bounds: left, top, right, bottom.
 - If the image is rotated or upside down, still return the calibration for the visible image orientation.
 
-Allowed measure_key values: weight, height, head, bmi.
+Allowed measure_key values: weight, height, weight_height, head, bmi.
 Allowed gender values: male, female, both.
 
 Original filename: ${originalName || 'unknown'}

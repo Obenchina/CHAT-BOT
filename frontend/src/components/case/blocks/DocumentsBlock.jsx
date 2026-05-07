@@ -33,7 +33,7 @@ export default function DocumentsBlock({ caseData, onPreview }) {
             >
               <span style={{ fontSize: 28 }} aria-hidden>📄</span>
               <span style={{ fontSize: 'var(--font-size-sm)', fontWeight: 'var(--font-weight-medium)', wordBreak: 'break-word' }}>
-                {d.original_name || d.filename || `Document #${d.id}`}
+                {d.fileName || d.file_name || d.original_name || d.filename || `Document #${d.id}`}
               </span>
             </button>
           ))}

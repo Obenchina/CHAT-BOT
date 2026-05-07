@@ -765,7 +765,7 @@ async function submit(req, res) {
             const analysis = await aiService.analyzeCase(anonymizeCaseDataForAI(caseData), aiCfg);
             if (analysis) {
                 if (analysis.summary) {
-                    analysis.summary = aiService.clampSummaryToMaxLines(analysis.summary, 4);
+                    analysis.summary = aiService.clampSummaryToMaxLines(analysis.summary, 8);
                 }
                 await Case.saveAiAnalysis(id, analysis);
                 console.log('AI analysis saved successfully');
@@ -1206,7 +1206,7 @@ async function reanalyzeCase(req, res) {
 
         if (analysis) {
             if (analysis.summary) {
-                analysis.summary = aiService.clampSummaryToMaxLines(analysis.summary, 4);
+                analysis.summary = aiService.clampSummaryToMaxLines(analysis.summary, 8);
             }
             // Save the analysis
             await Case.saveAiAnalysis(id, analysis);

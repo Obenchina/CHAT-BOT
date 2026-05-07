@@ -20,10 +20,20 @@ const AiChat = {
     /**
      * Add a message (doctor or AI)
      */
-    async addMessage(caseId, doctorId, role, content) {
+    async addMessage(caseId, doctorId, role, content, attachment = null) {
         const [result] = await pool.execute(
-            'INSERT INTO ai_chat_messages (case_id, doctor_id, role, content) VALUES (?, ?, ?, ?)',
-            [caseId, doctorId, role, content]
+            `INSERT INTO ai_chat_messages
+                (case_id, doctor_id, role, content, attachment_path, attachment_name, attachment_mime)
+             VALUES (?, ?, ?, ?, ?, ?, ?)`,
+            [
+                caseId,
+                doctorId,
+                role,
+                content,
+                attachment?.path || null,
+                attachment?.name || null,
+                attachment?.mime || null
+            ]
         );
         return {
             id: result.insertId,
@@ -31,6 +41,9 @@ const AiChat = {
             doctor_id: doctorId,
             role,
             content,
+            attachment_path: attachment?.path || null,
+            attachment_name: attachment?.name || null,
+            attachment_mime: attachment?.mime || null,
             created_at: new Date()
         };
     },

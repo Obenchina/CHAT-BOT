@@ -49,6 +49,7 @@ export default function CaseDetails() {
   const [saving, setSaving] = useState(false);
   const [suggestingAi, setSuggestingAi] = useState(false);
   const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [printingPdf, setPrintingPdf] = useState(false);
   const [previewDoc, setPreviewDoc] = useState(null);
   const [documentType, setDocumentType] = useState('ordonnance');
   const [allAnalyses, setAllAnalyses] = useState([]);
@@ -316,6 +317,27 @@ export default function CaseDetails() {
     window.URL.revokeObjectURL(url);
   };
 
+  const printBlob = (blob) => {
+    const url = window.URL.createObjectURL(new Blob([blob], { type: 'application/pdf' }));
+    const iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.right = '0';
+    iframe.style.bottom = '0';
+    iframe.style.width = '0';
+    iframe.style.height = '0';
+    iframe.style.border = '0';
+    iframe.src = url;
+    iframe.onload = () => {
+      iframe.contentWindow?.focus();
+      iframe.contentWindow?.print();
+      setTimeout(() => {
+        iframe.remove();
+        window.URL.revokeObjectURL(url);
+      }, 60000);
+    };
+    document.body.appendChild(iframe);
+  };
+
   const toggleAnalysis = (analysis) => {
     setSelectedAnalyses((prev) =>
       prev.includes(analysis)
@@ -371,6 +393,26 @@ export default function CaseDetails() {
     }
   };
 
+  const handlePrintDocument = async (kind = documentType) => {
+    if (kind !== 'ordonnance') return;
+    if (medications.length === 0) {
+      showError('Ajoutez au moins un mÃ©dicament');
+      return;
+    }
+
+    setPrintingPdf(true);
+    try {
+      await persistBeforeExport();
+      const blob = await api.get(`/cases/${id}/prescription/pdf`, { responseType: 'blob' });
+      printBlob(blob);
+    } catch (err) {
+      console.error('Print PDF error:', err);
+      showError(err?.message || 'Erreur lors de l impression');
+    } finally {
+      setPrintingPdf(false);
+    }
+  };
+
   // ---- Pin AI message to diagnostic ----
   const handlePinToDiagnostic = (text) => {
     if (!text) return;
@@ -387,10 +429,11 @@ export default function CaseDetails() {
   const initialLayout = (() => {
     try {
       const v = JSON.parse(localStorage.getItem(LS_KEY_LAYOUT) || 'null');
-      if (Array.isArray(v) && v.length === 3) return v;
+      if (Array.isArray(v) && v.length === 2) return v;
+      if (Array.isArray(v) && v.length === 3) return [v[1], v[2]];
     } catch { /* ignore */ }
     // wider copilot by default (was 30 → 38)
-    return [14, 48, 38];
+    return [58, 42];
   })();
 
   // helper: persist current diagnosis/prescription before generating any PDF
@@ -456,20 +499,16 @@ export default function CaseDetails() {
           </div>
         )}
 
+        <ErrorBoundary fallback={<div style={{padding:12,color:'var(--color-text-muted)'}}>Erreur navigateur</div>}>
+          <CaseNavigator activeId={activeBlock} counts={counts} onJump={jumpTo} variant="top" />
+        </ErrorBoundary>
+
         <div className="case-workspace">
-          {/* DESKTOP: 3 resizable panels */}
+          {/* DESKTOP: dossier + copilot, with navigator fixed above */}
           {!isMobile && (
             <PanelGroup direction="horizontal" autoSaveId="caseDetailsLayout" onLayout={onLayoutChange}>
-              {/* Navigator */}
-              <Panel defaultSize={initialLayout[0]} minSize={10} maxSize={22} order={1}>
-                <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur navigateur</div>}>
-                  <CaseNavigator activeId={activeBlock} counts={counts} onJump={jumpTo} />
-                </ErrorBoundary>
-              </Panel>
-              <PanelResizeHandle className="case-resize-handle" />
-
               {/* Dossier (center) */}
-              <Panel defaultSize={initialLayout[1]} minSize={28} order={2}>
+              <Panel defaultSize={initialLayout[0]} minSize={32} order={1}>
                 <div className="case-dossier" ref={dossierRef}>
                   <div className="case-dossier__inner">
                     <ErrorBoundary><AiSummaryBlock caseData={caseData} /></ErrorBoundary>
@@ -486,7 +525,9 @@ export default function CaseDetails() {
                         onSuggestAi={handleSuggestAi}
                         suggestingAi={suggestingAi}
                         onDownloadDocument={handleDownloadDocument}
+                        onPrintDocument={handlePrintDocument}
                         downloading={downloadingPdf}
+                        printing={printingPdf}
                         activeDocumentType={documentType}
                         onDocumentTypeChange={setDocumentType}
                         allAnalyses={allAnalyses}
@@ -518,10 +559,10 @@ export default function CaseDetails() {
                   <>
                     <PanelResizeHandle className="case-resize-handle" />
                     <Panel
-                      defaultSize={copilotExpanded ? 65 : initialLayout[2]}
+                      defaultSize={copilotExpanded ? 65 : initialLayout[1]}
                       minSize={24}
                       maxSize={75}
-                      order={3}
+                      order={2}
                     >
                       <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur chat IA</div>}>
                         <CopilotPanel
@@ -544,9 +585,6 @@ export default function CaseDetails() {
             <div className="case-workspace--mobile">
               {mobileTab === 'dossier' ? (
                 <>
-                  <ErrorBoundary fallback={<div style={{padding:16,color:'var(--color-text-muted)'}}>Erreur navigateur</div>}>
-                    <CaseNavigator activeId={activeBlock} counts={counts} onJump={jumpTo} />
-                  </ErrorBoundary>
                   <div className="case-dossier" ref={dossierRef}>
                     <div className="case-dossier__inner">
                       <ErrorBoundary><AiSummaryBlock caseData={caseData} /></ErrorBoundary>
@@ -563,7 +601,9 @@ export default function CaseDetails() {
                           onSuggestAi={handleSuggestAi}
                           suggestingAi={suggestingAi}
                           onDownloadDocument={handleDownloadDocument}
+                          onPrintDocument={handlePrintDocument}
                           downloading={downloadingPdf}
+                          printing={printingPdf}
                           activeDocumentType={documentType}
                           onDocumentTypeChange={setDocumentType}
                           allAnalyses={allAnalyses}

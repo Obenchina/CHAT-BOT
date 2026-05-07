@@ -1,6 +1,6 @@
 /**
  * AI Chat Controller
- * Handles doctor-AI conversation endpoints
+ * Handles doctor-AI conversation endpoints.
  */
 
 const AiChat = require('../models/AiChat');
@@ -24,8 +24,32 @@ function anonymizeCaseDataForAI(caseData) {
     return cloned;
 }
 
+function getChatImageAttachment(file) {
+    if (!file) return null;
+    return {
+        path: `chat-images/${file.filename}`,
+        name: file.originalname,
+        mime: file.mimetype
+    };
+}
+
+function getMessageTextWithImageFallback(message, attachment) {
+    const text = String(message || '').trim();
+    if (text) return text;
+    return attachment ? '[Image medicale jointe]' : '';
+}
+
+async function getDoctorAiConfig(doctorId) {
+    const activeAiConfig = await AiConfig.findActiveByDoctorId(doctorId);
+    return activeAiConfig ? {
+        provider: activeAiConfig.provider,
+        apiKey: activeAiConfig.api_key,
+        model: activeAiConfig.model,
+        responseLanguage: activeAiConfig.response_language || 'ar'
+    } : null;
+}
+
 /**
- * Get chat messages for a case
  * GET /api/ai-chat/:caseId
  */
 async function getMessages(req, res) {
@@ -35,154 +59,146 @@ async function getMessages(req, res) {
         res.json({ success: true, data: messages });
     } catch (error) {
         console.error('Get chat messages error:', error);
-        res.status(500).json({ success: false, message: 'Échec du chargement des messages' });
+        res.status(500).json({ success: false, message: 'Echec du chargement des messages' });
     }
 }
 
 /**
- * Send a message and get AI response
  * POST /api/ai-chat/:caseId
  */
 async function sendMessage(req, res) {
     try {
         const { caseId } = req.params;
-        const { message } = req.body;
+        const attachment = getChatImageAttachment(req.file);
+        const messageText = getMessageTextWithImageFallback(req.body?.message, attachment);
 
-        if (!message || !message.trim()) {
+        if (!messageText) {
             return res.status(400).json({ success: false, message: 'Le message est vide' });
         }
 
         const doctor = await Doctor.findByUserId(req.user.id);
         if (!doctor) {
-            return res.status(404).json({ success: false, message: 'Médecin introuvable' });
+            return res.status(404).json({ success: false, message: 'Medecin introuvable' });
         }
 
-        // Load case data for context
         const caseData = await Case.getFullDetails(caseId);
         if (!caseData) {
             return res.status(404).json({ success: false, message: 'Cas introuvable' });
         }
-
-        // Get AI config
-        const activeAiConfig = await AiConfig.findActiveByDoctorId(doctor.id);
-        const aiConfig = activeAiConfig ? {
-            provider: activeAiConfig.provider,
-            apiKey: activeAiConfig.api_key,
-            model: activeAiConfig.model,
-            responseLanguage: activeAiConfig.response_language || 'ar'
-        } : null;
-
-        if (!aiConfig || !aiConfig.apiKey) {
-            return res.status(400).json({ success: false, message: 'Clé API IA non configurée' });
+        if (caseData.patient?.doctor_id && caseData.patient.doctor_id !== doctor.id) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
         }
 
-        // Save doctor's message
-        const doctorMsg = await AiChat.addMessage(caseId, doctor.id, 'doctor', message.trim());
+        const aiConfig = await getDoctorAiConfig(doctor.id);
+        if (!aiConfig?.apiKey) {
+            return res.status(400).json({ success: false, message: 'Cle API IA non configuree' });
+        }
 
-        // Get chat history
+        const doctorMsg = await AiChat.addMessage(caseId, doctor.id, 'doctor', messageText, attachment);
         const history = await AiChat.getMessages(caseId);
-        // Exclude the just-added message from history (it's the new message)
-        const chatHistory = history.filter(m => m.id !== doctorMsg.id);
-
-        // Build context and call AI
+        const chatHistory = history.filter((m) => m.id !== doctorMsg.id);
         const systemContext = aiService.buildChatSystemPrompt(
             anonymizeCaseDataForAI(caseData),
-            aiConfig?.responseLanguage || 'ar'
+            aiConfig.responseLanguage
         );
-        const aiResponse = await aiService.chatWithAI(systemContext, chatHistory, message.trim(), aiConfig);
-
-        // Save AI response
+        const aiResponse = await aiService.chatWithAI(
+            systemContext,
+            chatHistory,
+            messageText,
+            aiConfig,
+            attachment ? [attachment] : []
+        );
         const aiMsg = await AiChat.addMessage(caseId, doctor.id, 'ai', aiResponse);
 
         res.json({
             success: true,
-            data: {
-                doctorMessage: doctorMsg,
-                aiMessage: aiMsg
-            }
+            data: { doctorMessage: doctorMsg, aiMessage: aiMsg }
         });
     } catch (error) {
         console.error('Send chat message error:', error);
-        
         let statusCode = 500;
-        let userMessage = 'Échec de l\'envoi du message';
-        
+        let userMessage = 'Echec de l envoi du message';
         if (error.code === 'QUOTA_EXCEEDED') {
             statusCode = 429;
-            userMessage = 'Crédit IA épuisé';
+            userMessage = 'Credit IA epuise';
         } else if (error.code === 'MISSING_API_KEY') {
             statusCode = 400;
-            userMessage = 'Clé API non configurée';
+            userMessage = 'Cle API non configuree';
         }
-
         res.status(statusCode).json({ success: false, message: userMessage });
     }
 }
 
 /**
- * Send message with full patient history across all visits
  * POST /api/ai-chat/:caseId/with-history
  */
 async function sendWithFullHistory(req, res) {
     try {
         const { caseId } = req.params;
-        const { message } = req.body;
+        const attachment = getChatImageAttachment(req.file);
+        const messageText = getMessageTextWithImageFallback(req.body?.message, attachment);
+
+        if (!messageText) {
+            return res.status(400).json({ success: false, message: 'Le message est vide' });
+        }
 
         const doctor = await Doctor.findByUserId(req.user.id);
         if (!doctor) {
-            return res.status(404).json({ success: false, message: 'Médecin introuvable' });
+            return res.status(404).json({ success: false, message: 'Medecin introuvable' });
         }
 
         const caseData = await Case.getFullDetails(caseId);
         if (!caseData) {
             return res.status(404).json({ success: false, message: 'Cas introuvable' });
         }
+        if (caseData.patient?.doctor_id && caseData.patient.doctor_id !== doctor.id) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
 
-        // Get ALL cases for this patient (full history)
+        const aiConfig = await getDoctorAiConfig(doctor.id);
+        if (!aiConfig?.apiKey) {
+            return res.status(400).json({ success: false, message: 'Cle API IA non configuree' });
+        }
+
         const allCases = await Case.findByPatientId(caseData.patient_id);
-        
-        let fullHistoryContext = `══════════════════════════════\nDossier complet du patient (toutes les visites):\n══════════════════════════════\n`;
-        
+        let fullHistoryContext = 'Dossier complet du patient (toutes les visites):\n';
+
         for (const historicCase of allCases) {
             const fullCase = await Case.getFullDetails(historicCase.id);
-            if (fullCase) {
-                fullHistoryContext += `\n--- Visite du ${new Date(historicCase.created_at).toLocaleDateString('fr-FR')} ---\n`;
-                if (fullCase.answers) {
-                    fullCase.answers.forEach(a => {
-                        fullHistoryContext += `${a.question_text}: ${a.text_answer || 'N/A'}\n`;
-                    });
-                }
-                const analysis = fullCase.ai_analysis;
-                if (analysis && analysis.summary) {
-                    fullHistoryContext += `Résumé IA: ${analysis.summary}\n`;
-                }
-            }
+            if (!fullCase) continue;
+            const date = historicCase.created_at
+                ? new Date(historicCase.created_at).toLocaleDateString('fr-FR')
+                : 'date inconnue';
+            fullHistoryContext += `\n--- Visite du ${date} ---\n`;
+            fullHistoryContext += aiService.buildComprehensiveCaseContext(
+                anonymizeCaseDataForAI(fullCase),
+                aiConfig.responseLanguage
+            );
+            fullHistoryContext += '\n';
         }
 
-        // Get AI config
-        const activeAiConfig = await AiConfig.findActiveByDoctorId(doctor.id);
-        const aiConfig = activeAiConfig ? {
-            provider: activeAiConfig.provider,
-            apiKey: activeAiConfig.api_key,
-            model: activeAiConfig.model,
-            responseLanguage: activeAiConfig.response_language || 'ar'
-        } : null;
-
-        if (!aiConfig || !aiConfig.apiKey) {
-            return res.status(400).json({ success: false, message: 'Clé API IA non configurée' });
-        }
-
-        const doctorMsg = await AiChat.addMessage(caseId, doctor.id, 'doctor', `[avec le dossier complet] ${message}`);
+        const doctorMsg = await AiChat.addMessage(
+            caseId,
+            doctor.id,
+            'doctor',
+            `[avec le dossier complet] ${messageText}`,
+            attachment
+        );
 
         const chatHistory = await AiChat.getMessages(caseId);
-        const filteredHistory = chatHistory.filter(m => m.id !== doctorMsg.id);
-
+        const filteredHistory = chatHistory.filter((m) => m.id !== doctorMsg.id);
         const systemContext = aiService.buildChatSystemPrompt(
             anonymizeCaseDataForAI(caseData),
-            aiConfig?.responseLanguage || 'ar'
+            aiConfig.responseLanguage
         ) + '\n\n' + fullHistoryContext;
-        const aiResponse = await aiService.chatWithAI(systemContext, filteredHistory, message, aiConfig);
 
+        const aiResponse = await aiService.chatWithAI(
+            systemContext,
+            filteredHistory,
+            messageText,
+            aiConfig,
+            attachment ? [attachment] : []
+        );
         const aiMsg = await AiChat.addMessage(caseId, doctor.id, 'ai', aiResponse);
 
         res.json({
@@ -191,19 +207,18 @@ async function sendWithFullHistory(req, res) {
         });
     } catch (error) {
         console.error('Send with history error:', error);
-        res.status(500).json({ success: false, message: 'Échec de l\'envoi avec historique' });
+        res.status(500).json({ success: false, message: 'Echec de l envoi avec historique' });
     }
 }
 
 /**
- * Transcribe audio to text for doctor input
  * POST /api/ai-chat/transcribe
  */
 async function transcribe(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
         if (!doctor) {
-            return res.status(404).json({ success: false, message: 'Médecin introuvable' });
+            return res.status(404).json({ success: false, message: 'Medecin introuvable' });
         }
 
         const audioPath = req.file ? `audio/${req.file.filename}` : null;
@@ -211,22 +226,14 @@ async function transcribe(req, res) {
             return res.status(400).json({ success: false, message: 'Fichier audio manquant' });
         }
 
-        const activeAiConfig = await AiConfig.findActiveByDoctorId(doctor.id);
-        const aiConfig = activeAiConfig ? {
-            provider: activeAiConfig.provider,
-            apiKey: activeAiConfig.api_key,
-            model: activeAiConfig.model,
-            responseLanguage: activeAiConfig.response_language || 'ar'
-        } : null;
-
-        if (!aiConfig || !aiConfig.apiKey) {
-            return res.status(400).json({ success: false, message: 'Clé API IA non configurée' });
+        const aiConfig = await getDoctorAiConfig(doctor.id);
+        if (!aiConfig?.apiKey) {
+            return res.status(400).json({ success: false, message: 'Cle API IA non configuree' });
         }
 
         const { lang } = req.body;
         const text = await aiService.transcribeAudio(audioPath, aiConfig, lang);
 
-        // Best-effort cleanup of uploaded audio file
         try {
             const abs = path.join(__dirname, '../../uploads', audioPath);
             fs.unlink(abs, () => {});
@@ -236,9 +243,15 @@ async function transcribe(req, res) {
     } catch (error) {
         console.error('Transcribe audio error:', error);
         let statusCode = 500;
-        let userMessage = 'Échec de la transcription audio';
-        if (error.code === 'MISSING_API_KEY') { statusCode = 400; userMessage = 'Clé API non configurée'; }
-        if (error.code === 'QUOTA_EXCEEDED') { statusCode = 429; userMessage = 'Crédit IA épuisé'; }
+        let userMessage = 'Echec de la transcription audio';
+        if (error.code === 'MISSING_API_KEY') {
+            statusCode = 400;
+            userMessage = 'Cle API non configuree';
+        }
+        if (error.code === 'QUOTA_EXCEEDED') {
+            statusCode = 429;
+            userMessage = 'Credit IA epuise';
+        }
         res.status(statusCode).json({ success: false, message: userMessage });
     }
 }

@@ -10,11 +10,27 @@ const aiChatService = {
         return api.get(`/ai-chat/${caseId}`);
     },
 
-    async sendMessage(caseId, message) {
+    async sendMessage(caseId, message, image = null) {
+        if (image) {
+            const form = new FormData();
+            form.append('message', message || '');
+            form.append('image', image);
+            return api.post(`/ai-chat/${caseId}`, form, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        }
         return api.post(`/ai-chat/${caseId}`, { message });
     },
 
-    async sendWithFullHistory(caseId, message) {
+    async sendWithFullHistory(caseId, message, image = null) {
+        if (image) {
+            const form = new FormData();
+            form.append('message', message || '');
+            form.append('image', image);
+            return api.post(`/ai-chat/${caseId}/with-history`, form, {
+                headers: { 'Content-Type': 'multipart/form-data' }
+            });
+        }
         return api.post(`/ai-chat/${caseId}/with-history`, { message });
     },
 

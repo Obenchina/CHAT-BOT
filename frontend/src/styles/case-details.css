@@ -196,6 +196,35 @@ body.sidebar-collapsed .case-page__main {
   color: var(--color-brand-800);
 }
 
+.case-navigator--top {
+  height: auto;
+  min-height: 56px;
+  flex-direction: row;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-5);
+  border-right: none;
+  border-bottom: 1px solid var(--color-border-subtle);
+  overflow-x: auto;
+  overflow-y: hidden;
+  flex-shrink: 0;
+}
+.case-navigator--top .case-navigator__title {
+  flex: 0 0 auto;
+  padding: 0 var(--space-2) 0 0;
+  margin: 0 var(--space-2) 0 0;
+}
+.case-navigator--top .case-navigator__item {
+  width: auto;
+  flex: 0 0 auto;
+  min-height: 38px;
+  padding: var(--space-2) var(--space-3);
+  white-space: nowrap;
+}
+.case-navigator--top .case-navigator__label {
+  flex: 0 0 auto;
+}
+
 /* ============================================================
    DOSSIER (center)
    ============================================================ */
@@ -415,7 +444,8 @@ body.sidebar-collapsed .case-page__main {
 }
 .diagnostic__actions { display: flex; gap: var(--space-2); }
 .diagnostic__voice svg,
-.copilot__voice svg {
+.copilot__voice svg,
+.copilot__attach svg {
   width: 18px;
   height: 18px;
 }
@@ -733,6 +763,16 @@ body.sidebar-collapsed .case-page__main {
   border-radius: var(--radius-sm);
 }
 .copilot__bubble-action:hover { background: var(--color-surface-3); color: var(--color-text-primary); }
+.copilot__bubble-image {
+  display: block;
+  max-width: 100%;
+  max-height: 260px;
+  object-fit: contain;
+  margin-top: var(--space-2);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-0);
+  border: 1px solid var(--color-border-subtle);
+}
 
 .copilot__empty {
   flex: 1;
@@ -798,14 +838,53 @@ body.sidebar-collapsed .case-page__main {
   background: var(--color-brand-800);
   color: var(--color-brand-100);
 }
+.copilot__attachment-preview {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: var(--space-2);
+  padding: var(--space-2);
+  margin-bottom: var(--space-2);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-0);
+}
+.copilot__attachment-preview img {
+  width: 42px;
+  height: 42px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+.copilot__attachment-preview span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-xs);
+}
+.copilot__attachment-preview button {
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--color-text-muted);
+  cursor: pointer;
+}
+.copilot__attachment-preview button:hover {
+  background: var(--color-surface-2);
+  color: var(--color-text-primary);
+}
 .copilot__textarea-wrap { position: relative; }
+.copilot__file-input { display: none; }
 .copilot__textarea {
   width: 100%;
   min-height: 60px;
   max-height: 200px;
   padding: var(--space-3) var(--space-4);
   padding-right: 48px;
-  padding-left: 48px;
+  padding-left: 88px;
   border: 1px solid var(--color-border-subtle);
   border-radius: var(--radius-lg);
   background: var(--color-surface-0);
@@ -816,9 +895,26 @@ body.sidebar-collapsed .case-page__main {
   outline: none;
 }
 .copilot__textarea:focus { border-color: var(--color-brand-500); }
-.copilot__voice {
+.copilot__attach {
   position: absolute;
   left: var(--space-2);
+  bottom: var(--space-2);
+  width: 36px;
+  height: 36px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-surface-1);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.copilot__attach:hover:not(:disabled) { background: var(--color-surface-2); color: var(--color-text-primary); }
+.copilot__attach:disabled { opacity: 0.5; cursor: not-allowed; }
+.copilot__voice {
+  position: absolute;
+  left: 48px;
   bottom: var(--space-2);
   width: 36px;
   height: 36px;
@@ -889,7 +985,7 @@ body.sidebar-collapsed .case-page__main {
    Responsive
    ============================================================ */
 @media (max-width: 1024px) {
-  .case-navigator { display: none; }
+  .case-navigator--side { display: none; }
 }
 
 /* ============================================================
@@ -976,6 +1072,15 @@ body.sidebar-collapsed .case-page__main {
     height: auto;
     flex: 0 0 auto;
     overflow-y: hidden;
+  }
+
+  .case-navigator--top {
+    min-height: 48px;
+    padding: var(--space-2);
+  }
+
+  .case-navigator--top .case-navigator__title {
+    display: none;
   }
 
   .case-workspace--mobile .case-dossier__inner {

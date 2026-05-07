@@ -6,6 +6,7 @@
 const Patient = require('../models/Patient');
 const Doctor = require('../models/Doctor');
 const Assistant = require('../models/Assistant');
+const Document = require('../models/Document');
 
 /**
  * Get doctor ID from user (works for both doctor and assistant)
@@ -460,6 +461,56 @@ async function getMeasurements(req, res) {
     }
 }
 
+/**
+ * Get all documents attached to all cases of a patient
+ * GET /api/patients/:id/documents
+ */
+async function getDocuments(req, res) {
+    try {
+        const { id } = req.params;
+
+        const patient = await Patient.findById(id);
+        if (!patient) {
+            return res.status(404).json({ success: false, message: 'Patient not found' });
+        }
+
+        const doctorId = await getDoctorIdFromUser(req.user);
+        if (patient.doctor_id !== doctorId) {
+            return res.status(403).json({ success: false, message: 'Access denied' });
+        }
+
+        const documents = await Document.findByPatientId(id);
+
+        res.json({
+            success: true,
+            data: documents.map((d) => ({
+                id: d.id,
+                caseId: d.case_id,
+                case_id: d.case_id,
+                caseStatus: d.case_status,
+                case_status: d.case_status,
+                caseCreatedAt: d.case_created_at,
+                case_created_at: d.case_created_at,
+                type: d.document_type,
+                documentType: d.document_type,
+                document_type: d.document_type,
+                fileName: d.file_name,
+                file_name: d.file_name,
+                filePath: d.file_path,
+                file_path: d.file_path,
+                uploadedAt: d.uploaded_at,
+                uploaded_at: d.uploaded_at
+            }))
+        });
+    } catch (error) {
+        console.error('Get patient documents error:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to get patient documents'
+        });
+    }
+}
+
 module.exports = {
     getAll,
     search,
@@ -467,5 +518,6 @@ module.exports = {
     create,
     update,
     remove,
-    getMeasurements
+    getMeasurements,
+    getDocuments
 };

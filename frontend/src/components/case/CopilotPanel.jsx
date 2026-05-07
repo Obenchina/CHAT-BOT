@@ -4,9 +4,12 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import MicIcon from '@mui/icons-material/Mic';
 import StopIcon from '@mui/icons-material/Stop';
+import ImageIcon from '@mui/icons-material/Image';
+import CloseIcon from '@mui/icons-material/Close';
 import aiChatService from '../../services/aiChatService';
 import useVoiceTranscription from '../../hooks/useVoiceTranscription';
 import { showError, showSuccess } from '../../utils/toast';
+import { getAuthUploadUrl } from '../../constants/config';
 
 /**
  * Robustly extract the message text & role from any backend shape.
@@ -34,6 +37,9 @@ function normalizeMessage(raw, fallbackRole = null) {
     id: raw.id ?? `m-${Date.now()}-${Math.random()}`,
     role,
     content: String(content ?? ''),
+    attachmentPath: raw.attachmentPath || raw.attachment_path || null,
+    attachmentName: raw.attachmentName || raw.attachment_name || null,
+    attachmentMime: raw.attachmentMime || raw.attachment_mime || null,
     created_at: raw.created_at || raw.createdAt || null,
   };
 }
@@ -68,6 +74,13 @@ function MessageBubble({ msg, onPin }) {
           (Réponse vide — réessayez ou vérifiez la configuration IA)
         </div>
       )}
+      {isUser && msg.attachmentPath && (
+        <img
+          className="copilot__bubble-image"
+          src={String(msg.attachmentPath).startsWith('blob:') ? msg.attachmentPath : getAuthUploadUrl(msg.attachmentPath)}
+          alt={msg.attachmentName || 'Image envoyee'}
+        />
+      )}
       {!isUser && msg.content && onPin && (
         <div className="copilot__bubble-actions">
           <button className="copilot__bubble-action" onClick={() => onPin(msg.content)}>
@@ -91,8 +104,11 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
   const [loading, setLoading] = useState(false);
   const [sending, setSending] = useState(false);
   const [withDossier, setWithDossier] = useState(true);
+  const [selectedImage, setSelectedImage] = useState(null);
+  const [selectedImagePreview, setSelectedImagePreview] = useState('');
   const messagesEndRef = useRef(null);
   const textareaRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   const insertDictation = (text) => {
     setInput((prev) => {
@@ -145,16 +161,36 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, sending]);
 
+  useEffect(() => {
+    if (!selectedImage) {
+      setSelectedImagePreview('');
+      return undefined;
+    }
+
+    const url = URL.createObjectURL(selectedImage);
+    setSelectedImagePreview(url);
+    return () => URL.revokeObjectURL(url);
+  }, [selectedImage]);
+
   const send = async (textOverride) => {
     const text = (textOverride ?? input).trim();
-    if (!text || sending) return;
+    if ((!text && !selectedImage) || sending) return;
     setSending(true);
-    const tempUser = normalizeMessage({ id: `u-${Date.now()}`, role: 'doctor', content: text });
+    const imageForSend = selectedImage;
+    const previewForSend = imageForSend ? URL.createObjectURL(imageForSend) : selectedImagePreview;
+    const tempUser = normalizeMessage({
+      id: `u-${Date.now()}`,
+      role: 'doctor',
+      content: text || '[Image medicale jointe]',
+      attachmentPath: previewForSend || null,
+      attachmentName: imageForSend?.name || null,
+    });
     setMessages((prev) => [...prev, tempUser]);
     setInput('');
+    setSelectedImage(null);
     try {
       const fn = withDossier ? aiChatService.sendWithFullHistory : aiChatService.sendMessage;
-      const res = await fn(caseId, text);
+      const res = await fn(caseId, text, imageForSend);
 
       if (res?.success) {
         // Backend shape: { data: { doctorMessage, aiMessage } }
@@ -182,11 +218,13 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
       } else {
         showError(res?.message || 'Erreur lors de l\'envoi');
         setInput(text);
+        setSelectedImage(imageForSend);
       }
     } catch (err) {
       console.error('Send error:', err);
       showError(err?.response?.data?.message || 'Erreur de connexion');
       setInput(text);
+      setSelectedImage(imageForSend);
     } finally {
       setSending(false);
       textareaRef.current?.focus();
@@ -198,6 +236,18 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
       e.preventDefault();
       send();
     }
+  };
+
+  const handlePickImage = (event) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      showError('Selectionnez une image valide');
+      event.target.value = '';
+      return;
+    }
+    setSelectedImage(file);
+    event.target.value = '';
   };
 
   const isEmpty = !loading && messages.length === 0;
@@ -276,7 +326,29 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
           {withDossier ? 'Dossier complet inclus' : 'Sans contexte dossier'}
         </button>
 
+        {selectedImage && (
+          <div className="copilot__attachment-preview">
+            {selectedImagePreview && <img src={selectedImagePreview} alt={selectedImage.name} />}
+            <span>{selectedImage.name}</span>
+            <button
+              type="button"
+              onClick={() => setSelectedImage(null)}
+              aria-label="Retirer l'image"
+              title="Retirer l'image"
+            >
+              <CloseIcon fontSize="small" />
+            </button>
+          </div>
+        )}
+
         <div className="copilot__textarea-wrap">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            className="copilot__file-input"
+            onChange={handlePickImage}
+          />
           <textarea
             ref={textareaRef}
             className="copilot__textarea"
@@ -287,6 +359,16 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
             placeholder="Demandez à l'IA…  (Entrée pour envoyer · Maj+Entrée pour saut de ligne)"
             disabled={sending}
           />
+          <button
+            type="button"
+            className="copilot__attach"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={sending}
+            aria-label="Joindre une image"
+            title="Joindre une image"
+          >
+            <ImageIcon fontSize="small" />
+          </button>
           <button
             type="button"
             className={`copilot__voice${voice.recording ? ' copilot__voice--recording' : ''}`}
@@ -300,7 +382,7 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
           <button
             className="copilot__send"
             onClick={() => send()}
-            disabled={!input.trim() || sending}
+            disabled={(!input.trim() && !selectedImage) || sending}
             aria-label="Envoyer"
             title="Envoyer"
           >

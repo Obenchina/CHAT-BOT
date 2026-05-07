@@ -10,9 +10,9 @@ const NAV_ITEMS = [
   { id: 'diagnostic',      icon: '✍️', label: 'Diagnostic' },
 ];
 
-export default function CaseNavigator({ activeId, counts = {}, onJump }) {
+export default function CaseNavigator({ activeId, counts = {}, onJump, variant = 'side' }) {
   return (
-    <nav className="case-navigator" aria-label="Navigation du dossier">
+    <nav className={`case-navigator case-navigator--${variant}`} aria-label="Navigation du dossier">
       <div className="case-navigator__title">Dossier</div>
       {NAV_ITEMS.map((it) => {
         const isActive = activeId === it.id;

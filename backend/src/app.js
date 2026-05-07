@@ -74,6 +74,7 @@ const uploadDirs = [
     path.join(__dirname, '../uploads'),
     path.join(__dirname, '../uploads/images'),
     path.join(__dirname, '../uploads/audio'),
+    path.join(__dirname, '../uploads/chat-images'),
     path.join(__dirname, '../uploads/pdf'),
     path.join(__dirname, '../uploads/prescriptions'),
     path.join(__dirname, '../uploads/temp')
@@ -303,6 +304,27 @@ async function runMigrations(pool) {
         ) ENGINE=InnoDB;
     `);
     await ensureColumn(pool, 'ai_config', 'response_language', "ENUM('ar','fr') NOT NULL DEFAULT 'ar'");
+
+    await pool.execute(`
+        CREATE TABLE IF NOT EXISTS ai_chat_messages (
+            id INT PRIMARY KEY AUTO_INCREMENT,
+            case_id INT NOT NULL,
+            doctor_id INT NOT NULL,
+            role ENUM('doctor', 'ai') NOT NULL,
+            content TEXT NOT NULL,
+            attachment_path VARCHAR(500) NULL,
+            attachment_name VARCHAR(255) NULL,
+            attachment_mime VARCHAR(120) NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
+            FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
+            INDEX idx_case (case_id),
+            INDEX idx_doctor (doctor_id)
+        ) ENGINE=InnoDB;
+    `);
+    await ensureColumn(pool, 'ai_chat_messages', 'attachment_path', 'VARCHAR(500) NULL');
+    await ensureColumn(pool, 'ai_chat_messages', 'attachment_name', 'VARCHAR(255) NULL');
+    await ensureColumn(pool, 'ai_chat_messages', 'attachment_mime', 'VARCHAR(120) NULL');
 
     await pool.execute(`
         UPDATE catalogues

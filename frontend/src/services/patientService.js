@@ -68,6 +68,15 @@ const patientService = {
      */
     async getMeasurements(id) {
         return api.get(`${ENDPOINTS.PATIENTS}/${id}/measurements`);
+    },
+
+    /**
+     * Get every document uploaded for all cases of a patient
+     * @param {number} id - Patient ID
+     * @returns {Promise<Object>} API response
+     */
+    async getDocuments(id) {
+        return api.get(`${ENDPOINTS.PATIENTS}/${id}/documents`);
     }
 };
 

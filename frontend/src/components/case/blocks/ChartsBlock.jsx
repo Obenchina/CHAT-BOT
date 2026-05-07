@@ -131,6 +131,7 @@ export default function ChartsBlock({ caseData }) {
             <div role="tabpanel" aria-label={CLINICAL_MEASURE_LABELS[selectedMeasure]?.label || selectedMeasure}>
               <PatientMeasurementsChart
                 data={data[selectedMeasure]}
+                allData={data}
                 measureKey={selectedMeasure}
                 patient={patient}
                 height={520}
