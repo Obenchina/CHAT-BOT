@@ -41,6 +41,10 @@ function validateCurveData(curve) {
             errors.push(`${prefix}: ages must be an array of at least 2 entries`);
             return;
         }
+        const badAges = panel.ages.filter((v) => !Number.isFinite(v));
+        if (badAges.length > 0) {
+            errors.push(`${prefix}: ages contains ${badAges.length} non-numeric entries`);
+        }
         if (!panel.percentiles || typeof panel.percentiles !== 'object') {
             errors.push(`${prefix}: missing percentiles`);
             return;

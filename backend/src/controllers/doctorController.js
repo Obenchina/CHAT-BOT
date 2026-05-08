@@ -503,8 +503,6 @@ async function uploadGrowthCurve(req, res) {
             source: working.source !== 'unknown' ? working.source : undefined,
         });
 
-        const originalImagePath = persistOriginalImage(imageFile);
-
         if (reference) {
             const existing = await GrowthCurve.existsForReference(doctor.id, reference.id);
             if (existing) {
@@ -515,6 +513,7 @@ async function uploadGrowthCurve(req, res) {
                     data: { matched_reference_id: reference.id },
                 });
             }
+            const originalImagePath = persistOriginalImage(imageFile);
             const created = await GrowthCurve.create({
                 doctor_id: doctor.id,
                 measure_key: reference.measure,
@@ -562,6 +561,7 @@ async function uploadGrowthCurve(req, res) {
         // but the curve is not usable for plotting until they explicitly re-approve.
         const status = validation.ok ? 'pending_review' : 'rejected';
 
+        const originalImagePath = persistOriginalImage(imageFile);
         const created = await GrowthCurve.create({
             doctor_id: doctor.id,
             measure_key: working.isComposite ? 'height_weight' : working.measure,

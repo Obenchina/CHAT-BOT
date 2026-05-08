@@ -134,7 +134,15 @@ function shapeIntoCurve({ extracted, classification, sourceLabel, originalName }
         panels: extracted.panels.map((p) => ({
             measure: p.measure,
             unit: p.unit,
-            ages: Array.isArray(p.ages) ? p.ages.map(Number).filter(Number.isFinite) : [],
+            // Preserve length so age[i] always lines up with percentile[i].
+            // Non-numeric or missing entries become null and are caught later by
+            // curveValidationService.
+            ages: Array.isArray(p.ages)
+                ? p.ages.map((v) => {
+                    const n = Number(v);
+                    return Number.isFinite(n) ? n : null;
+                })
+                : [],
             percentiles: Object.fromEntries(
                 Object.entries(p.percentiles || {}).map(([k, arr]) => [
                     k,
