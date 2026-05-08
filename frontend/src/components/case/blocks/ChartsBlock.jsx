@@ -3,6 +3,35 @@ import PatientMeasurementsChart from '../../patient/PatientMeasurementsChart';
 import patientService from '../../../services/patientService';
 import { CLINICAL_MEASURE_LABELS } from '../../../constants/config';
 
+const COMBINED_WEIGHT_HEIGHT = 'weight_height';
+
+function getDisplayMeasureKeys(data) {
+  const keys = Object.keys(data);
+  const hasWeightHeight = Array.isArray(data.weight) && data.weight.length > 0 && Array.isArray(data.height) && data.height.length > 0;
+
+  if (!hasWeightHeight) return keys;
+
+  return [COMBINED_WEIGHT_HEIGHT, ...keys.filter((key) => key !== COMBINED_WEIGHT_HEIGHT)];
+}
+
+function getMeasureSeries(data, key) {
+  if (key === COMBINED_WEIGHT_HEIGHT) {
+    return [...(data.height || []), ...(data.weight || [])];
+  }
+
+  return data[key] || [];
+}
+
+function getMeasureLabel(key) {
+  if (key === COMBINED_WEIGHT_HEIGHT) return 'Poids + Taille';
+  return CLINICAL_MEASURE_LABELS[key]?.label || key;
+}
+
+function getMeasureUnit(key) {
+  if (key === COMBINED_WEIGHT_HEIGHT) return '';
+  return CLINICAL_MEASURE_LABELS[key]?.unit || '';
+}
+
 /**
  * Charts block for the Case Details page.
  * Loads the patient's longitudinal measurements and renders an
@@ -35,7 +64,7 @@ export default function ChartsBlock({ caseData }) {
           }
           setData(filtered);
           const keys = Object.keys(filtered);
-          if (keys.length > 0) setSelectedMeasure(keys[0]);
+          if (keys.length > 0) setSelectedMeasure(getDisplayMeasureKeys(filtered)[0]);
         } else {
           setData({});
         }
@@ -49,7 +78,8 @@ export default function ChartsBlock({ caseData }) {
     return () => { cancelled = true; };
   }, [patientId]);
 
-  const measureKeys = useMemo(() => Object.keys(data), [data]);
+  const measureKeys = useMemo(() => getDisplayMeasureKeys(data), [data]);
+  const selectedData = useMemo(() => getMeasureSeries(data, selectedMeasure), [data, selectedMeasure]);
   const hasData = measureKeys.length > 0;
 
   return (
@@ -98,9 +128,10 @@ export default function ChartsBlock({ caseData }) {
             }}
           >
             {measureKeys.map((key) => {
-              const label = CLINICAL_MEASURE_LABELS[key]?.label || key;
-              const unit = CLINICAL_MEASURE_LABELS[key]?.unit || '';
+              const label = getMeasureLabel(key);
+              const unit = getMeasureUnit(key);
               const active = key === selectedMeasure;
+              const count = getMeasureSeries(data, key).length;
               return (
                 <button
                   key={key}
@@ -120,17 +151,17 @@ export default function ChartsBlock({ caseData }) {
                     transition: 'background .15s ease, color .15s ease, border-color .15s ease',
                   }}
                 >
-                  {label}{unit ? ` (${unit})` : ''} · {data[key]?.length ?? 0}
+                  {label}{unit ? ` (${unit})` : ''} · {count}
                 </button>
               );
             })}
           </div>
 
           {/* Active chart */}
-          {selectedMeasure && data[selectedMeasure] && (
-            <div role="tabpanel" aria-label={CLINICAL_MEASURE_LABELS[selectedMeasure]?.label || selectedMeasure}>
+          {selectedMeasure && selectedData.length > 0 && (
+            <div role="tabpanel" aria-label={getMeasureLabel(selectedMeasure)}>
               <PatientMeasurementsChart
-                data={data[selectedMeasure]}
+                data={selectedData}
                 allData={data}
                 measureKey={selectedMeasure}
                 patient={patient}

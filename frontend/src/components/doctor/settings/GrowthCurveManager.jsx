@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import doctorService from '../../../services/doctorService';
 import { getAuthUploadUrl } from '../../../constants/config';
 import { showSuccess, showError } from '../../../utils/toast';
@@ -195,6 +195,18 @@ function GrowthCurveManager() {
 
     const officialCurves = (curves || []).filter(c => c.source_type === 'official');
     const customCurves = (curves || []).filter(c => c.source_type !== 'official');
+    const visibleCustomCurves = useMemo(() => {
+        const combinedGenders = new Set(
+            customCurves
+                .filter((curve) => curve.measure_key === 'weight_height')
+                .map((curve) => curve.gender)
+        );
+
+        return customCurves.filter((curve) => {
+            if (!combinedGenders.has(curve.gender)) return true;
+            return !['weight', 'height'].includes(curve.measure_key);
+        });
+    }, [customCurves]);
 
     return (
         <div className="growth-curve-manager">
@@ -270,13 +282,13 @@ function GrowthCurveManager() {
 
             <div className="curves-list">
                 <h4 style={{ marginBottom: 'var(--space-md)' }}>Mes références personnalisées</h4>
-                {customCurves.length === 0 && !loading && (
+                {visibleCustomCurves.length === 0 && !loading && (
                     <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: 'var(--space-xl)' }}>
                         Aucune référence personnalisée.
                     </p>
                 )}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 'var(--space-md)' }}>
-                    {customCurves.map(c => (
+                    {visibleCustomCurves.map(c => (
                         <div key={c.id} className="profile-section-card" style={{ padding: 'var(--space-md)', border: `1px solid ${c.is_plot_enabled ? 'var(--success)' : 'var(--warning)'}` }}>
                             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                 <div>

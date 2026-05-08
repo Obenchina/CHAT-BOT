@@ -116,7 +116,9 @@ function MeasureLineOverlay({ chartData, config, color, label, unit }) {
 
 function PatientMeasurementsChart({ data, allData, measureKey, patient, height = 520 }) {
     const [availableCurves, setAvailableCurves] = useState([]);
-    const measureInfo = CLINICAL_MEASURE_LABELS[measureKey] || { label: measureKey, unit: '' };
+    const measureInfo = measureKey === 'weight_height'
+        ? { label: 'Poids + Taille', unit: '' }
+        : CLINICAL_MEASURE_LABELS[measureKey] || { label: measureKey, unit: '' };
 
     const normalizedMeasureKey = useMemo(() => {
         if (measureKey === 'head_circumference') return 'head';
@@ -147,23 +149,63 @@ function PatientMeasurementsChart({ data, allData, measureKey, patient, height =
 
     const matchingCurve = useMemo(() => {
         const pool = Array.isArray(availableCurves) ? availableCurves : [];
-        const eligible = pool.filter((curve) => {
+        const isUsableCurve = (curve) => {
             if (!curve) return false;
             if (!curve.is_plot_enabled || !curve.template_config) return false;
-            const curveMeasure = curve.measure_key;
-            const measureMatches =
-                curveMeasure === normalizedMeasureKey ||
-                (curveMeasure === 'weight_height' && ['weight', 'height'].includes(normalizedMeasureKey));
-            if (!measureMatches) return false;
-            if (curve.gender !== patientGender) return false;
+            if (curve.gender !== patientGender && curve.gender !== 'both') return false;
 
             const minAge = Number(curve.age_range?.min_age ?? curve.template_config?.x_min ?? 0);
             const maxAge = Number(curve.age_range?.max_age ?? curve.template_config?.x_max ?? 0);
             if (patientAgeMonths === null || Number.isNaN(patientAgeMonths)) return true;
             return chartData.some((point) => point.ageInMonths >= minAge && point.ageInMonths <= maxAge);
+        };
+
+        const eligible = pool.filter((curve) => {
+            if (!isUsableCurve(curve)) return false;
+            const curveMeasure = curve.measure_key;
+            const measureMatches =
+                curveMeasure === normalizedMeasureKey ||
+                (curveMeasure === 'weight_height' && ['weight', 'height'].includes(normalizedMeasureKey));
+            return measureMatches;
         });
 
-        return eligible.find((curve) => curve.source_type !== 'official') || eligible[0] || null;
+        const customMatch = eligible.find((curve) => curve.source_type !== 'official') || null;
+        const combinedMatch = eligible.find((curve) => curve.measure_key === 'weight_height' && curve.source_type !== 'official')
+            || eligible.find((curve) => curve.measure_key === 'weight_height')
+            || null;
+        const directMatch = ['weight', 'height', 'weight_height'].includes(normalizedMeasureKey)
+            ? (combinedMatch || customMatch || eligible[0] || null)
+            : (customMatch || eligible[0] || null);
+        if (directMatch || normalizedMeasureKey !== 'weight_height') return directMatch;
+
+        const heightCurve = pool.find((curve) => isUsableCurve(curve) && curve.measure_key === 'height');
+        const weightCurve = pool.find((curve) => isUsableCurve(curve) && curve.measure_key === 'weight');
+        if (!heightCurve || !weightCurve) return null;
+
+        const heightTemplate = heightCurve.template_config || {};
+        const weightTemplate = weightCurve.template_config || {};
+        return {
+            ...heightCurve,
+            id: `${heightCurve.id || 'height'}-${weightCurve.id || 'weight'}-combined`,
+            measure_key: 'weight_height',
+            gender: heightCurve.gender || weightCurve.gender,
+            file_path: heightCurve.file_path || weightCurve.file_path,
+            template_config: {
+                ...heightTemplate,
+                label: 'Poids + Taille',
+                measure_key: 'weight_height',
+                x_min: heightTemplate.x_min ?? weightTemplate.x_min,
+                x_max: heightTemplate.x_max ?? weightTemplate.x_max,
+                y_min: heightTemplate.y_min,
+                y_max: heightTemplate.y_max,
+                x_unit: heightTemplate.x_unit || weightTemplate.x_unit || 'months',
+                y_unit: 'cm',
+                measure_configs: {
+                    height: heightTemplate,
+                    weight: weightTemplate
+                }
+            }
+        };
     }, [availableCurves, normalizedMeasureKey, patientGender, patientAgeMonths, chartData]);
 
     const isCombined = matchingCurve?.measure_key === 'weight_height';

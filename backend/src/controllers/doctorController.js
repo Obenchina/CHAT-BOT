@@ -383,9 +383,13 @@ async function uploadGrowthCurve(req, res) {
 
         const { measureKey, gender } = req.body;
         const isPdf = curveFile.mimetype === 'application/pdf' || /\.pdf$/i.test(curveFile.originalname);
+        const isCombinedChart = measureKey === 'weight_height';
 
-        // ─── AFPA-style PDF extraction (UNCHANGED — do NOT touch) ───
-        if (isPdf) {
+        // ─── AFPA-style PDF extraction ───
+        // For combined charts (weight_height), we SKIP individual image extraction
+        // because AFPA PDFs embed height and weight as separate images — we need the
+        // full page render (curveImage) to keep both curves on a single image.
+        if (isPdf && !isCombinedChart) {
             const extractedCharts = buildExtractedCharts(curveFile, { measureKey, gender });
 
             if (extractedCharts.length > 0) {
@@ -409,9 +413,7 @@ async function uploadGrowthCurve(req, res) {
                             aiConfig: activeAiConfig
                         })
                         : null;
-                    const templateConfig = chart.measureKey === 'weight_height' && !aiTemplateConfig?.measure_configs
-                        ? chart.templateConfig
-                        : (aiTemplateConfig || chart.templateConfig);
+                    const templateConfig = (aiTemplateConfig || chart.templateConfig);
                     const resolvedMeasureKey = templateConfig.measure_key || chart.measureKey;
                     const resolvedGender = templateConfig.gender || chart.gender || gender || 'male';
                     const filePath = saveExtractedChartImage(chart.image);
@@ -448,6 +450,11 @@ async function uploadGrowthCurve(req, res) {
             }
 
             // AFPA extraction failed — clean up the original PDF
+            require('fs').unlink(curveFile.path, () => { });
+        }
+
+        // For combined PDF charts, also clean up the original PDF (we'll use curveImage)
+        if (isPdf && isCombinedChart) {
             require('fs').unlink(curveFile.path, () => { });
         }
 
@@ -505,7 +512,19 @@ async function uploadGrowthCurve(req, res) {
                 fallbackConfig: fallbackTemplateConfig,
                 aiConfig: activeAiConfig
             });
-            if (aiResult && !(measureKey === 'weight_height' && !aiResult.measure_configs)) templateConfig = aiResult;
+            if (aiResult) {
+                templateConfig = measureKey === 'weight_height'
+                    ? {
+                        ...fallbackTemplateConfig,
+                        ...(aiResult.measure_configs ? aiResult : {}),
+                        measure_key: 'weight_height',
+                        measure_configs: {
+                            ...(fallbackTemplateConfig.measure_configs || {}),
+                            ...(aiResult.measure_configs || {})
+                        }
+                    }
+                    : aiResult;
+            }
         }
 
         const curve = await GrowthCurve.create({

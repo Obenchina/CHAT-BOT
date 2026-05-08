@@ -49,6 +49,16 @@ const initials = (p) => {
   const l = (p.lastName || p.last_name || '')[0] || '';
   return (f + l).toUpperCase() || '·';
 };
+const combinedMeasureKey = 'weight_height';
+const displayMeasureKeys = (data) => {
+  const keys = Object.keys(data || {});
+  const hasWeightHeight = Array.isArray(data?.weight) && data.weight.length > 0 && Array.isArray(data?.height) && data.height.length > 0;
+  return hasWeightHeight ? [combinedMeasureKey, ...keys.filter((key) => key !== combinedMeasureKey)] : keys;
+};
+const measureSeries = (data, key) => (
+  key === combinedMeasureKey ? [...(data?.height || []), ...(data?.weight || [])] : (data?.[key] || [])
+);
+const measureLabel = (key) => (key === combinedMeasureKey ? 'Poids + Taille' : key);
 const ageFromDob = (dob) => {
   if (!dob) return null;
   const d = new Date(dob);
@@ -153,7 +163,7 @@ export default function DoctorPatients() {
       .then((r) => {
         const data = r?.data || {};
         setMeasurements(data);
-        const keys = Object.keys(data);
+        const keys = displayMeasureKeys(data);
         if (keys.length) setActiveMeasure(keys[0]); else setActiveMeasure(null);
       }).catch(() => {})
       .finally(() => setMeasurementsLoading(false));
@@ -428,20 +438,20 @@ export default function DoctorPatients() {
                           ) : (
                             <>
                               <div className="pat-measure-tabs">
-                                {Object.keys(measurements).map((k) => (
+                                {displayMeasureKeys(measurements).map((k) => (
                                   <button
                                     key={k}
                                     className={`pat-measure-tab ${activeMeasure === k ? 'is-active' : ''}`}
                                     onClick={() => setActiveMeasure(k)}
                                   >
-                                    {k} <span>· {measurements[k]?.length || 0}</span>
+                                    {measureLabel(k)} <span>· {measureSeries(measurements, k).length}</span>
                                   </button>
                                 ))}
                               </div>
                               {activeMeasure && (
                                 <PatientMeasurementsChart
                                   patient={selected}
-                                  data={measurements[activeMeasure]}
+                                  data={measureSeries(measurements, activeMeasure)}
                                   allData={measurements}
                                   measureKey={activeMeasure}
                                   height={480}

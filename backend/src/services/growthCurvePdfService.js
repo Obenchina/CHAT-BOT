@@ -273,12 +273,15 @@ function inferMeasureKeys(originalName, fallbackMeasure, imageCount) {
         return ['weight_height'];
     }
 
-    if ((name.includes('taille-et-poids') || name.includes('taille et poids')) && imageCount <= 1) {
+    if (
+        name.includes('taille-et-poids') ||
+        name.includes('taille et poids') ||
+        (name.includes('taille') && name.includes('poids')) ||
+        name.includes('height-weight') ||
+        name.includes('weight-height') ||
+        name.includes('stature-weight')
+    ) {
         return ['weight_height'];
-    }
-
-    if ((name.includes('taille-et-poids') || name.includes('taille et poids')) && imageCount >= 2) {
-        return ['height', 'weight'];
     }
 
     if (name.includes('taille')) return ['height'];
@@ -366,7 +369,11 @@ function buildExtractedCharts(file, options = {}) {
     const gender = inferGender(file.originalname, options.gender);
     const ageDomain = inferAgeDomainMonths(file.originalname);
 
-    return meaningfulImages.map((rawImage, index) => {
+    const sourceImages = measureKeys.length === 1 && measureKeys[0] === 'weight_height'
+        ? meaningfulImages.slice(0, 1)
+        : meaningfulImages;
+
+    return sourceImages.map((rawImage, index) => {
         const measureKey = measureKeys[index] || measureKeys[0] || options.measureKey || 'weight';
         const image = shouldRotateClockwise(file.originalname, rawImage, measureKey) ? rotateClockwise(rawImage) : rawImage;
         const plotArea = getKnownPlotArea(file.originalname, measureKey) || detectPlotArea(image);
