@@ -261,7 +261,7 @@ Task:
    - For x-axis: Pick two tick marks far apart. For each, give the value (in months) and its horizontal position as a percentage of image width.
    - For y-axis: Pick two tick marks far apart. For each, give the value and its vertical position as a percentage of image height (0% = top of image, 100% = bottom).
 
-These reference points must be PRECISE because they determine where data points are drawn on the chart.
+CRITICAL INSTRUCTION: Read the ACTUAL numbers from the image. DO NOT copy the placeholder numbers from the example JSON below!
 
 Original filename: ${originalName || 'unknown'}
 Fallback measure_key: ${fallbackMeasureKey || 'unknown'}
@@ -272,19 +272,19 @@ Return this JSON shape:
   "measure_key": "height",
   "gender": "male",
   "label": "Taille (G)",
-  "x_min": 0,
-  "x_max": 36,
+  "x_min": 999,
+  "x_max": 999,
   "x_unit": "months",
-  "y_min": 40,
-  "y_max": 110,
+  "y_min": 999,
+  "y_max": 999,
   "y_unit": "cm",
   "x_reference_points": [
-    { "value": 6, "percent": 15.5 },
-    { "value": 30, "percent": 82.3 }
+    { "value": 999, "percent": 15.5 },
+    { "value": 999, "percent": 82.3 }
   ],
   "y_reference_points": [
-    { "value": 100, "percent": 12.0 },
-    { "value": 50, "percent": 78.5 }
+    { "value": 999, "percent": 12.0 },
+    { "value": 999, "percent": 78.5 }
   ],
   "confidence": 0.92,
   "notes": "short reason"
@@ -300,13 +300,13 @@ Task:
 - This image has TWO plotting areas: height (cm) in the upper portion and weight (kg) in the lower portion.
 - They share the same x-axis (age) but have DIFFERENT y-axes and occupy DIFFERENT vertical regions.
 - For EACH measure (height and weight), detect:
-  1. x-axis range in MONTHS (convert years to months: 1y = 12m).
-  2. y-axis range and unit.
+  1. x-axis range in MONTHS (convert years to months: 1y = 12m). Look at the extreme left and right of the grid.
+  2. y-axis range and unit. Look at the top and bottom numbers of the grid.
   3. CRITICAL — 2 reference points per axis for PRECISE calibration:
      - x_reference_points: Two x-axis tick marks with value (months) and horizontal position (% of image width).
      - y_reference_points: Two y-axis tick marks with value and vertical position (% of image height, 0%=top, 100%=bottom).
 
-The reference points determine where data points are plotted. Be as PRECISE as possible by looking at the exact center of each tick mark label.
+CRITICAL INSTRUCTION: You MUST extract the actual numbers from the image pixels. DO NOT copy the "999" placeholder values from the example below! The example is just to show the structure.
 
 Original filename: ${originalName || 'unknown'}
 Fallback gender: ${fallbackGender || 'male'}
@@ -318,35 +318,35 @@ Return this exact JSON shape:
   "label": "Poids + Taille (G)",
   "measure_configs": {
     "height": {
-      "x_min": 12,
-      "x_max": 216,
+      "x_min": 999,
+      "x_max": 999,
       "x_unit": "months",
-      "y_min": 60,
-      "y_max": 200,
+      "y_min": 999,
+      "y_max": 999,
       "y_unit": "cm",
       "x_reference_points": [
-        { "value": 24, "percent": 12.5 },
-        { "value": 204, "percent": 82.0 }
+        { "value": 999, "percent": 12.5 },
+        { "value": 999, "percent": 82.0 }
       ],
       "y_reference_points": [
-        { "value": 190, "percent": 8.0 },
-        { "value": 70, "percent": 48.0 }
+        { "value": 999, "percent": 8.0 },
+        { "value": 999, "percent": 48.0 }
       ]
     },
     "weight": {
-      "x_min": 12,
-      "x_max": 216,
+      "x_min": 999,
+      "x_max": 999,
       "x_unit": "months",
-      "y_min": 0,
-      "y_max": 80,
+      "y_min": 999,
+      "y_max": 999,
       "y_unit": "kg",
       "x_reference_points": [
-        { "value": 24, "percent": 12.5 },
-        { "value": 204, "percent": 82.0 }
+        { "value": 999, "percent": 12.5 },
+        { "value": 999, "percent": 82.0 }
       ],
       "y_reference_points": [
-        { "value": 70, "percent": 57.0 },
-        { "value": 10, "percent": 90.0 }
+        { "value": 999, "percent": 57.0 },
+        { "value": 999, "percent": 90.0 }
       ]
     }
   },
