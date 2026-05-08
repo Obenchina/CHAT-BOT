@@ -81,6 +81,7 @@ function normalizeGender(value, fallback) {
     return fallback || 'male';
 }
 
+// ────── Validate a single-measure AI calibration result ──────
 function validateCalibration(candidate, fallbackConfig, fallbackMeasureKey, fallbackGender) {
     if (!candidate || typeof candidate !== 'object') return null;
 
@@ -126,7 +127,6 @@ function validateCalibration(candidate, fallbackConfig, fallbackMeasureKey, fall
         x_unit: candidate.x_unit || candidate.x_axis?.unit || fallbackConfig?.x_unit || 'months',
         y_unit: candidate.y_unit || candidate.y_axis?.unit || fallbackConfig?.y_unit || '',
         plot_area: { left, top, right, bottom },
-        measure_configs: fallbackConfig?.measure_configs || null,
         auto_confidence: Number(confidence.toFixed(3)),
         fallback_config: fallbackConfig ? {
             source: fallbackConfig.source,
@@ -139,6 +139,71 @@ function validateCalibration(candidate, fallbackConfig, fallbackMeasureKey, fall
     };
 }
 
+// ────── Validate a combined (weight_height) AI calibration result ──────
+function validateCombinedCalibration(candidate, fallbackGender) {
+    if (!candidate || typeof candidate !== 'object') return null;
+
+    const gender = normalizeGender(candidate.gender, fallbackGender);
+    const confidence = numberOrNull(candidate.confidence) ?? 0;
+    if (confidence < 0.5) return null;
+
+    const mc = candidate.measure_configs;
+    if (!mc || typeof mc !== 'object') return null;
+    if (!mc.height || !mc.weight) return null;
+
+    function validateSubConfig(sub, type) {
+        if (!sub || typeof sub !== 'object') return null;
+        const xMin = numberOrNull(sub.x_min);
+        const xMax = numberOrNull(sub.x_max);
+        const yMin = numberOrNull(sub.y_min);
+        const yMax = numberOrNull(sub.y_max);
+        const p = sub.plot_area || {};
+        const left = numberOrNull(p.left);
+        const top = numberOrNull(p.top);
+        const right = numberOrNull(p.right);
+        const bottom = numberOrNull(p.bottom);
+
+        if (![xMin, xMax, yMin, yMax, left, top, right, bottom].every(Number.isFinite)) return null;
+        if (xMax <= xMin || yMax <= yMin) return null;
+        if (left < 0 || top < 0 || right > 100 || bottom > 100) return null;
+        if (right - left < 20 || bottom - top < 15) return null;
+
+        return {
+            x_min: xMin, x_max: xMax,
+            y_min: yMin, y_max: yMax,
+            x_unit: sub.x_unit || 'months',
+            y_unit: sub.y_unit || (type === 'weight' ? 'kg' : 'cm'),
+            plot_area: { left, top, right, bottom }
+        };
+    }
+
+    const heightConfig = validateSubConfig(mc.height, 'height');
+    const weightConfig = validateSubConfig(mc.weight, 'weight');
+    if (!heightConfig || !weightConfig) return null;
+
+    return {
+        source: 'ai_calibrated',
+        ai_provider: candidate.ai_provider,
+        label: candidate.label || `Poids + Taille (${gender === 'male' ? 'G' : 'F'})`,
+        measure_key: 'weight_height',
+        gender,
+        // Root-level values from height config (used as primary display)
+        x_min: heightConfig.x_min,
+        x_max: heightConfig.x_max,
+        y_min: heightConfig.y_min,
+        y_max: heightConfig.y_max,
+        x_unit: heightConfig.x_unit,
+        y_unit: 'cm',
+        plot_area: heightConfig.plot_area,
+        measure_configs: {
+            height: heightConfig,
+            weight: weightConfig
+        },
+        auto_confidence: Number(confidence.toFixed(3))
+    };
+}
+
+// ────── Prompts ──────
 function buildCalibrationPrompt({ originalName, fallbackConfig, fallbackMeasureKey, fallbackGender }) {
     return `You are calibrating a pediatric growth chart image for deterministic plotting.
 
@@ -148,18 +213,18 @@ Task:
 - Read the chart title, axes, tick labels, and grid.
 - Detect the clinical measurement type.
 - Detect gender when visible.
-- Detect x-axis numeric range in months.
+- Detect x-axis numeric range in months (convert years to months if needed: 1 year = 12 months).
 - Detect y-axis numeric range and unit.
 - Estimate the plot_area as percentages of the full image bounds: left, top, right, bottom.
+  The plot_area must precisely match where the actual data grid starts and ends (where the axes lines are).
 - If the image is rotated or upside down, still return the calibration for the visible image orientation.
 
-Allowed measure_key values: weight, height, weight_height, head, bmi.
-Allowed gender values: male, female, both.
+Allowed measure_key values: weight, height, head, bmi.
+Allowed gender values: male, female.
 
 Original filename: ${originalName || 'unknown'}
 Fallback measure_key: ${fallbackMeasureKey || 'unknown'}
 Fallback gender: ${fallbackGender || 'male'}
-Fallback config: ${JSON.stringify(fallbackConfig || {})}
 
 Return this JSON shape:
 {
@@ -178,6 +243,61 @@ Return this JSON shape:
 }`;
 }
 
+function buildCombinedCalibrationPrompt({ originalName, fallbackGender }) {
+    return `You are calibrating a COMBINED pediatric growth chart image that contains BOTH height (taille) and weight (poids) curves on the SAME image.
+
+Return ONLY valid JSON. No markdown.
+
+Task:
+- This image contains TWO separate plotting areas: one for height (cm) and one for weight (kg).
+- They share the same x-axis (age) but have DIFFERENT y-axes and occupy DIFFERENT vertical regions of the image.
+- For EACH measure (height and weight), you must detect:
+  1. The x-axis range in months (convert years to months if needed: 1 year = 12 months).
+  2. The y-axis range and unit.
+  3. The plot_area as percentages of the FULL image: left, top, right, bottom.
+     - The plot_area must precisely match where each chart's data grid starts and ends.
+     - Height chart is typically in the UPPER portion.
+     - Weight chart is typically in the LOWER portion.
+     - They should NOT overlap significantly.
+- Detect gender from title/labels.
+- Be very precise about plot_area — this determines where data points will be drawn.
+
+Allowed gender values: male, female.
+
+Original filename: ${originalName || 'unknown'}
+Fallback gender: ${fallbackGender || 'male'}
+
+Return this exact JSON shape:
+{
+  "measure_key": "weight_height",
+  "gender": "male",
+  "label": "Poids + Taille (G)",
+  "measure_configs": {
+    "height": {
+      "x_min": 12,
+      "x_max": 216,
+      "x_unit": "months",
+      "y_min": 60,
+      "y_max": 200,
+      "y_unit": "cm",
+      "plot_area": { "left": 7, "top": 5, "right": 85, "bottom": 52 }
+    },
+    "weight": {
+      "x_min": 12,
+      "x_max": 216,
+      "x_unit": "months",
+      "y_min": 0,
+      "y_max": 80,
+      "y_unit": "kg",
+      "plot_area": { "left": 7, "top": 54, "right": 85, "bottom": 93 }
+    }
+  },
+  "confidence": 0.88,
+  "notes": "Height chart occupies upper half, weight chart occupies lower half"
+}`;
+}
+
+// ────── API calls ──────
 async function fetchWithTimeout(url, options, timeoutMs = 30000) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
@@ -188,7 +308,7 @@ async function fetchWithTimeout(url, options, timeoutMs = 30000) {
     }
 }
 
-async function callGeminiCalibration(prompt, pngBase64, cfg) {
+async function callGeminiCalibration(prompt, pngBase64, cfg, mimeType) {
     const model = cfg.model || 'gemini-2.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cfg.apiKey}`;
     const response = await fetchWithTimeout(url, {
@@ -198,12 +318,12 @@ async function callGeminiCalibration(prompt, pngBase64, cfg) {
             contents: [{
                 parts: [
                     { text: prompt },
-                    { inlineData: { mimeType: 'image/png', data: pngBase64 } }
+                    { inlineData: { mimeType: mimeType || 'image/png', data: pngBase64 } }
                 ]
             }],
             generationConfig: {
                 temperature: 0,
-                maxOutputTokens: 1200,
+                maxOutputTokens: 2000,
                 responseMimeType: 'application/json'
             }
         })
@@ -228,7 +348,7 @@ async function callOpenAiCalibration(prompt, pngBase64, cfg) {
         body: JSON.stringify({
             model,
             temperature: 0,
-            max_tokens: 1200,
+            max_tokens: 2000,
             response_format: { type: 'json_object' },
             messages: [
                 { role: 'system', content: 'You extract precise chart calibration metadata from medical chart images. Return JSON only.' },
@@ -251,6 +371,11 @@ async function callOpenAiCalibration(prompt, pngBase64, cfg) {
     return data.choices?.[0]?.message?.content || '';
 }
 
+// ────── Main calibration functions ──────
+
+/**
+ * Calibrate extracted chart image (raw pixel data from AFPA PDF).
+ */
 async function calibrateGrowthChartWithAI({ image, originalName, fallbackConfig, fallbackMeasureKey, fallbackGender, aiConfig }) {
     if (!aiConfig?.apiKey || !image?.raw) return null;
 
@@ -261,7 +386,7 @@ async function calibrateGrowthChartWithAI({ image, originalName, fallbackConfig,
 
         const text = provider === 'openai'
             ? await callOpenAiCalibration(prompt, pngBase64, aiConfig)
-            : await callGeminiCalibration(prompt, pngBase64, aiConfig);
+            : await callGeminiCalibration(prompt, pngBase64, aiConfig, 'image/png');
 
         const jsonText = stripJsonEnvelope(text);
         if (!jsonText) return null;
@@ -277,55 +402,39 @@ async function calibrateGrowthChartWithAI({ image, originalName, fallbackConfig,
 }
 
 /**
- * Calibrate a plain image file (JPG/PNG) directly using AI — no raw pixel decoding needed.
- * @param {object} params
- * @param {string} params.filePath - Absolute path to the image file on disk
- * @param {string} params.mimeType - e.g. 'image/jpeg' or 'image/png'
- * @param {string} params.originalName - Original filename for hints
- * @param {string} params.fallbackMeasureKey - measureKey chosen by doctor
- * @param {string} params.fallbackGender - gender chosen by doctor
- * @param {object} params.fallbackConfig - Default config to use if AI fails
- * @param {object} params.aiConfig - { provider, apiKey, model }
- * @returns {Promise<object|null>} Calibrated template config or null
+ * Calibrate an image file (JPG/PNG) on disk.
+ * For weight_height charts, uses a specialized prompt that asks the AI to detect
+ * separate plot areas for height and weight.
  */
 async function calibrateImageFileWithAI({ filePath, mimeType, originalName, fallbackMeasureKey, fallbackGender, fallbackConfig, aiConfig }) {
     if (!aiConfig?.apiKey) return null;
     try {
         const fileBuffer = fs.readFileSync(filePath);
         const pngBase64 = fileBuffer.toString('base64');
-        const prompt = buildCalibrationPrompt({ originalName, fallbackConfig, fallbackMeasureKey, fallbackGender });
         const provider = aiConfig.provider === 'openai' ? 'openai' : 'gemini';
+        const isCombined = fallbackMeasureKey === 'weight_height';
 
-        // For Gemini we can send the image as its native mime type directly
+        // Use specialized prompt for combined charts
+        const prompt = isCombined
+            ? buildCombinedCalibrationPrompt({ originalName, fallbackGender })
+            : buildCalibrationPrompt({ originalName, fallbackConfig, fallbackMeasureKey, fallbackGender });
+
         let text;
         if (provider === 'openai') {
             text = await callOpenAiCalibration(prompt, pngBase64, aiConfig);
         } else {
-            // Override the mimeType for Gemini inline data
-            const model = aiConfig.model || 'gemini-2.5-flash';
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${aiConfig.apiKey}`;
-            const response = await fetchWithTimeout(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    contents: [{
-                        parts: [
-                            { text: prompt },
-                            { inlineData: { mimeType: mimeType || 'image/jpeg', data: pngBase64 } }
-                        ]
-                    }],
-                    generationConfig: { temperature: 0, maxOutputTokens: 1200, responseMimeType: 'application/json' }
-                })
-            });
-            if (!response.ok) throw new Error(`Gemini calibration failed: ${response.status}`);
-            const data = await response.json();
-            text = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
+            text = await callGeminiCalibration(prompt, pngBase64, aiConfig, mimeType || 'image/jpeg');
         }
 
         const jsonText = stripJsonEnvelope(text);
         if (!jsonText) return null;
         const parsed = JSON.parse(jsonText);
         parsed.ai_provider = provider;
+
+        // Use appropriate validation based on chart type
+        if (isCombined) {
+            return validateCombinedCalibration(parsed, fallbackGender);
+        }
         return validateCalibration(parsed, fallbackConfig, fallbackMeasureKey, fallbackGender);
     } catch (error) {
         console.warn('Image file AI calibration skipped:', error.message);

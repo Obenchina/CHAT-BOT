@@ -465,66 +465,35 @@ async function uploadGrowthCurve(req, res) {
         let activeAiConfig = null;
         try { activeAiConfig = await AiConfig.getEffectiveConfig(doctor.id); } catch (_) {}
 
-        const defaultYDomains = {
-            weight: { y_min: 0, y_max: 110 },
-            height: { y_min: 40, y_max: 210 },
-            weight_height: { y_min: 40, y_max: 210 },
-            head:   { y_min: 30, y_max: 60 },
-            bmi:    { y_min: 8,  y_max: 35 }
-        };
-        const yDomain = defaultYDomains[measureKey] || { y_min: 0, y_max: 100 };
-
-        const fallbackTemplateConfig = {
-            source: 'manual_upload',
-            label: `${measureKey === 'weight_height' ? 'Poids + Taille' : measureKey} (${gender || 'male'})`,
-            x_min: 0, x_max: 216,
-            y_min: yDomain.y_min, y_max: yDomain.y_max,
-            x_unit: 'months',
-            y_unit: measureKey === 'weight' ? 'kg' : (measureKey === 'height' || measureKey === 'head') ? 'cm' : '',
-            plot_area: { left: 8, top: 8, right: 92, bottom: 92 },
-            measure_configs: measureKey === 'weight_height' ? {
-                height: {
-                    x_min: 0, x_max: 216,
-                    y_min: 40, y_max: 210,
-                    x_unit: 'months',
-                    y_unit: 'cm',
-                    plot_area: { left: 8, top: 8, right: 92, bottom: 92 }
-                },
-                weight: {
-                    x_min: 0, x_max: 216,
-                    y_min: 0, y_max: 110,
-                    x_unit: 'months',
-                    y_unit: 'kg',
-                    plot_area: { left: 8, top: 20, right: 92, bottom: 92 }
-                }
-            } : null,
-            auto_confidence: 0.5
-        };
-
-        let templateConfig = fallbackTemplateConfig;
+        // ─── AI calibration (handles both single and combined charts) ───
+        let templateConfig = null;
         if (activeAiConfig) {
-            const aiResult = await calibrateImageFileWithAI({
+            templateConfig = await calibrateImageFileWithAI({
                 filePath: imageFile.path,
                 mimeType: imageFile.mimetype,
                 originalName: curveFile.originalname,
                 fallbackMeasureKey: measureKey,
                 fallbackGender: gender || 'male',
-                fallbackConfig: fallbackTemplateConfig,
+                fallbackConfig: null,
                 aiConfig: activeAiConfig
             });
-            if (aiResult) {
-                templateConfig = measureKey === 'weight_height'
-                    ? {
-                        ...fallbackTemplateConfig,
-                        ...(aiResult.measure_configs ? aiResult : {}),
-                        measure_key: 'weight_height',
-                        measure_configs: {
-                            ...(fallbackTemplateConfig.measure_configs || {}),
-                            ...(aiResult.measure_configs || {})
-                        }
-                    }
-                    : aiResult;
-            }
+        }
+
+        // If AI calibration failed, use minimal fallback
+        if (!templateConfig) {
+            console.warn('AI calibration failed or unavailable — using minimal fallback config');
+            templateConfig = {
+                source: 'manual_upload_uncalibrated',
+                label: `${measureKey === 'weight_height' ? 'Poids + Taille' : measureKey} (${gender || 'male'})`,
+                measure_key: measureKey,
+                gender: gender || 'male',
+                x_min: 0, x_max: 216,
+                y_min: 0, y_max: 200,
+                x_unit: 'months',
+                y_unit: measureKey === 'weight' ? 'kg' : 'cm',
+                plot_area: { left: 5, top: 5, right: 95, bottom: 95 },
+                auto_confidence: 0.3
+            };
         }
 
         const curve = await GrowthCurve.create({
