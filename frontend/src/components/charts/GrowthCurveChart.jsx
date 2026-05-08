@@ -79,8 +79,18 @@ function getYDomain(panel) {
     if (!allValues.length) return ['auto', 'auto'];
     const min = Math.min(...allValues);
     const max = Math.max(...allValues);
-    const pad = (max - min) * 0.05 || 1;
-    return [Math.max(0, min - pad), max + pad];
+    const range = max - min;
+    const pad = range * 0.05 || 1;
+    // Round to a sane number of decimals to avoid float-precision tick artefacts
+    const lo = Math.max(0, Math.floor((min - pad) * 10) / 10);
+    const hi = Math.ceil((max + pad) * 10) / 10;
+    return [lo, hi];
+}
+
+function formatNumberTick(v) {
+    if (!Number.isFinite(v)) return '';
+    // Display at most 1 decimal — always sane for height/weight/head/bmi
+    return Math.abs(v) >= 100 ? Math.round(v).toString() : (Math.round(v * 10) / 10).toString();
 }
 
 function PanelChart({ panel, patientPoints, panelHeight }) {
@@ -128,16 +138,19 @@ function PanelChart({ panel, patientPoints, panelHeight }) {
                         domain={yDomain}
                         label={{ value: `${measureLabel} (${panel.unit || ''})`, angle: -90, position: 'insideLeft', fill: '#475569' }}
                         tick={{ fill: '#475569', fontSize: 11 }}
+                        tickFormatter={formatNumberTick}
+                        allowDecimals
                     />
                     <Tooltip
                         contentStyle={{ backgroundColor: 'rgba(255,255,255,0.97)', borderRadius: 8, border: '1px solid #cbd5e1' }}
                         labelFormatter={(age) => `Âge ${age} mois`}
                         formatter={(value, key, ctx) => {
+                            const display = formatNumberTick(value);
                             if (key === 'patient') {
                                 const dt = ctx?.payload?.displayDate;
-                                return [`${value} ${panel.unit || ''}${dt ? `  (${dt})` : ''}`, `Patient`];
+                                return [`${display} ${panel.unit || ''}${dt ? `  (${dt})` : ''}`, `Patient`];
                             }
-                            return [`${value} ${panel.unit || ''}`, key];
+                            return [`${display} ${panel.unit || ''}`, key];
                         }}
                     />
                     <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
