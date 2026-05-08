@@ -13,7 +13,19 @@ import { showSuccess, showError } from '../../../utils/toast';
 import Modal from '../../common/Modal';
 import Button from '../../common/Button';
 import GrowthCurveChart from '../../charts/GrowthCurveChart';
+import ManualCurveEntryModal from './ManualCurveEntryModal';
+import { API_URL } from '../../../constants/config';
 import * as pdfjsLib from 'pdfjs-dist';
+
+// Build a URL to the doctor-uploaded source image. The /uploads endpoint
+// authenticates via cookie (withCredentials: true) or query token.
+const UPLOADS_BASE = API_URL.replace(/\/api\/?$/, '');
+function uploadUrl(relPath) {
+    if (!relPath) return null;
+    const path = relPath.startsWith('/') ? relPath : `/${relPath}`;
+    const token = localStorage.getItem('token');
+    return `${UPLOADS_BASE}${path}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+}
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
@@ -97,6 +109,8 @@ function GrowthCurveManager() {
     const [curveToDelete, setCurveToDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
     const [librarySearch, setLibrarySearch] = useState('');
+    const [manualOpen, setManualOpen] = useState(false);
+    const [manualInitial, setManualInitial] = useState(null);
 
     const loadAll = async () => {
         setLoading(true);
@@ -278,6 +292,14 @@ function GrowthCurveManager() {
                 >
                     {uploading ? 'Analyse en cours…' : 'Importer'}
                 </Button>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 16, paddingTop: 12, borderTop: '1px dashed #e5e7eb' }}>
+                    <span style={{ fontSize: 12, color: 'var(--text-secondary)', flex: 1 }}>
+                        Vous avez les valeurs sous la main (livre, table) ? Saisissez-les directement :
+                    </span>
+                    <Button size="sm" variant="ghost" onClick={() => { setManualInitial(null); setManualOpen(true); }}>
+                        Saisie manuelle
+                    </Button>
+                </div>
             </div>
 
             <div className="curves-list">
@@ -302,16 +324,55 @@ function GrowthCurveManager() {
             >
                 {previewCurve && (
                     <div>
-                        <GrowthCurveChart curve={previewCurve.curve_data} height={520} />
-                        {previewCurve.validation_status === 'pending_review' && (
-                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
-                                <Button variant="danger" onClick={() => handleApprove(previewCurve.id, 'rejected')}>Rejeter</Button>
-                                <Button onClick={() => handleApprove(previewCurve.id, 'approved')}>Approuver</Button>
+                        {previewCurve.original_image_path && (
+                            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
+                                <div>
+                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Source originale</div>
+                                    <img
+                                        src={uploadUrl(previewCurve.original_image_path)}
+                                        alt="Source"
+                                        style={{ width: '100%', maxHeight: 480, objectFit: 'contain', border: '1px solid #e5e7eb', borderRadius: 6 }}
+                                    />
+                                </div>
+                                <div>
+                                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Reproduction (Recharts)</div>
+                                    <GrowthCurveChart curve={previewCurve.curve_data} height={480} />
+                                </div>
                             </div>
                         )}
+                        {!previewCurve.original_image_path && (
+                            <GrowthCurveChart curve={previewCurve.curve_data} height={520} />
+                        )}
+                        <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', marginTop: 12, flexWrap: 'wrap' }}>
+                            {previewCurve.curve_data && previewCurve.source_type !== 'reference' && (
+                                <Button variant="ghost" size="sm" onClick={() => { setManualInitial(previewCurve); setPreviewCurve(null); setManualOpen(true); }}>
+                                    Modifier les valeurs
+                                </Button>
+                            )}
+                            <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
+                                {previewCurve.validation_status === 'pending_review' && (
+                                    <>
+                                        <Button variant="danger" onClick={() => handleApprove(previewCurve.id, 'rejected')}>Rejeter</Button>
+                                        <Button onClick={() => handleApprove(previewCurve.id, 'approved')}>Approuver</Button>
+                                    </>
+                                )}
+                                {previewCurve.validation_status === 'rejected' && previewCurve.curve_data && (
+                                    <Button onClick={() => handleApprove(previewCurve.id, 'approved')}>
+                                        Approuver malgré les avertissements
+                                    </Button>
+                                )}
+                            </div>
+                        </div>
                     </div>
                 )}
             </Modal>
+
+            <ManualCurveEntryModal
+                isOpen={manualOpen}
+                onClose={() => setManualOpen(false)}
+                onSaved={() => loadAll()}
+                initialCurve={manualInitial}
+            />
 
             <Modal
                 isOpen={deleteModalOpen}

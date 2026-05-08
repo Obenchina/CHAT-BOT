@@ -167,6 +167,14 @@ const doctorService = {
         return api.delete(`/doctor/growth-curves/${id}`);
     },
 
+    async createManualGrowthCurve(payload) {
+        return api.post('/doctor/growth-curves/manual', payload);
+    },
+
+    async updateGrowthCurveData(id, payload) {
+        return api.put(`/doctor/growth-curves/${id}/curve-data`, payload);
+    },
+
     // ======================
     // MEDICATIONS CSV
     // ======================
