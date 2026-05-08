@@ -80,88 +80,28 @@ function normalizeGender(value, fallback) {
     return fallback || 'male';
 }
 
-/**
- * Compute precise plot_area from two reference points per axis.
- * Each reference point has: { value: <number>, percent: <percent of image> }
- *
- * For Y-axis (inverted: higher value = lower percent):
- *   Given ref1 (value=V1, percent=P1) and ref2 (value=V2, percent=P2)
- *   where V1 > V2 and P1 < P2 (higher value is at lower percent = higher on image):
- *   plot_area.top = P1 - (yMax - V1) * (P2 - P1) / (V1 - V2)
- *   plot_area.bottom = P2 + (V2 - yMin) * (P2 - P1) / (V1 - V2)
- *
- * For X-axis (normal: higher value = higher percent):
- *   plot_area.left = P1 - (X1 - xMin) * (P2 - P1) / (X2 - X1)
- *   plot_area.right = P2 + (xMax - X2) * (P2 - P1) / (X2 - X1)
- */
-function computePlotAreaFromRefs(xRefs, yRefs, xMin, xMax, yMin, yMax) {
-    let left = 5, right = 95, top = 5, bottom = 95;
-
-    if (xRefs && xRefs.length >= 2) {
-        // Sort by value ascending
-        const sorted = [...xRefs].sort((a, b) => a.value - b.value);
-        const x1 = sorted[0], x2 = sorted[sorted.length - 1];
-        const pxPerUnit = (x2.percent - x1.percent) / (x2.value - x1.value);
-        if (pxPerUnit > 0) {
-            left = x1.percent - (x1.value - xMin) * pxPerUnit;
-            right = x2.percent + (xMax - x2.value) * pxPerUnit;
-        }
-    }
-
-    if (yRefs && yRefs.length >= 2) {
-        // Sort by value descending (higher value = lower percent on image)
-        const sorted = [...yRefs].sort((a, b) => b.value - a.value);
-        const y1 = sorted[0], y2 = sorted[sorted.length - 1]; // y1 is highest value, lowest percent
-        const pxPerUnit = (y2.percent - y1.percent) / (y1.value - y2.value);
-        if (pxPerUnit > 0) {
-            top = y1.percent - (yMax - y1.value) * pxPerUnit;
-            bottom = y2.percent + (y2.value - yMin) * pxPerUnit;
-        }
-    }
-
-    // Clamp to reasonable range
-    left = Math.max(0, Math.min(left, 40));
-    top = Math.max(0, Math.min(top, 40));
-    right = Math.max(60, Math.min(right, 100));
-    bottom = Math.max(60, Math.min(bottom, 100));
-
-    return { left: Number(left.toFixed(2)), top: Number(top.toFixed(2)), right: Number(right.toFixed(2)), bottom: Number(bottom.toFixed(2)) };
-}
-
 // ────── Validate a single-measure AI calibration result ──────
 function validateCalibration(candidate, fallbackConfig, fallbackMeasureKey, fallbackGender) {
     if (!candidate || typeof candidate !== 'object') return null;
 
     const measureKey = normalizeMeasureKey(candidate.measure_key || candidate.measure, fallbackMeasureKey);
     const gender = normalizeGender(candidate.gender, fallbackGender);
-    const xMin = numberOrNull(candidate.x_min);
-    const xMax = numberOrNull(candidate.x_max);
-    const yMin = numberOrNull(candidate.y_min);
-    const yMax = numberOrNull(candidate.y_max);
+    const xMin = numberOrNull(candidate.x_min ?? candidate.x_axis?.min);
+    const xMax = numberOrNull(candidate.x_max ?? candidate.x_axis?.max);
+    const yMin = numberOrNull(candidate.y_min ?? candidate.y_axis?.min);
+    const yMax = numberOrNull(candidate.y_max ?? candidate.y_axis?.max);
+    const plot = candidate.plot_area || {};
+    const left = numberOrNull(plot.left);
+    const top = numberOrNull(plot.top);
+    const right = numberOrNull(plot.right);
+    const bottom = numberOrNull(plot.bottom);
     const confidence = numberOrNull(candidate.confidence) ?? 0;
 
-    if (![xMin, xMax, yMin, yMax].every(Number.isFinite)) return null;
+    if (![xMin, xMax, yMin, yMax, left, top, right, bottom].every(Number.isFinite)) return null;
     if (xMax <= xMin || yMax <= yMin) return null;
+    if (left < 0 || top < 0 || right > 100 || bottom > 100) return null;
+    if (right - left < 30 || bottom - top < 30) return null;
     if (confidence < 0.5) return null;
-
-    // Compute precise plot_area from reference points if available
-    let plotArea;
-    if (candidate.x_reference_points && candidate.y_reference_points) {
-        plotArea = computePlotAreaFromRefs(
-            candidate.x_reference_points, candidate.y_reference_points,
-            xMin, xMax, yMin, yMax
-        );
-    } else {
-        const p = candidate.plot_area || {};
-        plotArea = {
-            left: numberOrNull(p.left) ?? 5,
-            top: numberOrNull(p.top) ?? 5,
-            right: numberOrNull(p.right) ?? 95,
-            bottom: numberOrNull(p.bottom) ?? 95
-        };
-    }
-
-    if (plotArea.right - plotArea.left < 30 || plotArea.bottom - plotArea.top < 30) return null;
 
     return {
         source: 'ai_calibrated',
@@ -173,7 +113,7 @@ function validateCalibration(candidate, fallbackConfig, fallbackMeasureKey, fall
         y_min: yMin, y_max: yMax,
         x_unit: candidate.x_unit || 'months',
         y_unit: candidate.y_unit || '',
-        plot_area: plotArea,
+        plot_area: { left, top, right, bottom },
         auto_confidence: Number(confidence.toFixed(3))
     };
 }
@@ -195,35 +135,23 @@ function validateCombinedCalibration(candidate, fallbackGender) {
         const xMax = numberOrNull(sub.x_max);
         const yMin = numberOrNull(sub.y_min);
         const yMax = numberOrNull(sub.y_max);
+        const p = sub.plot_area || {};
+        const left = numberOrNull(p.left);
+        const top = numberOrNull(p.top);
+        const right = numberOrNull(p.right);
+        const bottom = numberOrNull(p.bottom);
 
-        if (![xMin, xMax, yMin, yMax].every(Number.isFinite)) return null;
+        if (![xMin, xMax, yMin, yMax, left, top, right, bottom].every(Number.isFinite)) return null;
         if (xMax <= xMin || yMax <= yMin) return null;
-
-        // Compute precise plot_area from reference points if available
-        let plotArea;
-        if (sub.x_reference_points && sub.y_reference_points) {
-            plotArea = computePlotAreaFromRefs(
-                sub.x_reference_points, sub.y_reference_points,
-                xMin, xMax, yMin, yMax
-            );
-        } else {
-            const p = sub.plot_area || {};
-            plotArea = {
-                left: numberOrNull(p.left) ?? 5,
-                top: numberOrNull(p.top) ?? 5,
-                right: numberOrNull(p.right) ?? 95,
-                bottom: numberOrNull(p.bottom) ?? 95
-            };
-        }
-
-        if (plotArea.right - plotArea.left < 15 || plotArea.bottom - plotArea.top < 10) return null;
+        if (left < 0 || top < 0 || right > 100 || bottom > 100) return null;
+        if (right - left < 15 || bottom - top < 10) return null;
 
         return {
             x_min: xMin, x_max: xMax,
             y_min: yMin, y_max: yMax,
             x_unit: sub.x_unit || 'months',
             y_unit: sub.y_unit || (type === 'weight' ? 'kg' : 'cm'),
-            plot_area: plotArea
+            plot_area: { left, top, right, bottom }
         };
     }
 
@@ -257,9 +185,8 @@ Task:
 2. Detect the clinical measurement type and gender.
 3. Detect x-axis range in MONTHS (convert years to months: 1 year = 12 months).
 4. Detect y-axis range and unit.
-5. CRITICAL — Identify 2 clearly visible tick marks on each axis as reference points:
-   - For x-axis: Pick two tick marks far apart. For each, give the value (in months) and its horizontal position as a percentage of image width.
-   - For y-axis: Pick two tick marks far apart. For each, give the value and its vertical position as a percentage of image height (0% = top of image, 100% = bottom).
+5. Estimate the plot_area as percentages of the full image bounds: left, top, right, bottom.
+   The plot_area must precisely match where the actual data grid starts and ends (where the axes lines are).
 
 CRITICAL INSTRUCTION: Read the ACTUAL numbers from the image. DO NOT copy the placeholder numbers from the example JSON below!
 
@@ -278,14 +205,7 @@ Return this JSON shape:
   "y_min": 999,
   "y_max": 999,
   "y_unit": "cm",
-  "x_reference_points": [
-    { "value": 999, "percent": 15.5 },
-    { "value": 999, "percent": 82.3 }
-  ],
-  "y_reference_points": [
-    { "value": 999, "percent": 12.0 },
-    { "value": 999, "percent": 78.5 }
-  ],
+  "plot_area": { "left": 999, "top": 999, "right": 999, "bottom": 999 },
   "confidence": 0.92,
   "notes": "short reason"
 }`;
@@ -302,9 +222,10 @@ Task:
 - For EACH measure (height and weight), detect:
   1. x-axis range in MONTHS (convert years to months: 1y = 12m). Look at the extreme left and right of the grid.
   2. y-axis range and unit. Look at the top and bottom numbers of the grid.
-  3. CRITICAL — 2 reference points per axis for PRECISE calibration:
-     - x_reference_points: Two x-axis tick marks with value (months) and horizontal position (% of image width).
-     - y_reference_points: Two y-axis tick marks with value and vertical position (% of image height, 0%=top, 100%=bottom).
+  3. The plot_area as percentages of the FULL image: left, top, right, bottom.
+     - Height chart is typically in the UPPER portion.
+     - Weight chart is typically in the LOWER portion.
+     - They should NOT overlap significantly.
 
 CRITICAL INSTRUCTION: You MUST extract the actual numbers from the image pixels. DO NOT copy the "999" placeholder values from the example below! The example is just to show the structure.
 
@@ -324,14 +245,7 @@ Return this exact JSON shape:
       "y_min": 999,
       "y_max": 999,
       "y_unit": "cm",
-      "x_reference_points": [
-        { "value": 999, "percent": 12.5 },
-        { "value": 999, "percent": 82.0 }
-      ],
-      "y_reference_points": [
-        { "value": 999, "percent": 8.0 },
-        { "value": 999, "percent": 48.0 }
-      ]
+      "plot_area": { "left": 999, "top": 999, "right": 999, "bottom": 999 }
     },
     "weight": {
       "x_min": 999,
@@ -340,14 +254,7 @@ Return this exact JSON shape:
       "y_min": 999,
       "y_max": 999,
       "y_unit": "kg",
-      "x_reference_points": [
-        { "value": 999, "percent": 12.5 },
-        { "value": 999, "percent": 82.0 }
-      ],
-      "y_reference_points": [
-        { "value": 999, "percent": 57.0 },
-        { "value": 999, "percent": 90.0 }
-      ]
+      "plot_area": { "left": 999, "top": 999, "right": 999, "bottom": 999 }
     }
   },
   "confidence": 0.88,
