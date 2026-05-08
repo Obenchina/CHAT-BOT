@@ -122,6 +122,7 @@ function PatientMeasurementsChart({ data, allData, measureKey, patient, height =
             return savedCurves.find((c) => {
                 if (!c?.curve_data?.isComposite) return false;
                 if (c.gender !== gender) return false;
+                if (c.validation_status === 'rejected') return false;
                 const range = c.curve_data.ageRange;
                 if (!range || !Number.isFinite(latestAge)) return true;
                 return latestAge >= range.min - 2 && latestAge <= range.max + 2;
