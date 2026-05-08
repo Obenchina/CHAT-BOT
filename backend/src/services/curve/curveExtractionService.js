@@ -2,7 +2,7 @@
  * Curve extraction — Stage 2B of the upload pipeline.
  *
  * Used ONLY when no reference curve matches the uploaded image. The AI is
- * asked to read the percentile lines and emit numeric data in the unified
+ * asked to read the percentile / SD lines and emit numeric data in the unified
  * JSON schema (same shape as the reference data bank).
  *
  * Importantly, the AI is NOT asked to:
@@ -13,46 +13,76 @@
  *
  * It is asked to read numeric values and return them. The output is then
  * validated by curveValidationService before being persisted.
+ *
+ * Two line families are supported and selected automatically based on the
+ * classification source:
+ *   - AFPA & similar French charts → SD-style (M-3SD … M+3SD)
+ *   - WHO/CDC and most other charts → percentile-style (P3 … P97)
  */
 const { callVisionJson } = require('./aiClient');
 const { validateCurveData } = require('./curveValidationService');
 
 const REQUIRED_PERCENTILES = ['P3', 'P10', 'P25', 'P50', 'P75', 'P90', 'P97'];
+const REQUIRED_SD_LINES = ['M-3SD', 'M-2SD', 'M-1SD', 'M', 'M+1SD', 'M+2SD', 'M+3SD'];
 
 function ageSamplesForRange(ageMin, ageMax) {
     const span = ageMax - ageMin;
     if (span <= 24) {
-        // Child 0-2: monthly
         const ages = [];
         for (let m = Math.round(ageMin); m <= Math.round(ageMax); m += 1) ages.push(m);
         return ages;
     }
     if (span <= 60) {
-        // Child 0-5: every 3 months
         const ages = [];
         for (let m = Math.round(ageMin); m <= Math.round(ageMax); m += 3) ages.push(m);
         return ages;
     }
-    // Older child: every 6 months
+    // Older child: every 6 months. AFPA charts are ages 1-18 → ~36 samples.
     const ages = [];
     for (let m = Math.round(ageMin); m <= Math.round(ageMax); m += 6) ages.push(m);
     return ages;
 }
 
-function buildPromptSinglePanel({ classification, ageSamples }) {
-    return `You are reading a pediatric growth-curve chart and extracting the percentile values printed on it.
+/**
+ * Decide which line family to extract based on the classified source.
+ * AFPA-CRESS-Inserm 2018 charts use ±SD. WHO/CDC/IOTF use percentiles.
+ */
+function pickLineFamily(classification) {
+    if (!classification) return 'percentile';
+    if (classification.source === 'afpa') return 'sd';
+    return 'percentile';
+}
 
-Chart classification (from a previous step):
+function lineKeysFor(family) {
+    return family === 'sd' ? REQUIRED_SD_LINES : REQUIRED_PERCENTILES;
+}
+
+function buildPromptSinglePanel({ classification, ageSamples, family }) {
+    const lineKeys = lineKeysFor(family);
+    const familyDesc = family === 'sd'
+        ? 'standard-deviation lines: M-3SD, M-2SD, M-1SD, M (median), M+1SD, M+2SD, M+3SD (also written as -3σ … +3σ)'
+        : 'percentile lines: P3, P10, P25, P50 (median), P75, P90, P97';
+    const sampleObj = lineKeys.reduce((acc, k) => {
+        acc[k] = '<one value per age, in the chart unit>';
+        return acc;
+    }, {});
+
+    return `You are reading a pediatric growth-curve chart and extracting the values printed on it.
+
+Chart classification:
 - measure: ${classification.measure}
 - gender: ${classification.gender}
 - ageRange (months): ${classification.ageRange.min} → ${classification.ageRange.max}
+- source: ${classification.source}
 - title: "${classification.title}"
+- expected line family: ${familyDesc}
 
-Task:
-- For EACH age value in the list below, read the y-axis value of EACH percentile curve and return it.
-- If the chart has fewer percentile lines than P3/P10/P25/P50/P75/P90/P97, fill missing ones with null.
-- Use the chart's grid and tick marks to read values precisely. Round to 1 decimal place.
-- DO NOT invent values for ages outside the visible plot area; return null instead.
+Strict rules:
+- Read each line at each requested age, using the chart's grid lines and tick marks.
+- Round to 1 decimal.
+- If a line is not visible at a given age (e.g. start of curve), return null for that entry.
+- DO NOT hallucinate values for ages outside the visible plot.
+- DO NOT mix line families. If the chart shows SD lines, use only the SD keys; if it shows percentile lines, use only the percentile keys.
 
 Ages to sample (months): ${JSON.stringify(ageSamples)}
 
@@ -63,15 +93,7 @@ Return ONLY valid JSON with this exact shape (no prose, no markdown):
       "measure": "${classification.measure}",
       "unit": "<exactly as printed: 'cm', 'kg', 'kg/m²', etc.>",
       "ages": [${ageSamples.join(', ')}],
-      "percentiles": {
-        "P3":  [<one value per age>],
-        "P10": [<one value per age>],
-        "P25": [<one value per age>],
-        "P50": [<one value per age>],
-        "P75": [<one value per age>],
-        "P90": [<one value per age>],
-        "P97": [<one value per age>]
-      }
+      "percentiles": ${JSON.stringify(sampleObj, null, 2).replace(/"<[^"]+>"/g, '[/* values */]')}
     }
   ],
   "extractionConfidence": <number 0..1>,
@@ -79,17 +101,27 @@ Return ONLY valid JSON with this exact shape (no prose, no markdown):
 }`;
 }
 
-function buildPromptComposite({ classification, ageSamples }) {
+function buildPromptComposite({ classification, ageSamples, family }) {
+    const familyDesc = family === 'sd'
+        ? 'standard-deviation lines: M-3SD, M-2SD, M-1SD, M (median), M+1SD, M+2SD, M+3SD'
+        : 'percentile lines: P3, P10, P25, P50 (median), P75, P90, P97';
+    const lineKeys = lineKeysFor(family);
+    const sampleLines = lineKeys.map((k) => `        "${k}": [...]`).join(',\n');
+
     return `You are reading a pediatric COMPOSITE growth-curve chart that contains BOTH a height/taille panel (cm) AND a weight/poids panel (kg) on the same image.
 
 Chart classification:
 - gender: ${classification.gender}
+- source: ${classification.source}
 - ageRange (months): ${classification.ageRange.min} → ${classification.ageRange.max}
 - title: "${classification.title}"
+- expected line family: ${familyDesc}
 
-Task:
-- For each age value in the list below, read the y-value of each percentile curve in BOTH panels.
-- Round to 1 decimal place. Use null if a percentile line is not visible in the chart.
+Strict rules:
+- Both panels share the same X axis (age). Treat them as separate but stacked plots.
+- Read each line in BOTH panels at each requested age.
+- Round to 1 decimal. Use null where a line is not visible.
+- Do not invent values past the visible data range. Do not mix line families.
 
 Ages to sample (months): ${JSON.stringify(ageSamples)}
 
@@ -101,8 +133,7 @@ Return ONLY valid JSON:
       "unit": "cm",
       "ages": [${ageSamples.join(', ')}],
       "percentiles": {
-        "P3": [...], "P10": [...], "P25": [...], "P50": [...],
-        "P75": [...], "P90": [...], "P97": [...]
+${sampleLines}
       }
     },
     {
@@ -110,8 +141,7 @@ Return ONLY valid JSON:
       "unit": "kg",
       "ages": [${ageSamples.join(', ')}],
       "percentiles": {
-        "P3": [...], "P10": [...], "P25": [...], "P50": [...],
-        "P75": [...], "P90": [...], "P97": [...]
+${sampleLines}
       }
     }
   ],
@@ -134,19 +164,15 @@ function shapeIntoCurve({ extracted, classification, sourceLabel, originalName }
         panels: extracted.panels.map((p) => ({
             measure: p.measure,
             unit: p.unit,
-            // Preserve length so age[i] always lines up with percentile[i].
-            // Non-numeric or missing entries become null and are caught later by
-            // curveValidationService.
+            // Preserve length so age[i] always lines up with line[i].
             ages: Array.isArray(p.ages)
                 ? p.ages.map((v) => {
                     const n = Number(v);
                     return Number.isFinite(n) ? n : null;
                 })
                 : [],
-            // Coerce percentile entries the same way as ages: any non-finite
-            // value becomes null. Without this, strings like "N/A" or "—" would
-            // become NaN and silently pass the downstream validator's
-            // Number.isFinite guards.
+            // Coerce non-finite line values (including "N/A"/"—") to null so
+            // they do not silently bypass the validator's Number.isFinite checks.
             percentiles: Object.fromEntries(
                 Object.entries(p.percentiles || {}).map(([k, arr]) => [
                     k,
@@ -173,10 +199,11 @@ async function extractCurve({ filePath, mimeType, classification, originalName, 
     if (!classification) return { ok: false, error: 'Missing classification', curve: null };
     if (!aiConfig?.apiKey) return { ok: false, error: 'No AI configured', curve: null };
 
+    const family = pickLineFamily(classification);
     const ageSamples = ageSamplesForRange(classification.ageRange.min, classification.ageRange.max);
     const prompt = classification.isComposite
-        ? buildPromptComposite({ classification, ageSamples })
-        : buildPromptSinglePanel({ classification, ageSamples });
+        ? buildPromptComposite({ classification, ageSamples, family })
+        : buildPromptSinglePanel({ classification, ageSamples, family });
 
     let raw;
     try {
@@ -195,7 +222,9 @@ async function extractCurve({ filePath, mimeType, classification, originalName, 
     const curve = shapeIntoCurve({
         extracted: raw,
         classification,
-        sourceLabel: 'AI-extracted',
+        sourceLabel: classification.source === 'afpa'
+            ? 'AFPA-CRESS-Inserm 2018 (extracted)'
+            : 'AI-extracted',
         originalName,
     });
     if (!curve) return { ok: false, error: 'Extraction shape invalid', curve: null };
@@ -206,11 +235,14 @@ async function extractCurve({ filePath, mimeType, classification, originalName, 
         error: validation.ok ? null : validation.errors.slice(0, 5).join('; '),
         warnings: validation.warnings,
         curve,
+        extractedFamily: family,
     };
 }
 
 module.exports = {
     extractCurve,
     ageSamplesForRange,
+    pickLineFamily,
     REQUIRED_PERCENTILES,
+    REQUIRED_SD_LINES,
 };

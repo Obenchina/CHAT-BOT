@@ -620,6 +620,147 @@ async function reviewExtractedCurve(req, res) {
 }
 
 /**
+ * Build a curve object from a manual-entry payload and validate it.
+ * Used by both manual-create and manual-update.
+ */
+function buildCurveFromPayload(payload, doctorId) {
+    const measure = String(payload.measure || '').toLowerCase();
+    const gender = String(payload.gender || '').toLowerCase();
+    const isComposite = Boolean(payload.isComposite);
+    const label = String(payload.label || '').trim().slice(0, 200);
+    const ageRange = payload.ageRange || {};
+
+    if (!['height', 'weight', 'head', 'bmi', 'height_weight'].includes(measure)) {
+        return { error: 'measure invalide' };
+    }
+    if (!['male', 'female'].includes(gender)) {
+        return { error: 'gender invalide' };
+    }
+    if (!Array.isArray(payload.panels) || payload.panels.length === 0) {
+        return { error: 'panels requis' };
+    }
+
+    const id = `manual_${measure}_${gender}_${Date.now()}_${doctorId}`;
+    const panels = payload.panels.map((p) => ({
+        measure: String(p.measure || '').toLowerCase(),
+        unit: String(p.unit || ''),
+        ages: Array.isArray(p.ages)
+            ? p.ages.map((v) => {
+                const n = Number(v);
+                return Number.isFinite(n) ? n : null;
+            })
+            : [],
+        percentiles: Object.fromEntries(
+            Object.entries(p.percentiles || {}).map(([k, arr]) => [
+                k,
+                Array.isArray(arr)
+                    ? arr.map((v) => {
+                        if (v == null) return null;
+                        const n = Number(v);
+                        return Number.isFinite(n) ? n : null;
+                    })
+                    : [],
+            ]),
+        ),
+    }));
+
+    const curve = {
+        id,
+        source: String(payload.source || 'Saisie manuelle').slice(0, 200),
+        label: label || `${measure} ${gender}`,
+        measure: isComposite ? 'height_weight' : measure,
+        gender,
+        ageRange: {
+            min: Number(ageRange.min) || 0,
+            max: Number(ageRange.max) || 60,
+            unit: 'months',
+        },
+        isComposite,
+        panels,
+        manualEntry: {
+            createdAt: new Date().toISOString(),
+        },
+    };
+    return { curve };
+}
+
+/**
+ * POST /api/doctor/growth-curves/manual
+ * Create a curve directly from doctor-typed values (no AI, no image).
+ * Body: { label, source, measure, gender, isComposite, ageRange:{min,max}, panels:[{measure,unit,ages,percentiles}] }
+ */
+async function createManualGrowthCurve(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const { curve, error } = buildCurveFromPayload(req.body || {}, doctor.id);
+        if (error) return res.status(400).json({ success: false, message: error });
+
+        const validation = validateCurveData(curve);
+        const status = validation.ok ? 'doctor_approved' : 'rejected';
+
+        const created = await GrowthCurve.create({
+            doctor_id: doctor.id,
+            measure_key: curve.measure,
+            gender: curve.gender,
+            source_type: 'extracted',
+            reference_id: null,
+            curve_data: curve,
+            validation_status: status,
+            original_image_path: null,
+            label: curve.label,
+        });
+        res.status(201).json({
+            success: true,
+            data: { ...mapDoctorCurveForApi(created), validation },
+        });
+    } catch (error) {
+        console.error('Manual curve create error:', error);
+        res.status(500).json({ success: false, message: 'Failed to create manual curve' });
+    }
+}
+
+/**
+ * PUT /api/doctor/growth-curves/:id/curve-data
+ * Replace the curve_data of an extracted/manual curve. Re-validates.
+ * Doctor can edit AI-extracted values to fix mistakes before approving.
+ */
+async function updateGrowthCurveData(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const { id } = req.params;
+        const existing = await GrowthCurve.findById(id);
+        if (!existing || existing.doctor_id !== doctor.id) {
+            return res.status(404).json({ success: false, message: 'Curve not found' });
+        }
+        if (existing.source_type === 'reference') {
+            return res.status(400).json({
+                success: false,
+                message: 'Cannot edit reference curves; use manual creation instead.',
+            });
+        }
+        const { curve, error } = buildCurveFromPayload(req.body || {}, doctor.id);
+        if (error) return res.status(400).json({ success: false, message: error });
+
+        const validation = validateCurveData(curve);
+        await GrowthCurve.updateCurveData(id, doctor.id, curve);
+        // Set status based on validation: ok → keep doctor_approved, fail → rejected
+        if (validation.ok) {
+            await GrowthCurve.updateValidationStatus(id, doctor.id, 'doctor_approved');
+        } else {
+            await GrowthCurve.updateValidationStatus(id, doctor.id, 'rejected');
+        }
+        const updated = await GrowthCurve.findById(id);
+        res.json({
+            success: true,
+            data: { ...mapDoctorCurveForApi(updated), validation },
+        });
+    } catch (error) {
+        console.error('Update curve data error:', error);
+        res.status(500).json({ success: false, message: 'Failed to update' });
+    }
+}
+
+/**
  * Delete a growth curve
  */
 async function deleteGrowthCurve(req, res) {
@@ -877,6 +1018,8 @@ module.exports = {
     addCurveFromReference,
     uploadGrowthCurve,
     reviewExtractedCurve,
+    createManualGrowthCurve,
+    updateGrowthCurveData,
     deleteGrowthCurve,
     uploadMedicationCSV,
     searchMedications,

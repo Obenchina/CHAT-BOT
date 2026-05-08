@@ -58,6 +58,8 @@ router.post(
     doctorController.uploadGrowthCurve
 );
 router.post('/growth-curves/:id/approve', doctorController.reviewExtractedCurve);
+router.post('/growth-curves/manual', doctorController.createManualGrowthCurve);
+router.put('/growth-curves/:id/curve-data', doctorController.updateGrowthCurveData);
 router.delete('/growth-curves/:id', doctorController.deleteGrowthCurve);
 
 // Medications CSV

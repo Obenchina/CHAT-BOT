@@ -3,17 +3,26 @@
  *
  * Returns { ok: boolean, errors: string[], warnings: string[] }.
  *
+ * Supports two equivalent line families:
+ *   - Percentile-style (OMS/CDC): P3, P10, P25, P50, P75, P90, P97
+ *   - SD-style       (AFPA):     M-3SD, M-2SD, M-1SD, M, M+1SD, M+2SD, M+3SD
+ *
  * Rules:
  *   1. Required fields present (id, panels, panels[i].ages, panels[i].percentiles).
- *   2. Each panel has consistent ages length and per-percentile array length.
- *   3. Required percentiles present: P3, P50, P97 (P10/P25/P75/P90 are optional but recommended).
- *   4. At each age, P3 <= P10 <= P25 <= P50 <= P75 <= P90 <= P97 (strictly non-decreasing).
- *   5. Values are non-decreasing across age (growth is monotone for height, weight, head; BMI may dip slightly).
+ *   2. Each panel has consistent ages length and per-line array length.
+ *   3. Required lines present per family
+ *      (P3/P50/P97 for percentile, M-3SD/M/M+3SD for SD-style).
+ *   4. At each age, line values are non-decreasing across the ordered family.
+ *   5. Median values (P50 or M) are non-decreasing across age (height/weight/head).
  *   6. Plausible bounds per measure type.
+ *   7. Median (P50 or M) must have ≥50% finite values.
  */
 
 const REQUIRED_PERCENTILES = ['P3', 'P50', 'P97'];
 const ORDERED_PERCENTILES = ['P3', 'P10', 'P25', 'P50', 'P75', 'P90', 'P97'];
+
+const REQUIRED_SD_LINES = ['M-3SD', 'M', 'M+3SD'];
+const ORDERED_SD_LINES = ['M-3SD', 'M-2SD', 'M-1SD', 'M', 'M+1SD', 'M+2SD', 'M+3SD'];
 
 const PLAUSIBLE_RANGES = {
     height: { min: 30, max: 220 },
@@ -21,6 +30,17 @@ const PLAUSIBLE_RANGES = {
     head: { min: 25, max: 65 },
     bmi: { min: 8, max: 50 },
 };
+
+/**
+ * Detect the line family used by a panel.
+ * Returns 'sd' if any SD-style key is present, 'percentile' otherwise (default).
+ */
+function detectLineFamily(panel) {
+    if (!panel?.percentiles || typeof panel.percentiles !== 'object') return 'percentile';
+    const keys = Object.keys(panel.percentiles);
+    const hasSd = keys.some((k) => ORDERED_SD_LINES.includes(k));
+    return hasSd ? 'sd' : 'percentile';
+}
 
 function validateCurveData(curve) {
     const errors = [];
@@ -50,9 +70,14 @@ function validateCurveData(curve) {
             return;
         }
 
-        for (const p of REQUIRED_PERCENTILES) {
+        const family = detectLineFamily(panel);
+        const requiredLines = family === 'sd' ? REQUIRED_SD_LINES : REQUIRED_PERCENTILES;
+        const orderedLines = family === 'sd' ? ORDERED_SD_LINES : ORDERED_PERCENTILES;
+        const medianKey = family === 'sd' ? 'M' : 'P50';
+
+        for (const p of requiredLines) {
             if (!Array.isArray(panel.percentiles[p])) {
-                errors.push(`${prefix}: missing required percentile ${p}`);
+                errors.push(`${prefix}: missing required line ${p}`);
             }
         }
 
@@ -60,20 +85,16 @@ function validateCurveData(curve) {
         for (const [pName, arr] of Object.entries(panel.percentiles)) {
             if (!Array.isArray(arr)) continue;
             if (arr.length !== expectedLen) {
-                errors.push(`${prefix}: percentile ${pName} length ${arr.length} != ages length ${expectedLen}`);
+                errors.push(`${prefix}: line ${pName} length ${arr.length} != ages length ${expectedLen}`);
             }
         }
 
-        // Coverage: at least the median (P50) must have enough usable points.
-        // This catches extractions that are mostly null/NaN (e.g. AI returned
-        // "N/A" strings that became null after coercion) — without this guard
-        // the curve would render as an empty chart but pass all the other
-        // checks because they all skip non-finite values.
-        const p50 = Array.isArray(panel.percentiles.P50) ? panel.percentiles.P50 : [];
-        const finiteCount = p50.filter((v) => Number.isFinite(v)).length;
+        // Coverage: at least the median (P50 or M) must have enough usable points.
+        const median = Array.isArray(panel.percentiles[medianKey]) ? panel.percentiles[medianKey] : [];
+        const finiteCount = median.filter((v) => Number.isFinite(v)).length;
         const minFinite = Math.max(2, Math.ceil(expectedLen * 0.5));
         if (finiteCount < minFinite) {
-            errors.push(`${prefix}: P50 has only ${finiteCount}/${expectedLen} usable values (need at least ${minFinite})`);
+            errors.push(`${prefix}: ${medianKey} has only ${finiteCount}/${expectedLen} usable values (need at least ${minFinite})`);
         }
 
         // Plausible bounds
@@ -85,31 +106,31 @@ function validateCurveData(curve) {
             }
         }
 
-        // Percentile ordering at each age
-        const percentilesPresent = ORDERED_PERCENTILES.filter((p) => Array.isArray(panel.percentiles[p]));
+        // Line ordering at each age (non-decreasing across family)
+        const linesPresent = orderedLines.filter((p) => Array.isArray(panel.percentiles[p]));
         for (let ageIdx = 0; ageIdx < expectedLen; ageIdx += 1) {
-            for (let i = 1; i < percentilesPresent.length; i += 1) {
-                const lo = panel.percentiles[percentilesPresent[i - 1]][ageIdx];
-                const hi = panel.percentiles[percentilesPresent[i]][ageIdx];
+            for (let i = 1; i < linesPresent.length; i += 1) {
+                const lo = panel.percentiles[linesPresent[i - 1]][ageIdx];
+                const hi = panel.percentiles[linesPresent[i]][ageIdx];
                 if (Number.isFinite(lo) && Number.isFinite(hi) && hi < lo - 1e-6) {
-                    errors.push(`${prefix}: at age ${panel.ages[ageIdx]}, ${percentilesPresent[i]}=${hi} < ${percentilesPresent[i - 1]}=${lo}`);
-                    break; // one error per age is enough
+                    errors.push(`${prefix}: at age ${panel.ages[ageIdx]}, ${linesPresent[i]}=${hi} < ${linesPresent[i - 1]}=${lo}`);
+                    break;
                 }
             }
         }
 
         // Monotone growth across age (for height/weight/head). BMI may dip.
         if (['height', 'weight', 'head'].includes(panel.measure)) {
-            const p50 = panel.percentiles.P50;
-            if (Array.isArray(p50)) {
+            const m = panel.percentiles[medianKey];
+            if (Array.isArray(m)) {
                 let drops = 0;
-                for (let i = 1; i < p50.length; i += 1) {
-                    if (Number.isFinite(p50[i]) && Number.isFinite(p50[i - 1]) && p50[i] < p50[i - 1] - 0.05) {
+                for (let i = 1; i < m.length; i += 1) {
+                    if (Number.isFinite(m[i]) && Number.isFinite(m[i - 1]) && m[i] < m[i - 1] - 0.05) {
                         drops += 1;
                     }
                 }
                 if (drops > 0) {
-                    warnings.push(`${prefix}: P50 is non-monotone (${drops} drops detected)`);
+                    warnings.push(`${prefix}: ${medianKey} is non-monotone (${drops} drops detected)`);
                 }
             }
         }
@@ -120,7 +141,10 @@ function validateCurveData(curve) {
 
 module.exports = {
     validateCurveData,
+    detectLineFamily,
     REQUIRED_PERCENTILES,
     ORDERED_PERCENTILES,
+    REQUIRED_SD_LINES,
+    ORDERED_SD_LINES,
     PLAUSIBLE_RANGES,
 };

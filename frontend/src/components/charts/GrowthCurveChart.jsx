@@ -5,17 +5,17 @@
  * no overlay positioning). Supports single-panel (height/weight/head/bmi)
  * and composite charts (height + weight stacked).
  *
+ * Two line families are supported:
+ *   - Percentile-style (OMS/CDC): P3, P10, P25, P50, P75, P90, P97
+ *   - SD-style       (AFPA):     M-3SD, M-2SD, M-1SD, M, M+1SD, M+2SD, M+3SD
+ *
+ * The family is auto-detected from the keys present in panel.percentiles.
+ *
  * Props:
  *   - curve:          unified schema object { panels: [{ measure, unit, ages, percentiles }] }
  *   - patientPoints:  { height: [{age, value, displayDate}], weight: [...], ... } OR a single array
- *                     (when used outside composite, pass the array directly under a key matching panel.measure)
  *   - height:         CSS height of the container (default 480)
  *   - title:          optional title shown above the chart
- *
- * The chart's X axis is age in months. Y axis is the panel's measure unit.
- * Percentile lines (P3, P10, P25, P50, P75, P90, P97) are drawn directly from
- * the data (no extrapolation). Patient points are scattered on top with a
- * colored line connecting them.
  */
 import { useMemo } from 'react';
 import {
@@ -41,6 +41,23 @@ const PERCENTILE_STYLE = {
 };
 const PERCENTILE_ORDER = ['P3', 'P10', 'P25', 'P50', 'P75', 'P90', 'P97'];
 
+// AFPA SD-style: median in solid black, ±SD in dashed shades of grey/dark.
+// Conventions follow AFPA-CRESS-Inserm 2018 visual style:
+//   - extreme bands ±3SD: thicker, darker, dashed long
+//   - mid bands  ±2SD: medium dashed
+//   - inner bands ±1SD: short dashed
+//   - median M: solid bold
+const SD_STYLE = {
+    'M-3SD': { stroke: '#0f172a', dashArray: '6 3', label: '-3 σ' },
+    'M-2SD': { stroke: '#1f2937', dashArray: '4 4', label: '-2 σ' },
+    'M-1SD': { stroke: '#334155', dashArray: '2 4', label: '-1 σ' },
+    M:       { stroke: '#0f172a', dashArray: undefined, label: 'M' },
+    'M+1SD': { stroke: '#334155', dashArray: '2 4', label: '+1 σ' },
+    'M+2SD': { stroke: '#1f2937', dashArray: '4 4', label: '+2 σ' },
+    'M+3SD': { stroke: '#0f172a', dashArray: '6 3', label: '+3 σ' },
+};
+const SD_ORDER = ['M-3SD', 'M-2SD', 'M-1SD', 'M', 'M+1SD', 'M+2SD', 'M+3SD'];
+
 const PATIENT_LINE_COLOR = {
     height: '#2563eb',
     weight: '#9333ea',
@@ -55,16 +72,22 @@ const MEASURE_LABEL = {
     bmi: 'IMC',
 };
 
-function buildPanelChartData(panel) {
+function detectFamily(panel) {
+    if (!panel?.percentiles) return 'percentile';
+    const keys = Object.keys(panel.percentiles);
+    return keys.some((k) => SD_ORDER.includes(k)) ? 'sd' : 'percentile';
+}
+
+function buildPanelChartData(panel, lineKeys) {
     if (!panel || !Array.isArray(panel.ages)) return [];
     const ages = panel.ages;
     return ages.map((age, idx) => {
         const point = { age };
-        for (const p of PERCENTILE_ORDER) {
-            const arr = panel.percentiles?.[p];
+        for (const k of lineKeys) {
+            const arr = panel.percentiles?.[k];
             if (Array.isArray(arr)) {
                 const v = arr[idx];
-                if (v != null && Number.isFinite(v)) point[p] = v;
+                if (v != null && Number.isFinite(v)) point[k] = v;
             }
         }
         return point;
@@ -81,7 +104,6 @@ function getYDomain(panel) {
     const max = Math.max(...allValues);
     const range = max - min;
     const pad = range * 0.05 || 1;
-    // Round to a sane number of decimals to avoid float-precision tick artefacts
     const lo = Math.max(0, Math.floor((min - pad) * 10) / 10);
     const hi = Math.ceil((max + pad) * 10) / 10;
     return [lo, hi];
@@ -89,12 +111,15 @@ function getYDomain(panel) {
 
 function formatNumberTick(v) {
     if (!Number.isFinite(v)) return '';
-    // Display at most 1 decimal — always sane for height/weight/head/bmi
     return Math.abs(v) >= 100 ? Math.round(v).toString() : (Math.round(v * 10) / 10).toString();
 }
 
 function PanelChart({ panel, patientPoints, panelHeight }) {
-    const chartData = useMemo(() => buildPanelChartData(panel), [panel]);
+    const family = useMemo(() => detectFamily(panel), [panel]);
+    const lineKeys = family === 'sd' ? SD_ORDER : PERCENTILE_ORDER;
+    const lineStyle = family === 'sd' ? SD_STYLE : PERCENTILE_STYLE;
+
+    const chartData = useMemo(() => buildPanelChartData(panel, lineKeys), [panel, lineKeys]);
     const yDomain = useMemo(() => getYDomain(panel), [panel]);
     const measure = panel.measure;
     const lineColor = PATIENT_LINE_COLOR[measure] || '#2563eb';
@@ -117,6 +142,7 @@ function PanelChart({ panel, patientPoints, panelHeight }) {
     }
 
     const xDomain = [chartData[0].age, chartData[chartData.length - 1].age];
+    const medianKey = family === 'sd' ? 'M' : 'P50';
 
     return (
         <div style={{ width: '100%', height: panelHeight }}>
@@ -150,23 +176,24 @@ function PanelChart({ panel, patientPoints, panelHeight }) {
                                 const dt = ctx?.payload?.displayDate;
                                 return [`${display} ${panel.unit || ''}${dt ? `  (${dt})` : ''}`, `Patient`];
                             }
-                            return [`${display} ${panel.unit || ''}`, key];
+                            const niceLabel = lineStyle[key]?.label || key;
+                            return [`${display} ${panel.unit || ''}`, niceLabel];
                         }}
                     />
                     <Legend verticalAlign="top" height={28} wrapperStyle={{ fontSize: 12 }} />
 
-                    {PERCENTILE_ORDER.map((p) => (
+                    {lineKeys.map((k) => (
                         <Line
-                            key={p}
+                            key={k}
                             type="monotone"
-                            dataKey={p}
-                            stroke={PERCENTILE_STYLE[p].stroke}
-                            strokeWidth={p === 'P50' ? 2 : 1}
-                            strokeDasharray={PERCENTILE_STYLE[p].dashArray}
+                            dataKey={k}
+                            stroke={lineStyle[k].stroke}
+                            strokeWidth={k === medianKey ? 2 : 1}
+                            strokeDasharray={lineStyle[k].dashArray}
                             dot={false}
                             isAnimationActive={false}
                             connectNulls
-                            name={p}
+                            name={lineStyle[k].label || k}
                         />
                     ))}
 
