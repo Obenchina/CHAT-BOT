@@ -557,7 +557,10 @@ async function uploadGrowthCurve(req, res) {
         }
 
         const validation = validateCurveData(extraction.curve);
-        const status = validation.ok ? 'pending_review' : 'pending_review';
+        // If math checks fail (P3 < P50 < P97 ordering, monotonic median, plausible ranges)
+        // mark as rejected — the doctor still sees the entry and the validation report,
+        // but the curve is not usable for plotting until they explicitly re-approve.
+        const status = validation.ok ? 'pending_review' : 'rejected';
 
         const created = await GrowthCurve.create({
             doctor_id: doctor.id,
