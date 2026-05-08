@@ -143,10 +143,20 @@ function shapeIntoCurve({ extracted, classification, sourceLabel, originalName }
                     return Number.isFinite(n) ? n : null;
                 })
                 : [],
+            // Coerce percentile entries the same way as ages: any non-finite
+            // value becomes null. Without this, strings like "N/A" or "—" would
+            // become NaN and silently pass the downstream validator's
+            // Number.isFinite guards.
             percentiles: Object.fromEntries(
                 Object.entries(p.percentiles || {}).map(([k, arr]) => [
                     k,
-                    Array.isArray(arr) ? arr.map((v) => (v == null ? null : Number(v))) : [],
+                    Array.isArray(arr)
+                        ? arr.map((v) => {
+                            if (v == null) return null;
+                            const n = Number(v);
+                            return Number.isFinite(n) ? n : null;
+                        })
+                        : [],
                 ]),
             ),
         })),

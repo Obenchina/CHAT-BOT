@@ -64,6 +64,18 @@ function validateCurveData(curve) {
             }
         }
 
+        // Coverage: at least the median (P50) must have enough usable points.
+        // This catches extractions that are mostly null/NaN (e.g. AI returned
+        // "N/A" strings that became null after coercion) — without this guard
+        // the curve would render as an empty chart but pass all the other
+        // checks because they all skip non-finite values.
+        const p50 = Array.isArray(panel.percentiles.P50) ? panel.percentiles.P50 : [];
+        const finiteCount = p50.filter((v) => Number.isFinite(v)).length;
+        const minFinite = Math.max(2, Math.ceil(expectedLen * 0.5));
+        if (finiteCount < minFinite) {
+            errors.push(`${prefix}: P50 has only ${finiteCount}/${expectedLen} usable values (need at least ${minFinite})`);
+        }
+
         // Plausible bounds
         const bounds = PLAUSIBLE_RANGES[panel.measure];
         if (bounds) {
