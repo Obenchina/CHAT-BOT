@@ -1,164 +1,175 @@
-import React, { useState, useEffect, useMemo } from 'react';
+/**
+ * GrowthCurveManager
+ *
+ * Settings panel for the doctor's growth-curve bank. Three things:
+ *   1. Browse the built-in reference library (WHO/CDC/AFPA) and add curves to the bank.
+ *   2. Upload an unknown curve image/PDF — the backend tries to match it to the library
+ *      first, otherwise extracts percentile data via AI for review.
+ *   3. List, preview (Recharts), approve/reject and delete saved curves.
+ */
+import { useEffect, useMemo, useState } from 'react';
 import doctorService from '../../../services/doctorService';
-import { getAuthUploadUrl } from '../../../constants/config';
 import { showSuccess, showError } from '../../../utils/toast';
 import Modal from '../../common/Modal';
 import Button from '../../common/Button';
+import GrowthCurveChart from '../../charts/GrowthCurveChart';
 import * as pdfjsLib from 'pdfjs-dist';
 
-// Configure pdf.js worker
 pdfjsLib.GlobalWorkerOptions.workerSrc = new URL(
     'pdfjs-dist/build/pdf.worker.min.mjs',
-    import.meta.url
+    import.meta.url,
 ).toString();
 
-/**
- * Render page 1 of a PDF file to a PNG Blob using the browser's canvas.
- * @param {File} pdfFile
- * @returns {Promise<Blob>} PNG blob
- */
 async function renderPdfToImage(pdfFile) {
     const arrayBuffer = await pdfFile.arrayBuffer();
     const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const page = await pdf.getPage(1);
-
-    // Render at 2× scale for good quality
     const scale = 2;
     const viewport = page.getViewport({ scale });
     const canvas = document.createElement('canvas');
     canvas.width = viewport.width;
     canvas.height = viewport.height;
     const ctx = canvas.getContext('2d');
-
     await page.render({ canvasContext: ctx, viewport }).promise;
-
     return new Promise((resolve) => {
         canvas.toBlob((blob) => resolve(blob), 'image/png');
     });
 }
 
+const MEASURE_LABEL = {
+    weight: 'Poids',
+    height: 'Taille',
+    height_weight: 'Taille + Poids',
+    head: 'Périmètre crânien',
+    bmi: 'IMC',
+};
+const GENDER_LABEL = { male: 'Garçon', female: 'Fille', both: 'Mixte' };
+
+const STATUS_BADGE = {
+    auto_approved: { label: 'Référence officielle', color: '#10b981', bg: '#ecfdf5' },
+    doctor_approved: { label: 'Approuvée', color: '#10b981', bg: '#ecfdf5' },
+    pending_review: { label: 'À vérifier', color: '#f59e0b', bg: '#fffbeb' },
+    rejected: { label: 'Rejetée', color: '#dc2626', bg: '#fef2f2' },
+};
+
+function CurveCard({ curve, onPreview, onDelete }) {
+    const status = STATUS_BADGE[curve.validation_status] || STATUS_BADGE.auto_approved;
+    return (
+        <div
+            className="profile-section-card"
+            style={{ padding: 'var(--space-md)', border: `1px solid ${status.color}` }}
+        >
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 8 }}>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 600, fontSize: 14 }}>
+                        {curve.label || `${MEASURE_LABEL[curve.measure_key] || curve.measure_key} - ${GENDER_LABEL[curve.gender] || curve.gender}`}
+                    </div>
+                    <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                        {curve.source || (curve.source_type === 'reference' ? 'Référence intégrée' : 'IA extraction')}
+                    </div>
+                    <span style={{
+                        display: 'inline-block', marginTop: 8, padding: '2px 8px', borderRadius: 8,
+                        fontSize: 11, color: status.color, background: status.bg,
+                    }}>{status.label}</span>
+                </div>
+                <button
+                    onClick={() => onDelete(curve)}
+                    style={{ border: 'none', background: 'none', color: '#dc2626', cursor: 'pointer', fontSize: '1.1rem' }}
+                    aria-label="Supprimer la courbe"
+                >×</button>
+            </div>
+            <div style={{ marginTop: 12, display: 'flex', gap: 8 }}>
+                <Button size="sm" variant="ghost" onClick={() => onPreview(curve)}>Aperçu</Button>
+            </div>
+        </div>
+    );
+}
+
 function GrowthCurveManager() {
-    const [curves, setCurves] = useState([]);
+    const [savedCurves, setSavedCurves] = useState([]);
+    const [library, setLibrary] = useState([]);
     const [loading, setLoading] = useState(false);
     const [uploading, setUploading] = useState(false);
+    const [adding, setAdding] = useState(null);
     const [selectedFile, setSelectedFile] = useState(null);
-    const [measureKey, setMeasureKey] = useState('weight');
-    const [gender, setGender] = useState('male');
+    const [previewCurve, setPreviewCurve] = useState(null);
     const [deleteModalOpen, setDeleteModalOpen] = useState(false);
     const [curveToDelete, setCurveToDelete] = useState(null);
     const [deleting, setDeleting] = useState(false);
-    const [previewCurve, setPreviewCurve] = useState(null);
-    const [previewFileUrl, setPreviewFileUrl] = useState('');
-    const [previewLoading, setPreviewLoading] = useState(false);
-    const [previewError, setPreviewError] = useState('');
+    const [librarySearch, setLibrarySearch] = useState('');
 
-    useEffect(() => {
-        loadCurves();
-    }, []);
-
-    useEffect(() => {
-        let objectUrl = '';
-        let cancelled = false;
-
-        async function loadPreviewFile() {
-            if (!previewCurve?.file_path) {
-                setPreviewFileUrl('');
-                setPreviewError('');
-                setPreviewLoading(false);
-                return;
-            }
-
-            setPreviewFileUrl('');
-            setPreviewError('');
-            setPreviewLoading(true);
-
-            try {
-                const token = localStorage.getItem('token');
-                const response = await fetch(getAuthUploadUrl(previewCurve.file_path), {
-                    credentials: 'include',
-                    headers: token ? { Authorization: `Bearer ${token}` } : undefined
-                });
-
-                if (!response.ok) {
-                    throw new Error('Impossible de charger le fichier.');
-                }
-
-                const blob = await response.blob();
-                objectUrl = URL.createObjectURL(blob);
-                if (!cancelled) {
-                    setPreviewFileUrl(objectUrl);
-                }
-            } catch (error) {
-                console.error('Growth curve preview error:', error);
-                if (!cancelled) {
-                    setPreviewError(error?.message || 'Impossible de charger le fichier.');
-                }
-            } finally {
-                if (!cancelled) {
-                    setPreviewLoading(false);
-                }
-            }
-        }
-
-        loadPreviewFile();
-
-        return () => {
-            cancelled = true;
-            if (objectUrl) URL.revokeObjectURL(objectUrl);
-        };
-    }, [previewCurve]);
-
-    async function loadCurves() {
+    const loadAll = async () => {
         setLoading(true);
         try {
-            const res = await doctorService.getGrowthCurves();
-            if (res.success) setCurves(res.data);
-        } catch (e) { console.error(e); }
+            const [savedRes, libRes] = await Promise.all([
+                doctorService.getGrowthCurves(),
+                doctorService.getGrowthCurvesLibrary(),
+            ]);
+            if (savedRes?.success) setSavedCurves(savedRes.data || []);
+            if (libRes?.success) setLibrary(libRes.data || []);
+        } catch (e) {
+            console.error('Load curves error:', e);
+            showError('Erreur de chargement');
+        }
         setLoading(false);
+    };
+
+    useEffect(() => {
+        // eslint-disable-next-line react-hooks/set-state-in-effect
+        loadAll();
+    }, []);
+
+    async function handleAddFromLibrary(referenceId) {
+        setAdding(referenceId);
+        try {
+            const res = await doctorService.addCurveFromReference(referenceId);
+            if (res?.success) {
+                showSuccess('Courbe ajoutée');
+                await loadAll();
+            } else {
+                showError(res?.message || 'Échec de l\'ajout');
+            }
+        } catch (e) {
+            showError(e?.response?.data?.message || e?.message || 'Erreur');
+        }
+        setAdding(null);
     }
 
     async function handleUpload() {
-        if (!selectedFile) return showError("Sélectionnez un fichier");
+        if (!selectedFile) return showError('Sélectionnez un fichier');
         setUploading(true);
-        const fd = new FormData();
-        fd.append('curve', selectedFile);
-        fd.append('measureKey', measureKey);
-        fd.append('gender', gender);
-
-        // If PDF, also render page 1 as image and attach it as fallback
-        const isPdf = selectedFile.type === 'application/pdf' || /\.pdf$/i.test(selectedFile.name);
-        if (isPdf) {
-            try {
-                const imageBlob = await renderPdfToImage(selectedFile);
-                fd.append('curveImage', imageBlob, selectedFile.name.replace(/\.pdf$/i, '.png'));
-            } catch (e) {
-                console.warn('PDF-to-image conversion failed:', e);
-                // Continue anyway — backend will use defaults
-            }
-        }
-
         try {
-            const res = await doctorService.uploadGrowthCurve(fd);
-            if (res.success) {
-                setSelectedFile(null);
-                await loadCurves();
-                const count = Array.isArray(res.data) ? res.data.length : 1;
-                showSuccess(count > 1 ? `${count} courbes extraites du PDF.` : (res.message || "Référence personnalisée ajoutée."));
+            const fd = new FormData();
+            fd.append('curve', selectedFile);
+            const isPdf = selectedFile.type === 'application/pdf' || /\.pdf$/i.test(selectedFile.name);
+            if (isPdf) {
+                try {
+                    const imgBlob = await renderPdfToImage(selectedFile);
+                    fd.append('curveImage', imgBlob, selectedFile.name.replace(/\.pdf$/i, '.png'));
+                } catch (e) {
+                    console.warn('PDF→image failed:', e);
+                }
             }
-        } catch (e) { showError(e.message); }
+            const res = await doctorService.uploadGrowthCurve(fd);
+            if (res?.success) {
+                showSuccess(res.message || 'Courbe importée');
+                setSelectedFile(null);
+                await loadAll();
+            } else {
+                showError(res?.message || 'Échec de l\'import');
+            }
+        } catch (e) {
+            showError(e?.response?.data?.message || e?.message || 'Erreur');
+        }
         setUploading(false);
     }
 
-    function requestDeleteCurve(curve) {
+    function requestDelete(curve) {
         setCurveToDelete(curve);
         setDeleteModalOpen(true);
     }
 
-    function openPreviewCurve(curve) {
-        setPreviewCurve(curve);
-    }
-
-    async function confirmDeleteCurve() {
+    async function confirmDelete() {
         if (!curveToDelete) return;
         setDeleting(true);
         try {
@@ -167,253 +178,154 @@ function GrowthCurveManager() {
                 showSuccess('Courbe supprimée');
                 setDeleteModalOpen(false);
                 setCurveToDelete(null);
-                await loadCurves();
+                await loadAll();
             } else {
                 showError(res?.message || 'Erreur lors de la suppression');
             }
         } catch (e) {
-            console.error('deleteGrowthCurve error:', e);
-            showError(e?.response?.data?.message || e?.message || 'Erreur de connexion');
-        } finally {
-            setDeleting(false);
+            showError(e?.response?.data?.message || e?.message || 'Erreur');
+        }
+        setDeleting(false);
+    }
+
+    async function handleApprove(curveId, decision) {
+        try {
+            const res = await doctorService.reviewExtractedCurve(curveId, decision);
+            if (res?.success) {
+                showSuccess(decision === 'approved' ? 'Courbe approuvée' : 'Courbe rejetée');
+                await loadAll();
+                if (decision === 'approved') {
+                    setPreviewCurve((prev) => (prev && prev.id === curveId ? res.data : prev));
+                }
+            }
+        } catch (e) {
+            showError(e?.response?.data?.message || e?.message || 'Erreur');
         }
     }
 
-    const MEASURE_LABELS = {
-        weight: 'Poids (kg)',
-        height: 'Taille (cm)',
-        weight_height: 'Poids + Taille',
-        head: 'PC (cm)',
-        bmi: 'IMC'
-    };
+    const savedReferenceIds = useMemo(
+        () => new Set(savedCurves.filter((c) => c.source_type === 'reference').map((c) => c.reference_id)),
+        [savedCurves],
+    );
 
-    const GENDER_LABELS = {
-        male: 'Garçon',
-        female: 'Fille',
-        both: 'Mixte'
-    };
-
-    const officialCurves = (curves || []).filter(c => c.source_type === 'official');
-    const customCurves = (curves || []).filter(c => c.source_type !== 'official');
-    const visibleCustomCurves = useMemo(() => {
-        const combinedGenders = new Set(
-            customCurves
-                .filter((curve) => curve.measure_key === 'weight_height')
-                .map((curve) => curve.gender)
-        );
-
-        return customCurves.filter((curve) => {
-            if (!combinedGenders.has(curve.gender)) return true;
-            return !['weight', 'height'].includes(curve.measure_key);
-        });
-    }, [customCurves]);
+    const filteredLibrary = useMemo(() => {
+        const q = librarySearch.trim().toLowerCase();
+        if (!q) return library;
+        return library.filter((c) => (c.label || '').toLowerCase().includes(q) || (c.id || '').toLowerCase().includes(q));
+    }, [library, librarySearch]);
 
     return (
         <div className="growth-curve-manager">
-            {/* Official templates */}
             <div className="profile-section-card" style={{ marginBottom: 'var(--space-lg)' }}>
                 <div className="section-header">
-                    <div className="section-title">Templates officiels pré-calibrés</div>
+                    <div className="section-title">Bibliothèque officielle (WHO / CDC / AFPA)</div>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                    Ces templates sont calibrés côté développeur. Aucune calibration manuelle n'est autorisée côté médecin.
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
+                    Ajoutez les courbes officielles que vous souhaitez utiliser. Les données sont intégrées au système — aucune image n'est utilisée pour le rendu.
                 </p>
-
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 'var(--space-md)' }}>
-                    {officialCurves.map(c => (
-                        <div key={c.id} className="profile-section-card" style={{ padding: 'var(--space-md)', border: '1px solid var(--success)' }}>
-                            <div style={{ fontWeight: 'bold' }}>{c.display_name || c.template_key}</div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '4px' }}>
-                                Type: {MEASURE_LABELS[c.measure_key] || c.measure_key}
+                <input
+                    type="text"
+                    className="input-field"
+                    placeholder="Rechercher (taille, poids, OMS, garçons…)"
+                    value={librarySearch}
+                    onChange={(e) => setLibrarySearch(e.target.value)}
+                    style={{ marginBottom: 12 }}
+                />
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+                    {filteredLibrary.map((entry) => {
+                        const already = savedReferenceIds.has(entry.id);
+                        return (
+                            <div key={entry.id} className="profile-section-card" style={{ padding: 'var(--space-md)' }}>
+                                <div style={{ fontWeight: 600, fontSize: 14 }}>{entry.label}</div>
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginTop: 2 }}>
+                                    {entry.source} • {GENDER_LABEL[entry.gender] || entry.gender}
+                                </div>
+                                <div style={{ fontSize: 12, color: 'var(--text-secondary)' }}>
+                                    {MEASURE_LABEL[entry.measure] || entry.measure} • {Math.round(entry.ageRange?.min / 12)}–{Math.round(entry.ageRange?.max / 12)} ans
+                                </div>
+                                <Button
+                                    size="sm"
+                                    variant={already ? 'ghost' : 'primary'}
+                                    disabled={already || adding === entry.id}
+                                    onClick={() => handleAddFromLibrary(entry.id)}
+                                    style={{ marginTop: 10 }}
+                                >
+                                    {already ? 'Déjà ajoutée' : (adding === entry.id ? 'Ajout…' : 'Ajouter')}
+                                </Button>
                             </div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                                Sexe: {GENDER_LABELS[c.gender] || c.gender}
-                            </div>
-                            <div style={{ fontSize: '0.8rem', color: 'var(--success)', marginTop: '6px' }}>
-                                Tracé patient autorisé (template officiel)
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
                 </div>
             </div>
 
-            {/* Personal uploads */}
             <div className="profile-section-card" style={{ marginBottom: 'var(--space-lg)' }}>
                 <div className="section-header">
-                    <div className="section-title">Référence personnalisée (PDF/Image)</div>
+                    <div className="section-title">Importer une courbe inconnue</div>
                 </div>
-                <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                    Uploadez un PDF ou une image. Pour les PDF AFPA propres, MediConsult extrait les courbes et autorise le tracé patient automatiquement. Sinon le fichier reste une référence visuelle.
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
+                    Glissez un PDF ou une image. Si le système reconnaît une courbe officielle, il l'ajoute automatiquement. Sinon il extrait les percentiles via IA et vous demande de valider le résultat.
                 </p>
-
-                <div className="form-grid" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: 'var(--space-md)' }}>
-                    <div className="input-group">
-                        <label>Type de mesure</label>
-                        <select className="input-field" value={measureKey} onChange={e => setMeasureKey(e.target.value)}>
-                            <option value="weight">Poids</option>
-                            <option value="height">Taille</option>
-                            <option value="weight_height">Poids + Taille</option>
-                            <option value="head">Périmètre crânien</option>
-                            <option value="bmi">IMC</option>
-                        </select>
-                    </div>
-                    <div className="input-group">
-                        <label>Sexe</label>
-                        <select className="input-field" value={gender} onChange={e => setGender(e.target.value)}>
-                            <option value="male">Garçon</option>
-                            <option value="female">Fille</option>
-                        </select>
-                    </div>
-                    <div className="input-group">
-                        <label>Fichier (JPG/PNG/PDF)</label>
-                        <input type="file" className="input-field" accept="image/*,application/pdf" onChange={e => setSelectedFile(e.target.files[0])} />
-                    </div>
-                </div>
-
-                <button
-                    className="btn-save"
-                    style={{ marginTop: 'var(--space-md)', width: '100%' }}
+                <input
+                    type="file"
+                    className="input-field"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                />
+                <Button
                     onClick={handleUpload}
-                    disabled={uploading}
+                    disabled={!selectedFile || uploading}
+                    style={{ marginTop: 12, width: '100%' }}
                 >
-                    {uploading ? 'Upload...' : 'Uploader référence personnelle'}
-                </button>
+                    {uploading ? 'Analyse en cours…' : 'Importer'}
+                </Button>
             </div>
 
             <div className="curves-list">
-                <h4 style={{ marginBottom: 'var(--space-md)' }}>Mes références personnalisées</h4>
-                {visibleCustomCurves.length === 0 && !loading && (
+                <h4 style={{ marginBottom: 'var(--space-md)' }}>Mes courbes</h4>
+                {!loading && savedCurves.length === 0 && (
                     <p style={{ color: 'var(--text-secondary)', textAlign: 'center', padding: 'var(--space-xl)' }}>
-                        Aucune référence personnalisée.
+                        Aucune courbe enregistrée pour le moment.
                     </p>
                 )}
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(250px, 1fr))', gap: 'var(--space-md)' }}>
-                    {visibleCustomCurves.map(c => (
-                        <div key={c.id} className="profile-section-card" style={{ padding: 'var(--space-md)', border: `1px solid ${c.is_plot_enabled ? 'var(--success)' : 'var(--warning)'}` }}>
-                            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                                <div>
-                                    <div style={{ fontWeight: 'bold', textTransform: 'uppercase' }}>
-                                        {MEASURE_LABELS[c.measure_key] || c.measure_key} - {GENDER_LABELS[c.gender] || c.gender}
-                                    </div>
-                                    <div style={{ fontSize: '0.75rem', color: c.is_plot_enabled ? 'var(--success)' : 'var(--warning)' }}>
-                                        {c.is_plot_enabled ? 'Tracé patient autorisé' : 'Référence visuelle seulement'}
-                                    </div>
-                                    {c.template_config?.source && (
-                                        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: 4 }}>
-                                            Calibration: {c.template_config.source === 'ai_calibrated' ? 'IA' : 'automatique'}
-                                            {c.template_config.auto_confidence ? ` (${Math.round(c.template_config.auto_confidence * 100)}%)` : ''}
-                                        </div>
-                                    )}
-                                </div>
-                                <button
-                                    onClick={() => requestDeleteCurve(c)}
-                                    style={{ border: 'none', background: 'none', color: 'red', cursor: 'pointer', fontSize: '1.2rem' }}
-                                    aria-label="Supprimer la courbe"
-                                >
-                                    X
-                                </button>
-                            </div>
-                            <div style={{ marginTop: 'var(--space-sm)', display: 'flex', gap: 'var(--space-sm)' }}>
-                                <button
-                                    type="button"
-                                    onClick={() => openPreviewCurve(c)}
-                                    style={{
-                                        border: 'none',
-                                        background: 'transparent',
-                                        padding: 0,
-                                        color: 'var(--primary)',
-                                        cursor: 'pointer',
-                                        fontSize: '0.8rem',
-                                        fontWeight: 600
-                                    }}
-                                >
-                                    Voir fichier
-                                </button>
-                            </div>
-                        </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: 12 }}>
+                    {savedCurves.map((c) => (
+                        <CurveCard key={c.id} curve={c} onPreview={setPreviewCurve} onDelete={requestDelete} />
                     ))}
                 </div>
             </div>
-
-            <Modal
-                isOpen={deleteModalOpen}
-                onClose={() => (deleting ? null : setDeleteModalOpen(false))}
-                title="Supprimer la courbe ?"
-                footer={(
-                    <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 'var(--space-sm)' }}>
-                        <Button variant="secondary" onClick={() => setDeleteModalOpen(false)} disabled={deleting}>
-                            Annuler
-                        </Button>
-                        <Button variant="danger" onClick={confirmDeleteCurve} loading={deleting}>
-                            Supprimer
-                        </Button>
-                    </div>
-                )}
-            >
-                <p style={{ margin: 0, color: 'var(--text-secondary)' }}>
-                    Cette action supprimera définitivement cette courbe.
-                </p>
-            </Modal>
 
             <Modal
                 isOpen={Boolean(previewCurve)}
                 onClose={() => setPreviewCurve(null)}
-                title={previewCurve ? `${MEASURE_LABELS[previewCurve.measure_key] || previewCurve.measure_key} - ${GENDER_LABELS[previewCurve.gender] || previewCurve.gender}` : 'Courbe'}
-                fullscreen
-                bodyStyle={{ padding: 0, overflow: 'hidden' }}
-                modalStyle={{ background: 'var(--bg-card)' }}
+                title={previewCurve?.label || 'Aperçu de la courbe'}
+                size="lg"
             >
                 {previewCurve && (
-                    <div style={{
-                        height: 'calc(100vh - 76px)',
-                        width: '100%',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '20px',
-                        background: 'var(--bg-app)',
-                        boxSizing: 'border-box'
-                    }}>
-                        {previewLoading ? (
-                            <div style={{ color: 'var(--text-secondary)' }}>
-                                Chargement du fichier...
+                    <div>
+                        <GrowthCurveChart curve={previewCurve.curve_data} height={520} />
+                        {previewCurve.validation_status === 'pending_review' && (
+                            <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                                <Button variant="danger" onClick={() => handleApprove(previewCurve.id, 'rejected')}>Rejeter</Button>
+                                <Button onClick={() => handleApprove(previewCurve.id, 'approved')}>Approuver</Button>
                             </div>
-                        ) : previewError ? (
-                            <div className="alert alert-error" style={{ maxWidth: 520 }}>
-                                {previewError}
-                            </div>
-                        ) : !previewFileUrl ? (
-                            <div style={{ color: 'var(--text-secondary)' }}>
-                                Chargement du fichier...
-                            </div>
-                        ) : String(previewCurve.file_path || '').toLowerCase().endsWith('.pdf') ? (
-                            <iframe
-                                title="Aperçu de la courbe"
-                                src={previewFileUrl}
-                                style={{
-                                    width: '100%',
-                                    height: '100%',
-                                    border: '1px solid var(--border-color)',
-                                    borderRadius: '8px',
-                                    background: '#fff'
-                                }}
-                            />
-                        ) : (
-                            <img
-                                src={previewFileUrl}
-                                alt="Courbe de croissance"
-                                style={{
-                                    maxWidth: '100%',
-                                    maxHeight: '100%',
-                                    objectFit: 'contain',
-                                    borderRadius: '8px',
-                                    background: '#fff',
-                                    boxShadow: 'var(--shadow-lg)'
-                                }}
-                            />
                         )}
                     </div>
                 )}
+            </Modal>
+
+            <Modal
+                isOpen={deleteModalOpen}
+                onClose={() => !deleting && setDeleteModalOpen(false)}
+                title="Supprimer la courbe ?"
+                size="sm"
+            >
+                <p>Cette action est irréversible.</p>
+                <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end', marginTop: 12 }}>
+                    <Button variant="ghost" onClick={() => setDeleteModalOpen(false)} disabled={deleting}>Annuler</Button>
+                    <Button variant="danger" onClick={confirmDelete} disabled={deleting}>
+                        {deleting ? 'Suppression…' : 'Supprimer'}
+                    </Button>
+                </div>
             </Modal>
         </div>
     );

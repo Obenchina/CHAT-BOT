@@ -145,16 +145,22 @@ const doctorService = {
         return api.get('/doctor/growth-curves');
     },
 
+    async getGrowthCurvesLibrary() {
+        return api.get('/doctor/growth-curves/library');
+    },
+
+    async addCurveFromReference(referenceId) {
+        return api.post('/doctor/growth-curves/from-reference', { referenceId });
+    },
+
     async uploadGrowthCurve(formData) {
         return api.post('/doctor/growth-curves', formData, {
-            headers: {
-                'Content-Type': 'multipart/form-data'
-            }
+            headers: { 'Content-Type': 'multipart/form-data' },
         });
     },
 
-    async calibrateGrowthCurve(id, calibrationData) {
-        return api.patch(`/doctor/growth-curves/${id}/calibrate`, calibrationData);
+    async reviewExtractedCurve(id, decision) {
+        return api.post(`/doctor/growth-curves/${id}/approve`, { decision });
     },
 
     async deleteGrowthCurve(id) {

@@ -46,6 +46,8 @@ router.put('/letter-config', doctorController.updateLetterConfig);
 
 // Growth Curves
 router.get('/growth-curves', doctorController.getGrowthCurves);
+router.get('/growth-curves/library', doctorController.getGrowthCurvesLibrary);
+router.post('/growth-curves/from-reference', doctorController.addCurveFromReference);
 router.post(
     '/growth-curves',
     uploadCurve.fields([
@@ -55,7 +57,7 @@ router.post(
     handleUploadError,
     doctorController.uploadGrowthCurve
 );
-router.patch('/growth-curves/:id/calibrate', doctorController.calibrateGrowthCurve);
+router.post('/growth-curves/:id/approve', doctorController.reviewExtractedCurve);
 router.delete('/growth-curves/:id', doctorController.deleteGrowthCurve);
 
 // Medications CSV

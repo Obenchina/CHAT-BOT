@@ -348,43 +348,40 @@ async function runMigrations(pool) {
 
     // Migrations completed
 
-    // Growth curves: add template_config column and migrate old calibration data
+    // Growth curves table — v2 schema with reference + extracted source types.
+    // Old columns (file_path, template_config, is_calibrated) are kept nullable for
+    // backward-compatible deploys; new uploads no longer write to them.
     await pool.execute(`
         CREATE TABLE IF NOT EXISTS doctor_growth_curves (
             id INT PRIMARY KEY AUTO_INCREMENT,
             doctor_id INT NOT NULL,
             measure_key VARCHAR(50) NOT NULL,
             gender ENUM('male', 'female') NOT NULL DEFAULT 'male',
-            file_path VARCHAR(255) NOT NULL,
-            template_config JSON NULL,
-            is_calibrated BOOLEAN DEFAULT FALSE,
+            source_type ENUM('reference', 'extracted') NOT NULL DEFAULT 'reference',
+            reference_id VARCHAR(100) NULL,
+            curve_data JSON NULL,
+            validation_status ENUM('auto_approved', 'pending_review', 'doctor_approved', 'rejected') NOT NULL DEFAULT 'auto_approved',
+            original_image_path VARCHAR(255) NULL,
+            label VARCHAR(255) NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
         ) ENGINE=InnoDB;
     `);
 
-    // In case the table already existed with the old schema, ensure template_config exists
-    await ensureColumn(pool, 'doctor_growth_curves', 'template_config', 'JSON NULL');
+    // Online migration for databases that pre-date v2.
+    await ensureColumn(pool, 'doctor_growth_curves', 'source_type', "ENUM('reference', 'extracted') NOT NULL DEFAULT 'reference'");
+    await ensureColumn(pool, 'doctor_growth_curves', 'reference_id', 'VARCHAR(100) NULL');
+    await ensureColumn(pool, 'doctor_growth_curves', 'curve_data', 'JSON NULL');
+    await ensureColumn(pool, 'doctor_growth_curves', 'validation_status', "ENUM('auto_approved', 'pending_review', 'doctor_approved', 'rejected') NOT NULL DEFAULT 'auto_approved'");
+    await ensureColumn(pool, 'doctor_growth_curves', 'original_image_path', 'VARCHAR(255) NULL');
+    await ensureColumn(pool, 'doctor_growth_curves', 'label', 'VARCHAR(255) NULL');
+    await ensureColumn(pool, 'doctor_growth_curves', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+    // Make legacy required column optional so the new flow can omit it.
     try {
-        // Migrate old p1/p2 calibration data to template_config JSON
-        const [hasCols] = await pool.execute(
-            `SELECT COUNT(*) as cnt FROM information_schema.COLUMNS 
-             WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'doctor_growth_curves' AND COLUMN_NAME = 'p1_x'`
-        );
-        if (hasCols[0].cnt > 0) {
-            await pool.execute(`
-                UPDATE doctor_growth_curves 
-                SET template_config = JSON_OBJECT(
-                    'min_age', p1_val_x, 'max_age', p2_val_x,
-                    'min_y', p1_val_y, 'max_y', p2_val_y,
-                    'plot_area', JSON_OBJECT('left', p1_x, 'top', p2_y, 'right', p2_x, 'bottom', p1_y)
-                )
-                WHERE template_config IS NULL AND is_calibrated = TRUE
-            `);
-            console.log('Growth curves: migrated p1/p2 calibration to template_config');
-        }
+        await pool.execute('ALTER TABLE doctor_growth_curves MODIFY COLUMN file_path VARCHAR(255) NULL');
     } catch (err) {
-        console.warn('Growth curves migration note:', err.message);
+        // Column may have been removed already.
     }
 
     console.log('Database migrations ready');

@@ -1,22 +1,26 @@
-import { useEffect, useMemo, useState } from 'react';
-import {
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    CartesianGrid,
-    Tooltip,
-    ResponsiveContainer
-} from 'recharts';
-import { CLINICAL_MEASURE_LABELS, getAuthUploadUrl } from '../../constants/config';
-import doctorService from '../../services/doctorService';
-
 /**
- * Converts raw measurement data into chart-ready points with ageInMonths.
+ * PatientMeasurementsChart
+ *
+ * Renders a single clinical measure (or a composite weight+height view) for a
+ * patient against a growth curve from the doctor's bank. The chart is fully
+ * deterministic — patient points are drawn on the same Recharts coordinate
+ * system as the percentile lines (no background image overlay).
  */
-function processChartData(rawData, patient) {
-    if (!rawData || !Array.isArray(rawData) || !rawData.length) return [];
+import { useEffect, useMemo, useState } from 'react';
+import { CLINICAL_MEASURE_LABELS } from '../../constants/config';
+import doctorService from '../../services/doctorService';
+import GrowthCurveChart from '../charts/GrowthCurveChart';
 
+const MEASURE_TO_PANEL = {
+    weight: 'weight',
+    height: 'height',
+    head: 'head',
+    head_circumference: 'head',
+    bmi: 'bmi',
+};
+
+function processMeasurementPoints(rawData, patient) {
+    if (!Array.isArray(rawData) || !rawData.length) return [];
     const birthDate = new Date(patient?.birthDate || patient?.birth_date || patient?.date_of_birth || patient?.dateOfBirth);
     if (Number.isNaN(birthDate.getTime())) return [];
 
@@ -24,156 +28,118 @@ function processChartData(rawData, patient) {
         const dateObj = new Date(item.date);
         const ageInMonths = (dateObj - birthDate) / (1000 * 60 * 60 * 24 * 30.4375);
         return {
-            ...item,
+            age: Number(ageInMonths.toFixed(2)),
+            value: Number(item.value),
             displayDate: dateObj.toLocaleDateString(),
-            ageInMonths: Number(ageInMonths.toFixed(2)),
-            value: Number(item.value)
         };
-    }).filter((item) => Number.isFinite(item.ageInMonths) && Number.isFinite(item.value))
-        .sort((a, b) => a.ageInMonths - b.ageInMonths);
+    })
+        .filter((p) => Number.isFinite(p.age) && Number.isFinite(p.value))
+        .sort((a, b) => a.age - b.age);
 }
 
-/**
- * Extracts a config object (xDomain, yDomain, plotArea) from a template_config.
- */
-function extractConfig(templateConfig, measureKey) {
-    if (!templateConfig) return null;
-    // If the template has measure_configs, pick the sub-config for the specific measure
-    const tc = templateConfig.measure_configs?.[measureKey] || templateConfig;
-    const xMin = Number(tc.x_min ?? tc.min_age);
-    const xMax = Number(tc.x_max ?? tc.max_age);
-    const yMin = Number(tc.y_min ?? tc.min_y);
-    const yMax = Number(tc.y_max ?? tc.max_y);
-    if (![xMin, xMax, yMin, yMax].every(Number.isFinite) || xMax <= xMin || yMax <= yMin) {
-        return null;
-    }
-    return {
-        xDomain: [xMin, xMax],
-        yDomain: [yMin, yMax],
-        plotArea: tc.plot_area || { left: 0, top: 0, right: 100, bottom: 100 }
+function pickCurveForPatient(curves, { measure, gender, ageInMonths }) {
+    if (!Array.isArray(curves)) return null;
+
+    const usable = curves.filter((c) => c && c.curve_data && c.gender === gender && c.validation_status !== 'rejected');
+    const panelMatches = (curve) => {
+        const panels = curve.curve_data?.panels || [];
+        return panels.some((p) => p.measure === measure);
     };
-}
+    const ageInRange = (curve) => {
+        const range = curve.curve_data?.ageRange;
+        if (!range) return true;
+        if (!Number.isFinite(ageInMonths)) return true;
+        return ageInMonths >= range.min - 2 && ageInMonths <= range.max + 2;
+    };
 
-/**
- * Renders a single data-line overlay (positioned absolutely).
- */
-function OverlayLine({ chartData, config, color, label, unit }) {
-    if (!config || !chartData.length) return null;
-    return (
-        <div style={{
-            position: 'absolute',
-            top: `${config.plotArea.top}%`,
-            left: `${config.plotArea.left}%`,
-            width: `${config.plotArea.right - config.plotArea.left}%`,
-            height: `${config.plotArea.bottom - config.plotArea.top}%`,
-            zIndex: 1
-        }}>
-            <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                    <CartesianGrid opacity={0} />
-                    <XAxis dataKey="ageInMonths" type="number" domain={config.xDomain} allowDataOverflow hide />
-                    <YAxis domain={config.yDomain} allowDataOverflow hide />
-                    <Tooltip
-                        contentStyle={{ backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 8, border: `1px solid ${color}`, color: '#0f172a' }}
-                        labelFormatter={(v) => `Age: ${v} mois`}
-                        formatter={(v) => [`${v} ${unit}`, label]}
-                    />
-                    <Line
-                        type="monotone" dataKey="value" stroke={color} strokeWidth={3}
-                        dot={{ r: 7, fill: color, strokeWidth: 3, stroke: '#fff' }}
-                        activeDot={{ r: 9 }} isAnimationActive={false}
-                    />
-                </LineChart>
-            </ResponsiveContainer>
-        </div>
-    );
+    const candidates = usable.filter((c) => panelMatches(c) && ageInRange(c));
+    if (!candidates.length) return null;
+
+    // Prefer doctor_approved, then auto_approved
+    const ranking = { doctor_approved: 0, auto_approved: 1, pending_review: 2 };
+    candidates.sort((a, b) => (ranking[a.validation_status] ?? 9) - (ranking[b.validation_status] ?? 9));
+    return candidates[0];
 }
 
 function PatientMeasurementsChart({ data, allData, measureKey, patient, height = 520 }) {
-    const [availableCurves, setAvailableCurves] = useState([]);
+    const [savedCurves, setSavedCurves] = useState([]);
+    const [loadError, setLoadError] = useState(null);
     const measureInfo = CLINICAL_MEASURE_LABELS[measureKey] || { label: measureKey, unit: '' };
 
-    const normalizedMeasureKey = useMemo(() => {
-        if (measureKey === 'head_circumference') return 'head';
-        return measureKey;
-    }, [measureKey]);
-
     useEffect(() => {
+        let cancelled = false;
         doctorService.getGrowthCurves()
-            .then((res) => { if (res.success && res.data) setAvailableCurves(res.data); })
-            .catch((err) => console.error('Error fetching growth curves:', err));
+            .then((res) => {
+                if (cancelled) return;
+                if (res?.success && Array.isArray(res.data)) setSavedCurves(res.data);
+                else setSavedCurves([]);
+            })
+            .catch((err) => {
+                if (!cancelled) {
+                    console.error('Error fetching growth curves:', err);
+                    setLoadError(err?.message || 'Erreur de chargement');
+                }
+            });
+        return () => { cancelled = true; };
     }, []);
 
-    const chartData = useMemo(() => processChartData(data, patient), [data, patient]);
-    const patientGender = patient?.gender || 'male';
+    const panelMeasure = MEASURE_TO_PANEL[measureKey] || measureKey;
+    const isCombinedView = measureKey === 'weight_height';
 
-    // ──── Find matching curve ────
+    const heightPoints = useMemo(() => {
+        const raw = allData?.height || (panelMeasure === 'height' ? data : null);
+        return raw ? processMeasurementPoints(raw, patient) : [];
+    }, [allData, data, panelMeasure, patient]);
+
+    const weightPoints = useMemo(() => {
+        const raw = allData?.weight || (panelMeasure === 'weight' ? data : null);
+        return raw ? processMeasurementPoints(raw, patient) : [];
+    }, [allData, data, panelMeasure, patient]);
+
+    const headPoints = useMemo(() => {
+        const raw = allData?.head || (panelMeasure === 'head' ? data : null);
+        return raw ? processMeasurementPoints(raw, patient) : [];
+    }, [allData, data, panelMeasure, patient]);
+
+    const bmiPoints = useMemo(() => {
+        const raw = allData?.bmi || (panelMeasure === 'bmi' ? data : null);
+        return raw ? processMeasurementPoints(raw, patient) : [];
+    }, [allData, data, panelMeasure, patient]);
+
+    const singlePoints = useMemo(() => processMeasurementPoints(data, patient), [data, patient]);
+
+    const latestAge = useMemo(() => {
+        const all = [...heightPoints, ...weightPoints, ...headPoints, ...bmiPoints, ...singlePoints];
+        if (!all.length) return null;
+        return Math.max(...all.map((p) => p.age));
+    }, [heightPoints, weightPoints, headPoints, bmiPoints, singlePoints]);
+
     const matchingCurve = useMemo(() => {
-        const pool = Array.isArray(availableCurves) ? availableCurves : [];
-        return pool.find((curve) => {
-            if (!curve || !curve.is_plot_enabled || !curve.template_config) return false;
-            // Gender must match
-            if (curve.gender !== patientGender) return false;
-            // Measure must match — a weight_height curve matches both weight and height
-            const cm = curve.measure_key;
-            if (cm === normalizedMeasureKey) return true;
-            if (cm === 'weight_height' && (normalizedMeasureKey === 'weight' || normalizedMeasureKey === 'height')) return true;
-            return false;
-        }) || null;
-    }, [availableCurves, normalizedMeasureKey, patientGender]);
+        if (!savedCurves.length) return null;
+        const gender = patient?.gender || 'male';
+        if (isCombinedView) {
+            // Look for any composite curve covering the latest age
+            return savedCurves.find((c) => {
+                if (!c?.curve_data?.isComposite) return false;
+                if (c.gender !== gender) return false;
+                const range = c.curve_data.ageRange;
+                if (!range || !Number.isFinite(latestAge)) return true;
+                return latestAge >= range.min - 2 && latestAge <= range.max + 2;
+            }) || null;
+        }
+        return pickCurveForPatient(savedCurves, {
+            measure: panelMeasure,
+            gender,
+            ageInMonths: latestAge,
+        });
+    }, [savedCurves, isCombinedView, patient, panelMeasure, latestAge]);
 
-    const isCombined = matchingCurve?.measure_key === 'weight_height';
+    const hasAnyPoint = singlePoints.length || heightPoints.length || weightPoints.length || headPoints.length || bmiPoints.length;
 
-    // ──── Configs ────
-    const singleConfig = useMemo(() => {
-        if (!matchingCurve || isCombined) return null;
-        return extractConfig(matchingCurve.template_config, normalizedMeasureKey);
-    }, [matchingCurve, normalizedMeasureKey, isCombined]);
-
-    const heightConfig = useMemo(() => {
-        if (!isCombined) return null;
-        return extractConfig(matchingCurve.template_config, 'height');
-    }, [isCombined, matchingCurve]);
-
-    const weightConfig = useMemo(() => {
-        if (!isCombined) return null;
-        return extractConfig(matchingCurve.template_config, 'weight');
-    }, [isCombined, matchingCurve]);
-
-    // ──── Data for combined chart ────
-    const heightChartData = useMemo(() => {
-        if (!isCombined) return [];
-        const raw = allData?.height || (normalizedMeasureKey === 'height' ? data : []);
-        return processChartData(raw, patient);
-    }, [isCombined, allData, data, normalizedMeasureKey, patient]);
-
-    const weightChartData = useMemo(() => {
-        if (!isCombined) return [];
-        const raw = allData?.weight || (normalizedMeasureKey === 'weight' ? data : []);
-        return processChartData(raw, patient);
-    }, [isCombined, allData, data, normalizedMeasureKey, patient]);
-
-    // ──── Should we overlay on the background image? ────
-    const useOverlay = isCombined
-        ? Boolean((heightConfig || weightConfig) && matchingCurve?.file_path)
-        : Boolean(singleConfig && matchingCurve?.file_path);
-
-    // ──── Background ────
-    const bgStyle = useMemo(() => {
-        if (!useOverlay) return null;
-        return {
-            position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
-            backgroundImage: `url(${getAuthUploadUrl(matchingCurve.file_path)})`,
-            backgroundSize: '100% 100%', backgroundRepeat: 'no-repeat',
-            backgroundPosition: 'center', opacity: 0.9, zIndex: 0, borderRadius: 12
-        };
-    }, [matchingCurve, useOverlay]);
-
-    // ──── Empty state ────
-    if (!chartData.length && !heightChartData.length && !weightChartData.length) {
+    if (!hasAnyPoint) {
         return (
             <div className="empty-chart" style={{ minHeight: 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                Aucune donnee pour {measureInfo.label}.
+                Aucune donnée pour {measureInfo.label}.
             </div>
         );
     }
@@ -182,92 +148,36 @@ function PatientMeasurementsChart({ data, allData, measureKey, patient, height =
 
     return (
         <div className="measurement-chart-container" style={{
-            width: '100%', height: containerHeight, position: 'relative',
-            background: useOverlay ? 'transparent' : 'var(--bg-card)',
-            borderRadius: 12,
-            border: useOverlay ? 'none' : '1px solid var(--border-color)',
-            padding: useOverlay ? 0 : '12px 14px 34px'
+            width: '100%', minHeight: containerHeight,
+            background: 'var(--bg-card)', borderRadius: 12,
+            border: '1px solid var(--border-color)',
+            padding: '14px 16px 18px',
         }}>
-            {/* Background image */}
-            {useOverlay && <div style={bgStyle} />}
-
-            {/* ── COMBINED: two separate line overlays ── */}
-            {isCombined && useOverlay && (
-                <>
-                    <OverlayLine chartData={heightChartData} config={heightConfig} color="#38BDF8" label="Taille" unit="cm" />
-                    <OverlayLine chartData={weightChartData} config={weightConfig} color="#F59E0B" label="Poids" unit="kg" />
-                </>
+            {loadError && (
+                <div style={{ color: 'var(--danger)', fontSize: 12, marginBottom: 8 }}>{loadError}</div>
             )}
 
-            {/* ── SINGLE: one chart overlay ── */}
-            {!isCombined && (
+            {matchingCurve ? (
+                <GrowthCurveChart
+                    curve={matchingCurve.curve_data}
+                    title={matchingCurve.label || matchingCurve.curve_data?.label}
+                    height={typeof height === 'number' ? height - 30 : 480}
+                    patientPoints={isCombinedView
+                        ? { height: heightPoints, weight: weightPoints }
+                        : (matchingCurve.curve_data?.isComposite
+                            ? { height: heightPoints, weight: weightPoints, head: headPoints, bmi: bmiPoints }
+                            : singlePoints)}
+                />
+            ) : (
                 <div style={{
-                    position: useOverlay ? 'absolute' : 'relative',
-                    top: useOverlay && singleConfig ? `${singleConfig.plotArea.top}%` : 0,
-                    left: useOverlay && singleConfig ? `${singleConfig.plotArea.left}%` : 0,
-                    width: useOverlay && singleConfig ? `${singleConfig.plotArea.right - singleConfig.plotArea.left}%` : '100%',
-                    height: useOverlay && singleConfig ? `${singleConfig.plotArea.bottom - singleConfig.plotArea.top}%` : '100%',
-                    zIndex: 1
+                    padding: 24,
+                    textAlign: 'center',
+                    color: 'var(--text-secondary)',
+                    fontSize: 13,
                 }}>
-                    <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData} margin={useOverlay ? { top: 0, right: 0, left: 0, bottom: 0 } : { top: 24, right: 28, left: 12, bottom: 22 }}>
-                            <CartesianGrid strokeDasharray="3 3" stroke="var(--border-color)" opacity={useOverlay ? 0 : 0.55} />
-                            <XAxis
-                                dataKey={singleConfig ? 'ageInMonths' : 'displayDate'}
-                                type={singleConfig ? 'number' : 'category'}
-                                domain={singleConfig ? singleConfig.xDomain : undefined}
-                                allowDataOverflow={Boolean(singleConfig)}
-                                hide={useOverlay}
-                                stroke="var(--text-secondary)"
-                                tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
-                                tickFormatter={(v) => singleConfig ? `${v}m` : v}
-                            />
-                            <YAxis
-                                domain={singleConfig ? singleConfig.yDomain : ['auto', 'auto']}
-                                allowDataOverflow={Boolean(singleConfig)}
-                                hide={useOverlay}
-                                stroke="var(--text-secondary)"
-                                tick={{ fill: 'var(--text-secondary)', fontSize: 12 }}
-                                width={48}
-                            />
-                            <Tooltip
-                                contentStyle={{ backgroundColor: 'rgba(255,255,255,0.96)', borderRadius: 8, border: '1px solid var(--primary)', color: '#0f172a' }}
-                                labelFormatter={(v) => singleConfig ? `Age: ${v} mois` : v}
-                                formatter={(v) => [`${v} ${measureInfo.unit || ''}`, measureInfo.label]}
-                            />
-                            <Line
-                                type="monotone" dataKey="value" stroke="#38BDF8" strokeWidth={3}
-                                dot={{ r: 7, fill: '#38BDF8', strokeWidth: 3, stroke: '#fff' }}
-                                activeDot={{ r: 9 }} isAnimationActive={false}
-                            />
-                        </LineChart>
-                    </ResponsiveContainer>
-                </div>
-            )}
-
-            {/* Legend badge */}
-            <div style={{
-                position: 'absolute', bottom: 8, right: 8, fontSize: '0.75rem',
-                color: matchingCurve ? 'var(--success)' : 'var(--text-secondary)',
-                backgroundColor: useOverlay ? 'rgba(255,255,255,0.85)' : 'var(--bg-elevated)',
-                padding: '4px 10px', borderRadius: 6,
-                border: useOverlay ? 'none' : '1px solid var(--border-color)',
-                zIndex: 2, display: 'flex', alignItems: 'center', gap: 8
-            }}>
-                {matchingCurve
-                    ? isCombined
-                        ? (<>
-                            <span>Poids + Taille ({matchingCurve.gender === 'male' ? 'G' : 'F'})</span>
-                            {heightChartData.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><span style={{ width: 10, height: 3, backgroundColor: '#38BDF8', borderRadius: 2 }} />Taille</span>}
-                            {weightChartData.length > 0 && <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}><span style={{ width: 10, height: 3, backgroundColor: '#F59E0B', borderRadius: 2 }} />Poids</span>}
-                        </>)
-                        : `Template : ${measureInfo.label} (${matchingCurve.gender === 'male' ? 'G' : 'F'})`
-                    : 'Courbe patient sans template adapte'}
-            </div>
-
-            {!useOverlay && (
-                <div style={{ position: 'absolute', top: 12, left: 16, color: 'var(--text-secondary)', fontSize: '0.82rem', zIndex: 2 }}>
-                    Age en mois / {measureInfo.unit || measureInfo.label}
+                    Aucune courbe configurée pour {measureInfo.label} ({patient?.gender || 'unknown'}).
+                    <br />
+                    Ajoutez-en une depuis Paramètres → Courbes de croissance.
                 </div>
             )}
         </div>

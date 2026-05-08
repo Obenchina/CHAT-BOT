@@ -1,0 +1,360 @@
+[
+  {
+    "id": "who_bmi_boys_0_5",
+    "label": "IMC garçons 0-5 ans (OMS)",
+    "source": "WHO 2006",
+    "measure": "bmi",
+    "gender": "male",
+    "isComposite": false,
+    "ageRange": {
+      "min": 0,
+      "max": 60,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "bmi",
+        "unit": "kg/m²"
+      }
+    ]
+  },
+  {
+    "id": "who_bmi_boys_5_19",
+    "label": "IMC garçons 5-19 ans (OMS)",
+    "source": "WHO 2007",
+    "measure": "bmi",
+    "gender": "male",
+    "isComposite": false,
+    "ageRange": {
+      "min": 61,
+      "max": 228,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "bmi",
+        "unit": "kg/m²"
+      }
+    ]
+  },
+  {
+    "id": "who_bmi_girls_0_5",
+    "label": "IMC filles 0-5 ans (OMS)",
+    "source": "WHO 2006",
+    "measure": "bmi",
+    "gender": "female",
+    "isComposite": false,
+    "ageRange": {
+      "min": 0,
+      "max": 60,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "bmi",
+        "unit": "kg/m²"
+      }
+    ]
+  },
+  {
+    "id": "who_bmi_girls_5_19",
+    "label": "IMC filles 5-19 ans (OMS)",
+    "source": "WHO 2007",
+    "measure": "bmi",
+    "gender": "female",
+    "isComposite": false,
+    "ageRange": {
+      "min": 61,
+      "max": 228,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "bmi",
+        "unit": "kg/m²"
+      }
+    ]
+  },
+  {
+    "id": "who_head_boys_0_5",
+    "label": "Périmètre crânien garçons 0-5 ans (OMS)",
+    "source": "WHO 2006",
+    "measure": "head",
+    "gender": "male",
+    "isComposite": false,
+    "ageRange": {
+      "min": 0,
+      "max": 60,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "head",
+        "unit": "cm"
+      }
+    ]
+  },
+  {
+    "id": "who_head_girls_0_5",
+    "label": "Périmètre crânien filles 0-5 ans (OMS)",
+    "source": "WHO 2006",
+    "measure": "head",
+    "gender": "female",
+    "isComposite": false,
+    "ageRange": {
+      "min": 0,
+      "max": 60,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "head",
+        "unit": "cm"
+      }
+    ]
+  },
+  {
+    "id": "who_height_boys_0_5",
+    "label": "Taille garçons 0-5 ans (OMS)",
+    "source": "WHO 2006",
+    "measure": "height",
+    "gender": "male",
+    "isComposite": false,
+    "ageRange": {
+      "min": 0,
+      "max": 60,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "height",
+        "unit": "cm"
+      }
+    ]
+  },
+  {
+    "id": "who_height_boys_5_19",
+    "label": "Taille garçons 5-19 ans (OMS)",
+    "source": "WHO 2007",
+    "measure": "height",
+    "gender": "male",
+    "isComposite": false,
+    "ageRange": {
+      "min": 61,
+      "max": 228,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "height",
+        "unit": "cm"
+      }
+    ]
+  },
+  {
+    "id": "who_height_girls_0_5",
+    "label": "Taille filles 0-5 ans (OMS)",
+    "source": "WHO 2006",
+    "measure": "height",
+    "gender": "female",
+    "isComposite": false,
+    "ageRange": {
+      "min": 0,
+      "max": 60,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "height",
+        "unit": "cm"
+      }
+    ]
+  },
+  {
+    "id": "who_height_girls_5_19",
+    "label": "Taille filles 5-19 ans (OMS)",
+    "source": "WHO 2007",
+    "measure": "height",
+    "gender": "female",
+    "isComposite": false,
+    "ageRange": {
+      "min": 61,
+      "max": 228,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "height",
+        "unit": "cm"
+      }
+    ]
+  },
+  {
+    "id": "who_height_weight_boys_0_5",
+    "label": "Taille + Poids garçons 0-5 ans (OMS)",
+    "source": "WHO 2006 + WHO 2006",
+    "measure": "height_weight",
+    "gender": "male",
+    "isComposite": true,
+    "ageRange": {
+      "min": 0,
+      "max": 60,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "height",
+        "unit": "cm"
+      },
+      {
+        "measure": "weight",
+        "unit": "kg"
+      }
+    ]
+  },
+  {
+    "id": "who_height_weight_boys_5_10",
+    "label": "Taille + Poids garçons 5-10 ans (OMS)",
+    "source": "WHO 2007 + WHO 2007",
+    "measure": "height_weight",
+    "gender": "male",
+    "isComposite": true,
+    "ageRange": {
+      "min": 61,
+      "max": 120,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "height",
+        "unit": "cm"
+      },
+      {
+        "measure": "weight",
+        "unit": "kg"
+      }
+    ]
+  },
+  {
+    "id": "who_height_weight_girls_0_5",
+    "label": "Taille + Poids filles 0-5 ans (OMS)",
+    "source": "WHO 2006 + WHO 2006",
+    "measure": "height_weight",
+    "gender": "female",
+    "isComposite": true,
+    "ageRange": {
+      "min": 0,
+      "max": 60,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "height",
+        "unit": "cm"
+      },
+      {
+        "measure": "weight",
+        "unit": "kg"
+      }
+    ]
+  },
+  {
+    "id": "who_height_weight_girls_5_10",
+    "label": "Taille + Poids filles 5-10 ans (OMS)",
+    "source": "WHO 2007 + WHO 2007",
+    "measure": "height_weight",
+    "gender": "female",
+    "isComposite": true,
+    "ageRange": {
+      "min": 61,
+      "max": 120,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "height",
+        "unit": "cm"
+      },
+      {
+        "measure": "weight",
+        "unit": "kg"
+      }
+    ]
+  },
+  {
+    "id": "who_weight_boys_0_5",
+    "label": "Poids garçons 0-5 ans (OMS)",
+    "source": "WHO 2006",
+    "measure": "weight",
+    "gender": "male",
+    "isComposite": false,
+    "ageRange": {
+      "min": 0,
+      "max": 60,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "weight",
+        "unit": "kg"
+      }
+    ]
+  },
+  {
+    "id": "who_weight_boys_5_10",
+    "label": "Poids garçons 5-10 ans (OMS)",
+    "source": "WHO 2007",
+    "measure": "weight",
+    "gender": "male",
+    "isComposite": false,
+    "ageRange": {
+      "min": 61,
+      "max": 120,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "weight",
+        "unit": "kg"
+      }
+    ]
+  },
+  {
+    "id": "who_weight_girls_0_5",
+    "label": "Poids filles 0-5 ans (OMS)",
+    "source": "WHO 2006",
+    "measure": "weight",
+    "gender": "female",
+    "isComposite": false,
+    "ageRange": {
+      "min": 0,
+      "max": 60,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "weight",
+        "unit": "kg"
+      }
+    ]
+  },
+  {
+    "id": "who_weight_girls_5_10",
+    "label": "Poids filles 5-10 ans (OMS)",
+    "source": "WHO 2007",
+    "measure": "weight",
+    "gender": "female",
+    "isComposite": false,
+    "ageRange": {
+      "min": 61,
+      "max": 120,
+      "unit": "months"
+    },
+    "panels": [
+      {
+        "measure": "weight",
+        "unit": "kg"
+      }
+    ]
+  }
+]

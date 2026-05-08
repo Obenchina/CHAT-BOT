@@ -4,9 +4,12 @@ const Patient = require('../models/Patient');
 const AiConfig = require('../models/AiConfig');
 const GrowthCurve = require('../models/GrowthCurve');
 const { pool } = require('../config/database');
-const { getValidatedOfficialTemplates } = require('../config/growthCurveTemplates');
-const { buildExtractedCharts, saveExtractedChartImage } = require('../services/growthCurvePdfService');
-const { calibrateGrowthChartWithAI, calibrateImageFileWithAI } = require('../services/growthCurveAiCalibrationService');
+const path = require('path');
+const fs = require('fs');
+const referenceCurveLibrary = require('../services/curve/referenceCurveLibrary');
+const { identifyCurve } = require('../services/curve/curveIdentificationService');
+const { extractCurve } = require('../services/curve/curveExtractionService');
+const { validateCurveData } = require('../services/curve/curveValidationService');
 
 function normalizeOptionalText(value, maxLength) {
     if (value === undefined || value === null) {
@@ -311,66 +314,136 @@ async function updateLetterConfig(req, res) {
 }
 
 /**
- * Get doctor's growth curves
+ * Map a doctor's saved growth curve into the API shape consumed by the frontend.
+ * The frontend never sees the legacy template_config / plot_area fields.
+ */
+function mapDoctorCurveForApi(row) {
+    let curveData = row.curve_data;
+    let label = row.label;
+    let source = null;
+    if (row.source_type === 'reference' && row.reference_id) {
+        const ref = referenceCurveLibrary.getById(row.reference_id);
+        if (ref) {
+            curveData = ref;
+            label = label || ref.label;
+            source = ref.source;
+        }
+    } else if (curveData) {
+        source = curveData.source || 'AI-extracted';
+        label = label || curveData.label;
+    }
+    return {
+        id: row.id,
+        doctor_id: row.doctor_id,
+        measure_key: row.measure_key,
+        gender: row.gender,
+        source_type: row.source_type,
+        reference_id: row.reference_id,
+        validation_status: row.validation_status,
+        original_image_path: row.original_image_path || null,
+        label: label || `${row.measure_key} (${row.gender})`,
+        source,
+        curve_data: curveData,
+        created_at: row.created_at,
+        updated_at: row.updated_at,
+    };
+}
+
+/**
+ * Get doctor's growth curves (saved bindings).
  */
 async function getGrowthCurves(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
-        const customCurves = await GrowthCurve.findByDoctorId(doctor.id);
-
-        const officialCurves = getValidatedOfficialTemplates().map((tpl) => ({
-            id: tpl.id,
-            source_type: 'official',
-            is_official: true,
-            is_custom_upload: false,
-            doctor_id: null,
-            measure_key: tpl.measure_key,
-            template_key: tpl.template_key,
-            display_name: tpl.label,
-            gender: tpl.gender,
-            age_range: tpl.age_range,
-            template_config: tpl.template_config,
-            is_calibrated: true,
-            is_plot_enabled: true,
-            file_path: null,
-            created_at: null
-        }));
-
-        const mappedCustom = (customCurves || []).map((c) => {
-            // Every curve with a file is plottable — generate a fallback config if missing
-            const defaultYDomains = { weight: [0, 110], height: [40, 210], weight_height: [40, 210], head: [30, 60], bmi: [8, 35] };
-            const [y_min, y_max] = defaultYDomains[c.measure_key] || [0, 100];
-            const templateConfig = c.template_config || {
-                source: 'manual_upload',
-                label: `${c.measure_key === 'weight_height' ? 'Poids + Taille' : c.measure_key} (${c.gender})`,
-                x_min: 0, x_max: 216,
-                y_min, y_max,
-                x_unit: 'months',
-                y_unit: c.measure_key === 'weight' ? 'kg' : (c.measure_key === 'height' || c.measure_key === 'head' || c.measure_key === 'weight_height') ? 'cm' : '',
-                plot_area: { left: 8, top: 8, right: 92, bottom: 92 },
-                auto_confidence: 0.5
-            };
-            const canPlot = Boolean(c.file_path);
-            return {
-                ...c,
-                template_config: templateConfig,
-                source_type: canPlot ? 'custom_calibrated' : 'custom_upload',
-                is_official: false,
-                is_custom_upload: true,
-                display_name: templateConfig.label || `${c.measure_key} (${c.gender})`,
-                is_plot_enabled: canPlot,
-                is_calibrated: canPlot
-            };
-        });
-
-        res.json({ success: true, data: [...officialCurves, ...mappedCustom] });
+        const rows = await GrowthCurve.findByDoctorId(doctor.id);
+        res.json({ success: true, data: rows.map(mapDoctorCurveForApi) });
     } catch (error) {
+        console.error('Get growth curves error:', error);
         res.status(500).json({ success: false, message: 'Failed to get growth curves' });
     }
 }
 
 /**
- * Upload a growth curve background
+ * List the built-in reference curve library.
+ * GET /api/doctor/growth-curves/library
+ */
+async function getGrowthCurvesLibrary(req, res) {
+    try {
+        res.json({ success: true, data: referenceCurveLibrary.listIndex() });
+    } catch (error) {
+        console.error('Get curve library error:', error);
+        res.status(500).json({ success: false, message: 'Failed to load library' });
+    }
+}
+
+/**
+ * Add a built-in reference curve to the doctor's bank (no file upload).
+ * POST /api/doctor/growth-curves/from-reference  { referenceId }
+ */
+async function addCurveFromReference(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const referenceId = String(req.body.referenceId || '').trim();
+        if (!referenceId) return res.status(400).json({ success: false, message: 'referenceId requis' });
+        const ref = referenceCurveLibrary.getById(referenceId);
+        if (!ref) return res.status(404).json({ success: false, message: 'Référence inconnue' });
+        const existing = await GrowthCurve.existsForReference(doctor.id, referenceId);
+        if (existing) return res.status(409).json({ success: false, message: 'Cette courbe est déjà ajoutée' });
+
+        const created = await GrowthCurve.create({
+            doctor_id: doctor.id,
+            measure_key: ref.measure,
+            gender: ref.gender,
+            source_type: 'reference',
+            reference_id: referenceId,
+            curve_data: null,
+            validation_status: 'auto_approved',
+            original_image_path: null,
+            label: ref.label,
+        });
+        res.status(201).json({ success: true, data: mapDoctorCurveForApi(created) });
+    } catch (error) {
+        console.error('Add curve from reference error:', error);
+        res.status(500).json({ success: false, message: 'Failed to add curve' });
+    }
+}
+
+/**
+ * Save the original uploaded image for audit/comparison and return its public path.
+ */
+function persistOriginalImage(file) {
+    if (!file) return null;
+    const stamp = Date.now();
+    const safeBase = (file.originalname || 'curve').replace(/[^a-zA-Z0-9._-]/g, '_').slice(-60);
+    const targetDir = path.join(__dirname, '..', '..', 'uploads', 'curves');
+    if (!fs.existsSync(targetDir)) fs.mkdirSync(targetDir, { recursive: true });
+    const targetName = `${stamp}_${safeBase}`;
+    const targetPath = path.join(targetDir, targetName);
+    try {
+        fs.copyFileSync(file.path, targetPath);
+    } catch (e) {
+        console.warn('persistOriginalImage failed:', e.message);
+        return null;
+    }
+    return `uploads/curves/${targetName}`;
+}
+
+function cleanupTempFiles(req) {
+    const files = [];
+    if (req.files?.curve?.[0]) files.push(req.files.curve[0]);
+    if (req.files?.curveImage?.[0]) files.push(req.files.curveImage[0]);
+    for (const f of files) {
+        if (f?.path) fs.unlink(f.path, () => {});
+    }
+}
+
+/**
+ * Upload a growth-curve image (or PDF page render). Pipeline:
+ *   1. Identify (AI classifies the image: source, measure, gender, age range, composite?).
+ *   2. Try to match a reference curve in the data bank.
+ *   3. If no match, ask the AI to extract structured percentile data.
+ *   4. Validate (math checks).
+ *   5. Persist the binding (auto_approved for references, pending_review for AI-extracted).
  */
 async function uploadGrowthCurve(req, res) {
     try {
@@ -379,161 +452,167 @@ async function uploadGrowthCurve(req, res) {
         // With multer.fields(), files come as req.files.curve[0] and req.files.curveImage[0]
         const curveFile = req.files?.curve?.[0];
         const curveImageFile = req.files?.curveImage?.[0];
-        if (!curveFile) return res.status(400).json({ success: false, message: 'File is required' });
-
-        const { measureKey, gender } = req.body;
-        const isPdf = curveFile.mimetype === 'application/pdf' || /\.pdf$/i.test(curveFile.originalname);
-        const isCombinedChart = measureKey === 'weight_height';
-
-        // ─── AFPA-style PDF extraction ───
-        // For combined charts (weight_height), we SKIP individual image extraction
-        // because AFPA PDFs embed height and weight as separate images — we need the
-        // full page render (curveImage) to keep both curves on a single image.
-        if (isPdf && !isCombinedChart) {
-            const extractedCharts = buildExtractedCharts(curveFile, { measureKey, gender });
-
-            if (extractedCharts.length > 0) {
-                const createdCurves = [];
-                let activeAiConfig = null;
-
-                try {
-                    activeAiConfig = await AiConfig.getEffectiveConfig(doctor.id);
-                } catch (error) {
-                    activeAiConfig = null;
-                }
-
-                for (const chart of extractedCharts) {
-                    const aiTemplateConfig = activeAiConfig
-                        ? await calibrateGrowthChartWithAI({
-                            image: chart.image,
-                            originalName: curveFile.originalname,
-                            fallbackConfig: chart.templateConfig,
-                            fallbackMeasureKey: chart.measureKey,
-                            fallbackGender: chart.gender || gender || 'male',
-                            aiConfig: activeAiConfig
-                        })
-                        : null;
-                    const templateConfig = (aiTemplateConfig || chart.templateConfig);
-                    const resolvedMeasureKey = templateConfig.measure_key || chart.measureKey;
-                    const resolvedGender = templateConfig.gender || chart.gender || gender || 'male';
-                    const filePath = saveExtractedChartImage(chart.image);
-                    const curve = await GrowthCurve.create({
-                        doctor_id: doctor.id,
-                        measure_key: resolvedMeasureKey,
-                        gender: resolvedGender,
-                        file_path: filePath,
-                        template_config: templateConfig,
-                        is_calibrated: true
-                    });
-
-                    createdCurves.push({
-                        ...curve,
-                        source_type: 'custom_calibrated',
-                        is_official: false,
-                        is_custom_upload: true,
-                        display_name: templateConfig.label,
-                        is_plot_enabled: true,
-                        is_calibrated: true,
-                        calibration_source: aiTemplateConfig ? 'ai' : 'deterministic'
-                    });
-                }
-
-                // Clean up uploaded files
-                require('fs').unlink(curveFile.path, () => { });
-                if (curveImageFile) require('fs').unlink(curveImageFile.path, () => { });
-
-                return res.status(201).json({
-                    success: true,
-                    message: `${createdCurves.length} courbe(s) extraite(s) et calibrée(s).`,
-                    data: createdCurves
-                });
-            }
-
-            // AFPA extraction failed — clean up the original PDF
-            require('fs').unlink(curveFile.path, () => { });
+        const imageFile = curveImageFile || curveFile;
+        if (!imageFile) {
+            cleanupTempFiles(req);
+            return res.status(400).json({ success: false, message: 'Fichier requis' });
         }
 
-        // For combined PDF charts, also clean up the original PDF (we'll use curveImage)
-        if (isPdf && isCombinedChart) {
-            require('fs').unlink(curveFile.path, () => { });
+        const fallbackMeasure = req.body.measureKey ? String(req.body.measureKey) : null;
+        const fallbackGender = req.body.gender ? String(req.body.gender) : null;
+
+        let aiConfig = null;
+        try {
+            aiConfig = await AiConfig.getEffectiveConfig(doctor.id);
+        } catch {
+            aiConfig = null;
         }
-
-        // ─── Fallback: use curveImage (browser-rendered PNG) or original image file ───
-        const imageFile = (isPdf && curveImageFile) ? curveImageFile : curveFile;
-
-        // Try AI calibration on the image
-        let activeAiConfig = null;
-        try { activeAiConfig = await AiConfig.getEffectiveConfig(doctor.id); } catch (_) {}
-
-        // ─── AI calibration (handles both single and combined charts) ───
-        let templateConfig = null;
-        if (activeAiConfig) {
-            templateConfig = await calibrateImageFileWithAI({
-                filePath: imageFile.path,
-                mimeType: imageFile.mimetype,
-                originalName: curveFile.originalname,
-                fallbackMeasureKey: measureKey,
-                fallbackGender: gender || 'male',
-                fallbackConfig: null,
-                aiConfig: activeAiConfig
+        if (!aiConfig?.apiKey) {
+            cleanupTempFiles(req);
+            return res.status(400).json({
+                success: false,
+                message: "Aucune configuration IA active. Configurez-la dans les paramètres avant d'importer une courbe.",
             });
         }
 
-        // If AI calibration failed, use minimal fallback
-        if (!templateConfig) {
-            console.warn('AI calibration failed or unavailable — using minimal fallback config');
-            templateConfig = {
-                source: 'manual_upload_uncalibrated',
-                label: `${measureKey === 'weight_height' ? 'Poids + Taille' : measureKey} (${gender || 'male'})`,
-                measure_key: measureKey,
-                gender: gender || 'male',
-                x_min: 0, x_max: 216,
-                y_min: 0, y_max: 200,
-                x_unit: 'months',
-                y_unit: measureKey === 'weight' ? 'kg' : 'cm',
-                plot_area: { left: 5, top: 5, right: 95, bottom: 95 },
-                auto_confidence: 0.3
-            };
-        }
-
-        const curve = await GrowthCurve.create({
-            doctor_id: doctor.id,
-            measure_key: templateConfig.measure_key || measureKey,
-            gender: templateConfig.gender || gender || 'male',
-            file_path: `uploads/curves/${imageFile.filename}`,
-            template_config: templateConfig,
-            is_calibrated: true
+        // Stage 1 — identify the chart
+        const classification = await identifyCurve({
+            filePath: imageFile.path,
+            mimeType: imageFile.mimetype,
+            aiConfig,
         });
 
-        res.status(201).json({
-            success: true,
-            data: {
-                ...curve,
-                source_type: 'custom_calibrated',
-                is_official: false,
-                is_custom_upload: true,
-                display_name: templateConfig.label || `${curve.measure_key} (${curve.gender})`,
-                is_plot_enabled: true,
-                is_calibrated: true
+        // Build a working classification, falling back to the form values if AI failed
+        const working = classification || {
+            source: 'unknown',
+            measure: fallbackMeasure || 'height',
+            gender: fallbackGender || 'male',
+            ageRange: { min: 0, max: 60, unit: 'months' },
+            isComposite: fallbackMeasure === 'height_weight',
+            title: '',
+            confidence: 0,
+            notes: 'AI identification failed; using form fallback.',
+        };
+
+        // Stage 2A — try to match a reference curve
+        const matchMeasure = working.isComposite ? 'height_weight' : working.measure;
+        const reference = referenceCurveLibrary.findMatching({
+            measure: matchMeasure,
+            gender: working.gender,
+            ageRange: working.ageRange,
+            source: working.source !== 'unknown' ? working.source : undefined,
+        });
+
+        const originalImagePath = persistOriginalImage(imageFile);
+
+        if (reference) {
+            const existing = await GrowthCurve.existsForReference(doctor.id, reference.id);
+            if (existing) {
+                cleanupTempFiles(req);
+                return res.status(409).json({
+                    success: false,
+                    message: `Vous avez déjà la courbe référence « ${reference.label} ».`,
+                    data: { matched_reference_id: reference.id },
+                });
             }
+            const created = await GrowthCurve.create({
+                doctor_id: doctor.id,
+                measure_key: reference.measure,
+                gender: reference.gender,
+                source_type: 'reference',
+                reference_id: reference.id,
+                curve_data: null,
+                validation_status: 'auto_approved',
+                original_image_path: originalImagePath,
+                label: reference.label,
+            });
+            cleanupTempFiles(req);
+            return res.status(201).json({
+                success: true,
+                message: `Courbe identifiée comme « ${reference.label} ». Données officielles utilisées.`,
+                data: {
+                    ...mapDoctorCurveForApi(created),
+                    classification: working,
+                    matched_reference: { id: reference.id, label: reference.label, source: reference.source },
+                },
+            });
+        }
+
+        // Stage 2B — no match: extract percentile data via AI
+        const extraction = await extractCurve({
+            filePath: imageFile.path,
+            mimeType: imageFile.mimetype,
+            classification: working,
+            originalName: curveFile?.originalname || imageFile.originalname,
+            aiConfig,
+        });
+
+        if (!extraction.curve) {
+            cleanupTempFiles(req);
+            return res.status(422).json({
+                success: false,
+                message: "Impossible d'extraire la courbe depuis l'image. Réessayez avec une image plus nette ou choisissez une courbe officielle.",
+                data: { classification: working, error: extraction.error },
+            });
+        }
+
+        const validation = validateCurveData(extraction.curve);
+        const status = validation.ok ? 'pending_review' : 'pending_review';
+
+        const created = await GrowthCurve.create({
+            doctor_id: doctor.id,
+            measure_key: working.isComposite ? 'height_weight' : working.measure,
+            gender: working.gender,
+            source_type: 'extracted',
+            reference_id: null,
+            curve_data: extraction.curve,
+            validation_status: status,
+            original_image_path: originalImagePath,
+            label: extraction.curve.label,
+        });
+        cleanupTempFiles(req);
+
+        return res.status(201).json({
+            success: true,
+            message: validation.ok
+                ? "Courbe extraite. Vérifiez le rendu dans l'aperçu et approuvez-la."
+                : "Courbe extraite mais des incohérences ont été détectées. Vérifiez attentivement avant d'approuver.",
+            data: {
+                ...mapDoctorCurveForApi(created),
+                classification: working,
+                validation,
+            },
         });
     } catch (error) {
         console.error('Upload curve error:', error);
+        cleanupTempFiles(req);
         res.status(500).json({ success: false, message: 'Failed to upload' });
     }
 }
 
 /**
- * Update calibration (template_config)
+ * Approve / reject an extracted curve.
+ * POST /api/doctor/growth-curves/:id/approve  { decision: 'approved' | 'rejected' }
  */
-async function calibrateGrowthCurve(req, res) {
+async function reviewExtractedCurve(req, res) {
     try {
-        return res.status(400).json({
-            success: false,
-            message: 'La calibration manuelle est désactivée. Utilisez les templates officiels pré-calibrés.'
-        });
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const { id } = req.params;
+        const decision = String(req.body.decision || '').toLowerCase();
+        if (!['approved', 'rejected'].includes(decision)) {
+            return res.status(400).json({ success: false, message: 'decision must be "approved" or "rejected"' });
+        }
+        const curve = await GrowthCurve.findById(id);
+        if (!curve || curve.doctor_id !== doctor.id) {
+            return res.status(404).json({ success: false, message: 'Curve not found' });
+        }
+        const status = decision === 'approved' ? 'doctor_approved' : 'rejected';
+        await GrowthCurve.updateValidationStatus(id, doctor.id, status);
+        const updated = await GrowthCurve.findById(id);
+        res.json({ success: true, data: mapDoctorCurveForApi(updated) });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Failed to calibrate' });
+        console.error('Review curve error:', error);
+        res.status(500).json({ success: false, message: 'Failed to review' });
     }
 }
 
@@ -791,8 +870,10 @@ module.exports = {
     getLetterConfig,
     updateLetterConfig,
     getGrowthCurves,
+    getGrowthCurvesLibrary,
+    addCurveFromReference,
     uploadGrowthCurve,
-    calibrateGrowthCurve,
+    reviewExtractedCurve,
     deleteGrowthCurve,
     uploadMedicationCSV,
     searchMedications,

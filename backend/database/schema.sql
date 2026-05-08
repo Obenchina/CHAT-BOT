@@ -237,18 +237,26 @@ CREATE TABLE IF NOT EXISTS password_resets (
 
 -- ======================
 -- DOCTOR GROWTH CURVES TABLE
--- Stores metadata for custom curve background uploads with calibration
+-- Stores curves a doctor has bound to their account.
+-- Two source kinds:
+--   - source_type='reference' → points at a built-in WHO/CDC/AFPA curve via reference_id
+--   - source_type='extracted' → AI-extracted percentile data stored inline in curve_data
+-- Curves are rendered deterministically from curve_data on the frontend (Recharts).
+-- The original uploaded image, if any, is kept only for audit/comparison.
 -- ======================
 CREATE TABLE IF NOT EXISTS doctor_growth_curves (
     id INT PRIMARY KEY AUTO_INCREMENT,
     doctor_id INT NOT NULL,
-    measure_key VARCHAR(50) NOT NULL, -- 'weight', 'height', 'head', 'bmi'
+    measure_key VARCHAR(50) NOT NULL, -- 'weight', 'height', 'head', 'bmi', 'height_weight'
     gender ENUM('male', 'female') NOT NULL DEFAULT 'male',
-    file_path VARCHAR(255) NOT NULL,
-    -- Template Configuration: Stores min_age, max_age, min_y, max_y, and plot_area
-    template_config JSON NULL,
-    is_calibrated BOOLEAN DEFAULT FALSE,
+    source_type ENUM('reference', 'extracted') NOT NULL DEFAULT 'reference',
+    reference_id VARCHAR(100) NULL, -- e.g. 'who_height_boys_0_5' (when source_type='reference')
+    curve_data JSON NULL, -- inline panels+percentiles (when source_type='extracted')
+    validation_status ENUM('auto_approved', 'pending_review', 'doctor_approved', 'rejected') NOT NULL DEFAULT 'auto_approved',
+    original_image_path VARCHAR(255) NULL, -- audit copy of uploaded image
+    label VARCHAR(255) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;
 
