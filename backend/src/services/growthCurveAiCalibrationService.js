@@ -1,6 +1,5 @@
 const zlib = require('zlib');
 const fs = require('fs');
-const path = require('path');
 
 function crc32(buffer) {
     let crc = 0xffffffff;
@@ -27,8 +26,8 @@ function encodeRgbImageToPng(image) {
     const ihdr = Buffer.alloc(13);
     ihdr.writeUInt32BE(image.width, 0);
     ihdr.writeUInt32BE(image.height, 4);
-    ihdr[8] = 8; // bit depth
-    ihdr[9] = 2; // truecolor RGB
+    ihdr[8] = 8;
+    ihdr[9] = 2;
     ihdr[10] = 0;
     ihdr[11] = 0;
     ihdr[12] = 0;
@@ -81,38 +80,88 @@ function normalizeGender(value, fallback) {
     return fallback || 'male';
 }
 
+/**
+ * Compute precise plot_area from two reference points per axis.
+ * Each reference point has: { value: <number>, percent: <percent of image> }
+ *
+ * For Y-axis (inverted: higher value = lower percent):
+ *   Given ref1 (value=V1, percent=P1) and ref2 (value=V2, percent=P2)
+ *   where V1 > V2 and P1 < P2 (higher value is at lower percent = higher on image):
+ *   plot_area.top = P1 - (yMax - V1) * (P2 - P1) / (V1 - V2)
+ *   plot_area.bottom = P2 + (V2 - yMin) * (P2 - P1) / (V1 - V2)
+ *
+ * For X-axis (normal: higher value = higher percent):
+ *   plot_area.left = P1 - (X1 - xMin) * (P2 - P1) / (X2 - X1)
+ *   plot_area.right = P2 + (xMax - X2) * (P2 - P1) / (X2 - X1)
+ */
+function computePlotAreaFromRefs(xRefs, yRefs, xMin, xMax, yMin, yMax) {
+    let left = 5, right = 95, top = 5, bottom = 95;
+
+    if (xRefs && xRefs.length >= 2) {
+        // Sort by value ascending
+        const sorted = [...xRefs].sort((a, b) => a.value - b.value);
+        const x1 = sorted[0], x2 = sorted[sorted.length - 1];
+        const pxPerUnit = (x2.percent - x1.percent) / (x2.value - x1.value);
+        if (pxPerUnit > 0) {
+            left = x1.percent - (x1.value - xMin) * pxPerUnit;
+            right = x2.percent + (xMax - x2.value) * pxPerUnit;
+        }
+    }
+
+    if (yRefs && yRefs.length >= 2) {
+        // Sort by value descending (higher value = lower percent on image)
+        const sorted = [...yRefs].sort((a, b) => b.value - a.value);
+        const y1 = sorted[0], y2 = sorted[sorted.length - 1]; // y1 is highest value, lowest percent
+        const pxPerUnit = (y2.percent - y1.percent) / (y1.value - y2.value);
+        if (pxPerUnit > 0) {
+            top = y1.percent - (yMax - y1.value) * pxPerUnit;
+            bottom = y2.percent + (y2.value - yMin) * pxPerUnit;
+        }
+    }
+
+    // Clamp to reasonable range
+    left = Math.max(0, Math.min(left, 40));
+    top = Math.max(0, Math.min(top, 40));
+    right = Math.max(60, Math.min(right, 100));
+    bottom = Math.max(60, Math.min(bottom, 100));
+
+    return { left: Number(left.toFixed(2)), top: Number(top.toFixed(2)), right: Number(right.toFixed(2)), bottom: Number(bottom.toFixed(2)) };
+}
+
 // ────── Validate a single-measure AI calibration result ──────
 function validateCalibration(candidate, fallbackConfig, fallbackMeasureKey, fallbackGender) {
     if (!candidate || typeof candidate !== 'object') return null;
 
     const measureKey = normalizeMeasureKey(candidate.measure_key || candidate.measure, fallbackMeasureKey);
     const gender = normalizeGender(candidate.gender, fallbackGender);
-    const xMin = numberOrNull(candidate.x_min ?? candidate.x_axis?.min);
-    const xMax = numberOrNull(candidate.x_max ?? candidate.x_axis?.max);
-    const yMin = numberOrNull(candidate.y_min ?? candidate.y_axis?.min);
-    const yMax = numberOrNull(candidate.y_max ?? candidate.y_axis?.max);
-    const plot = candidate.plot_area || {};
-    const left = numberOrNull(plot.left);
-    const top = numberOrNull(plot.top);
-    const right = numberOrNull(plot.right);
-    const bottom = numberOrNull(plot.bottom);
+    const xMin = numberOrNull(candidate.x_min);
+    const xMax = numberOrNull(candidate.x_max);
+    const yMin = numberOrNull(candidate.y_min);
+    const yMax = numberOrNull(candidate.y_max);
     const confidence = numberOrNull(candidate.confidence) ?? 0;
 
-    if (![xMin, xMax, yMin, yMax, left, top, right, bottom].every(Number.isFinite)) return null;
+    if (![xMin, xMax, yMin, yMax].every(Number.isFinite)) return null;
     if (xMax <= xMin || yMax <= yMin) return null;
-    if (left < 0 || top < 0 || right > 100 || bottom > 100) return null;
-    if (right - left < 35 || bottom - top < 35) return null;
-    if (confidence < 0.65) return null;
+    if (confidence < 0.5) return null;
 
-    const plausible = {
-        weight: { yMin: 0, yMax: 250 },
-        height: { yMin: 30, yMax: 230 },
-        weight_height: { yMin: 0, yMax: 230 },
-        head: { yMin: 20, yMax: 80 },
-        bmi: { yMin: 5, yMax: 60 }
-    }[measureKey] || { yMin: -1000, yMax: 1000 };
+    // Compute precise plot_area from reference points if available
+    let plotArea;
+    if (candidate.x_reference_points && candidate.y_reference_points) {
+        plotArea = computePlotAreaFromRefs(
+            candidate.x_reference_points, candidate.y_reference_points,
+            xMin, xMax, yMin, yMax
+        );
+    } else {
+        const p = candidate.plot_area || {};
+        plotArea = {
+            left: numberOrNull(p.left) ?? 5,
+            top: numberOrNull(p.top) ?? 5,
+            right: numberOrNull(p.right) ?? 95,
+            bottom: numberOrNull(p.bottom) ?? 95
+        };
+    }
 
-    if (yMin < plausible.yMin || yMax > plausible.yMax) return null;
+    if (plotArea.right - plotArea.left < 30 || plotArea.bottom - plotArea.top < 30) return null;
 
     return {
         source: 'ai_calibrated',
@@ -120,22 +169,12 @@ function validateCalibration(candidate, fallbackConfig, fallbackMeasureKey, fall
         label: candidate.label || fallbackConfig?.label || `${measureKey} ${gender}`,
         measure_key: measureKey,
         gender,
-        x_min: xMin,
-        x_max: xMax,
-        y_min: yMin,
-        y_max: yMax,
-        x_unit: candidate.x_unit || candidate.x_axis?.unit || fallbackConfig?.x_unit || 'months',
-        y_unit: candidate.y_unit || candidate.y_axis?.unit || fallbackConfig?.y_unit || '',
-        plot_area: { left, top, right, bottom },
-        auto_confidence: Number(confidence.toFixed(3)),
-        fallback_config: fallbackConfig ? {
-            source: fallbackConfig.source,
-            x_min: fallbackConfig.x_min,
-            x_max: fallbackConfig.x_max,
-            y_min: fallbackConfig.y_min,
-            y_max: fallbackConfig.y_max,
-            plot_area: fallbackConfig.plot_area
-        } : null
+        x_min: xMin, x_max: xMax,
+        y_min: yMin, y_max: yMax,
+        x_unit: candidate.x_unit || 'months',
+        y_unit: candidate.y_unit || '',
+        plot_area: plotArea,
+        auto_confidence: Number(confidence.toFixed(3))
     };
 }
 
@@ -145,11 +184,10 @@ function validateCombinedCalibration(candidate, fallbackGender) {
 
     const gender = normalizeGender(candidate.gender, fallbackGender);
     const confidence = numberOrNull(candidate.confidence) ?? 0;
-    if (confidence < 0.5) return null;
+    if (confidence < 0.4) return null;
 
     const mc = candidate.measure_configs;
-    if (!mc || typeof mc !== 'object') return null;
-    if (!mc.height || !mc.weight) return null;
+    if (!mc || typeof mc !== 'object' || !mc.height || !mc.weight) return null;
 
     function validateSubConfig(sub, type) {
         if (!sub || typeof sub !== 'object') return null;
@@ -157,23 +195,35 @@ function validateCombinedCalibration(candidate, fallbackGender) {
         const xMax = numberOrNull(sub.x_max);
         const yMin = numberOrNull(sub.y_min);
         const yMax = numberOrNull(sub.y_max);
-        const p = sub.plot_area || {};
-        const left = numberOrNull(p.left);
-        const top = numberOrNull(p.top);
-        const right = numberOrNull(p.right);
-        const bottom = numberOrNull(p.bottom);
 
-        if (![xMin, xMax, yMin, yMax, left, top, right, bottom].every(Number.isFinite)) return null;
+        if (![xMin, xMax, yMin, yMax].every(Number.isFinite)) return null;
         if (xMax <= xMin || yMax <= yMin) return null;
-        if (left < 0 || top < 0 || right > 100 || bottom > 100) return null;
-        if (right - left < 20 || bottom - top < 15) return null;
+
+        // Compute precise plot_area from reference points if available
+        let plotArea;
+        if (sub.x_reference_points && sub.y_reference_points) {
+            plotArea = computePlotAreaFromRefs(
+                sub.x_reference_points, sub.y_reference_points,
+                xMin, xMax, yMin, yMax
+            );
+        } else {
+            const p = sub.plot_area || {};
+            plotArea = {
+                left: numberOrNull(p.left) ?? 5,
+                top: numberOrNull(p.top) ?? 5,
+                right: numberOrNull(p.right) ?? 95,
+                bottom: numberOrNull(p.bottom) ?? 95
+            };
+        }
+
+        if (plotArea.right - plotArea.left < 15 || plotArea.bottom - plotArea.top < 10) return null;
 
         return {
             x_min: xMin, x_max: xMax,
             y_min: yMin, y_max: yMax,
             x_unit: sub.x_unit || 'months',
             y_unit: sub.y_unit || (type === 'weight' ? 'kg' : 'cm'),
-            plot_area: { left, top, right, bottom }
+            plot_area: plotArea
         };
     }
 
@@ -187,40 +237,31 @@ function validateCombinedCalibration(candidate, fallbackGender) {
         label: candidate.label || `Poids + Taille (${gender === 'male' ? 'G' : 'F'})`,
         measure_key: 'weight_height',
         gender,
-        // Root-level values from height config (used as primary display)
-        x_min: heightConfig.x_min,
-        x_max: heightConfig.x_max,
-        y_min: heightConfig.y_min,
-        y_max: heightConfig.y_max,
-        x_unit: heightConfig.x_unit,
-        y_unit: 'cm',
+        x_min: heightConfig.x_min, x_max: heightConfig.x_max,
+        y_min: heightConfig.y_min, y_max: heightConfig.y_max,
+        x_unit: heightConfig.x_unit, y_unit: 'cm',
         plot_area: heightConfig.plot_area,
-        measure_configs: {
-            height: heightConfig,
-            weight: weightConfig
-        },
+        measure_configs: { height: heightConfig, weight: weightConfig },
         auto_confidence: Number(confidence.toFixed(3))
     };
 }
 
 // ────── Prompts ──────
-function buildCalibrationPrompt({ originalName, fallbackConfig, fallbackMeasureKey, fallbackGender }) {
-    return `You are calibrating a pediatric growth chart image for deterministic plotting.
+function buildCalibrationPrompt({ originalName, fallbackMeasureKey, fallbackGender }) {
+    return `You are calibrating a pediatric growth chart image for PRECISE data point plotting.
 
 Return ONLY valid JSON. No markdown.
 
 Task:
-- Read the chart title, axes, tick labels, and grid.
-- Detect the clinical measurement type.
-- Detect gender when visible.
-- Detect x-axis numeric range in months (convert years to months if needed: 1 year = 12 months).
-- Detect y-axis numeric range and unit.
-- Estimate the plot_area as percentages of the full image bounds: left, top, right, bottom.
-  The plot_area must precisely match where the actual data grid starts and ends (where the axes lines are).
-- If the image is rotated or upside down, still return the calibration for the visible image orientation.
+1. Read the chart title, axes, tick labels, and grid lines.
+2. Detect the clinical measurement type and gender.
+3. Detect x-axis range in MONTHS (convert years to months: 1 year = 12 months).
+4. Detect y-axis range and unit.
+5. CRITICAL — Identify 2 clearly visible tick marks on each axis as reference points:
+   - For x-axis: Pick two tick marks far apart. For each, give the value (in months) and its horizontal position as a percentage of image width.
+   - For y-axis: Pick two tick marks far apart. For each, give the value and its vertical position as a percentage of image height (0% = top of image, 100% = bottom).
 
-Allowed measure_key values: weight, height, head, bmi.
-Allowed gender values: male, female.
+These reference points must be PRECISE because they determine where data points are drawn on the chart.
 
 Original filename: ${originalName || 'unknown'}
 Fallback measure_key: ${fallbackMeasureKey || 'unknown'}
@@ -237,32 +278,35 @@ Return this JSON shape:
   "y_min": 40,
   "y_max": 110,
   "y_unit": "cm",
-  "plot_area": { "left": 5.0, "top": 5.0, "right": 95.0, "bottom": 87.0 },
+  "x_reference_points": [
+    { "value": 6, "percent": 15.5 },
+    { "value": 30, "percent": 82.3 }
+  ],
+  "y_reference_points": [
+    { "value": 100, "percent": 12.0 },
+    { "value": 50, "percent": 78.5 }
+  ],
   "confidence": 0.92,
   "notes": "short reason"
 }`;
 }
 
 function buildCombinedCalibrationPrompt({ originalName, fallbackGender }) {
-    return `You are calibrating a COMBINED pediatric growth chart image that contains BOTH height (taille) and weight (poids) curves on the SAME image.
+    return `You are calibrating a COMBINED pediatric growth chart image that contains BOTH height (taille/cm) and weight (poids/kg) curves on the SAME image.
 
 Return ONLY valid JSON. No markdown.
 
 Task:
-- This image contains TWO separate plotting areas: one for height (cm) and one for weight (kg).
-- They share the same x-axis (age) but have DIFFERENT y-axes and occupy DIFFERENT vertical regions of the image.
-- For EACH measure (height and weight), you must detect:
-  1. The x-axis range in months (convert years to months if needed: 1 year = 12 months).
-  2. The y-axis range and unit.
-  3. The plot_area as percentages of the FULL image: left, top, right, bottom.
-     - The plot_area must precisely match where each chart's data grid starts and ends.
-     - Height chart is typically in the UPPER portion.
-     - Weight chart is typically in the LOWER portion.
-     - They should NOT overlap significantly.
-- Detect gender from title/labels.
-- Be very precise about plot_area — this determines where data points will be drawn.
+- This image has TWO plotting areas: height (cm) in the upper portion and weight (kg) in the lower portion.
+- They share the same x-axis (age) but have DIFFERENT y-axes and occupy DIFFERENT vertical regions.
+- For EACH measure (height and weight), detect:
+  1. x-axis range in MONTHS (convert years to months: 1y = 12m).
+  2. y-axis range and unit.
+  3. CRITICAL — 2 reference points per axis for PRECISE calibration:
+     - x_reference_points: Two x-axis tick marks with value (months) and horizontal position (% of image width).
+     - y_reference_points: Two y-axis tick marks with value and vertical position (% of image height, 0%=top, 100%=bottom).
 
-Allowed gender values: male, female.
+The reference points determine where data points are plotted. Be as PRECISE as possible by looking at the exact center of each tick mark label.
 
 Original filename: ${originalName || 'unknown'}
 Fallback gender: ${fallbackGender || 'male'}
@@ -280,7 +324,14 @@ Return this exact JSON shape:
       "y_min": 60,
       "y_max": 200,
       "y_unit": "cm",
-      "plot_area": { "left": 7, "top": 5, "right": 85, "bottom": 52 }
+      "x_reference_points": [
+        { "value": 24, "percent": 12.5 },
+        { "value": 204, "percent": 82.0 }
+      ],
+      "y_reference_points": [
+        { "value": 190, "percent": 8.0 },
+        { "value": 70, "percent": 48.0 }
+      ]
     },
     "weight": {
       "x_min": 12,
@@ -289,16 +340,23 @@ Return this exact JSON shape:
       "y_min": 0,
       "y_max": 80,
       "y_unit": "kg",
-      "plot_area": { "left": 7, "top": 54, "right": 85, "bottom": 93 }
+      "x_reference_points": [
+        { "value": 24, "percent": 12.5 },
+        { "value": 204, "percent": 82.0 }
+      ],
+      "y_reference_points": [
+        { "value": 70, "percent": 57.0 },
+        { "value": 10, "percent": 90.0 }
+      ]
     }
   },
   "confidence": 0.88,
-  "notes": "Height chart occupies upper half, weight chart occupies lower half"
+  "notes": "Height in upper half, weight in lower half"
 }`;
 }
 
 // ────── API calls ──────
-async function fetchWithTimeout(url, options, timeoutMs = 30000) {
+async function fetchWithTimeout(url, options, timeoutMs = 45000) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), timeoutMs);
     try {
@@ -308,7 +366,7 @@ async function fetchWithTimeout(url, options, timeoutMs = 30000) {
     }
 }
 
-async function callGeminiCalibration(prompt, pngBase64, cfg, mimeType) {
+async function callGeminiCalibration(prompt, base64, cfg, mimeType) {
     const model = cfg.model || 'gemini-2.5-flash';
     const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${cfg.apiKey}`;
     const response = await fetchWithTimeout(url, {
@@ -318,82 +376,54 @@ async function callGeminiCalibration(prompt, pngBase64, cfg, mimeType) {
             contents: [{
                 parts: [
                     { text: prompt },
-                    { inlineData: { mimeType: mimeType || 'image/png', data: pngBase64 } }
+                    { inlineData: { mimeType: mimeType || 'image/png', data: base64 } }
                 ]
             }],
-            generationConfig: {
-                temperature: 0,
-                maxOutputTokens: 2000,
-                responseMimeType: 'application/json'
-            }
+            generationConfig: { temperature: 0, maxOutputTokens: 2500, responseMimeType: 'application/json' }
         })
     });
-
-    if (!response.ok) {
-        throw new Error(`Gemini calibration failed: ${response.status} ${await response.text()}`);
-    }
-
+    if (!response.ok) throw new Error(`Gemini calibration failed: ${response.status} ${await response.text()}`);
     const data = await response.json();
     return data.candidates?.[0]?.content?.parts?.[0]?.text || '';
 }
 
-async function callOpenAiCalibration(prompt, pngBase64, cfg) {
+async function callOpenAiCalibration(prompt, base64, cfg) {
     const model = cfg.model || 'gpt-4o-mini';
     const response = await fetchWithTimeout('https://api.openai.com/v1/chat/completions', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${cfg.apiKey}`
-        },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.apiKey}` },
         body: JSON.stringify({
-            model,
-            temperature: 0,
-            max_tokens: 2000,
+            model, temperature: 0, max_tokens: 2500,
             response_format: { type: 'json_object' },
             messages: [
                 { role: 'system', content: 'You extract precise chart calibration metadata from medical chart images. Return JSON only.' },
-                {
-                    role: 'user',
-                    content: [
-                        { type: 'text', text: prompt },
-                        { type: 'image_url', image_url: { url: `data:image/png;base64,${pngBase64}`, detail: 'high' } }
-                    ]
-                }
+                { role: 'user', content: [
+                    { type: 'text', text: prompt },
+                    { type: 'image_url', image_url: { url: `data:image/png;base64,${base64}`, detail: 'high' } }
+                ]}
             ]
         })
     });
-
-    if (!response.ok) {
-        throw new Error(`OpenAI calibration failed: ${response.status} ${await response.text()}`);
-    }
-
+    if (!response.ok) throw new Error(`OpenAI calibration failed: ${response.status} ${await response.text()}`);
     const data = await response.json();
     return data.choices?.[0]?.message?.content || '';
 }
 
 // ────── Main calibration functions ──────
 
-/**
- * Calibrate extracted chart image (raw pixel data from AFPA PDF).
- */
 async function calibrateGrowthChartWithAI({ image, originalName, fallbackConfig, fallbackMeasureKey, fallbackGender, aiConfig }) {
     if (!aiConfig?.apiKey || !image?.raw) return null;
-
     try {
         const pngBase64 = encodeRgbImageToPng(image).toString('base64');
-        const prompt = buildCalibrationPrompt({ originalName, fallbackConfig, fallbackMeasureKey, fallbackGender });
+        const prompt = buildCalibrationPrompt({ originalName, fallbackMeasureKey, fallbackGender });
         const provider = aiConfig.provider === 'openai' ? 'openai' : 'gemini';
-
         const text = provider === 'openai'
             ? await callOpenAiCalibration(prompt, pngBase64, aiConfig)
             : await callGeminiCalibration(prompt, pngBase64, aiConfig, 'image/png');
-
         const jsonText = stripJsonEnvelope(text);
         if (!jsonText) return null;
-
         const parsed = JSON.parse(jsonText);
         parsed.ai_provider = provider;
-
         return validateCalibration(parsed, fallbackConfig, fallbackMeasureKey, fallbackGender);
     } catch (error) {
         console.warn('Growth curve AI calibration skipped:', error.message);
@@ -401,37 +431,27 @@ async function calibrateGrowthChartWithAI({ image, originalName, fallbackConfig,
     }
 }
 
-/**
- * Calibrate an image file (JPG/PNG) on disk.
- * For weight_height charts, uses a specialized prompt that asks the AI to detect
- * separate plot areas for height and weight.
- */
 async function calibrateImageFileWithAI({ filePath, mimeType, originalName, fallbackMeasureKey, fallbackGender, fallbackConfig, aiConfig }) {
     if (!aiConfig?.apiKey) return null;
     try {
         const fileBuffer = fs.readFileSync(filePath);
-        const pngBase64 = fileBuffer.toString('base64');
+        const base64 = fileBuffer.toString('base64');
         const provider = aiConfig.provider === 'openai' ? 'openai' : 'gemini';
         const isCombined = fallbackMeasureKey === 'weight_height';
 
-        // Use specialized prompt for combined charts
         const prompt = isCombined
             ? buildCombinedCalibrationPrompt({ originalName, fallbackGender })
-            : buildCalibrationPrompt({ originalName, fallbackConfig, fallbackMeasureKey, fallbackGender });
+            : buildCalibrationPrompt({ originalName, fallbackMeasureKey, fallbackGender });
 
-        let text;
-        if (provider === 'openai') {
-            text = await callOpenAiCalibration(prompt, pngBase64, aiConfig);
-        } else {
-            text = await callGeminiCalibration(prompt, pngBase64, aiConfig, mimeType || 'image/jpeg');
-        }
+        const text = provider === 'openai'
+            ? await callOpenAiCalibration(prompt, base64, aiConfig)
+            : await callGeminiCalibration(prompt, base64, aiConfig, mimeType || 'image/jpeg');
 
         const jsonText = stripJsonEnvelope(text);
         if (!jsonText) return null;
         const parsed = JSON.parse(jsonText);
         parsed.ai_provider = provider;
 
-        // Use appropriate validation based on chart type
         if (isCombined) {
             return validateCombinedCalibration(parsed, fallbackGender);
         }
