@@ -70,8 +70,13 @@ function pickCurveForPatient(curves, { measure, gender, ageInMonths }) {
         && c?.calibration?.x && c?.calibration?.yPrimary;
     const isData = (c) => Boolean(c?.curve_data);
 
+    // Only doctor-validated or auto-approved (built-in reference) curves are
+    // surfaced in the patient view. Pending AI extractions stay hidden until
+    // the doctor reviews them, to avoid plotting clinical measurements against
+    // unverified percentile data.
     const usable = curves.filter((c) =>
-        c && c.gender === gender && c.validation_status !== 'rejected'
+        c && c.gender === gender
+        && (c.validation_status === 'auto_approved' || c.validation_status === 'doctor_approved')
         && (isData(c) || isCalibrated(c))
     );
 
@@ -162,11 +167,14 @@ function PatientMeasurementsChart({ data, allData, measureKey, patient, height =
         if (!savedCurves.length) return null;
         const gender = patient?.gender || 'male';
         if (isCombinedView) {
+            const isApproved = (c) =>
+                c?.validation_status === 'auto_approved' || c?.validation_status === 'doctor_approved';
+
             // 1. Composite calibrated overlay (preferred — pixel-perfect AFPA-style)
             const calibratedComposite = savedCurves.find((c) => {
                 if (c?.source_type !== 'calibrated_overlay') return false;
                 if (c?.gender !== gender) return false;
-                if (c?.validation_status === 'rejected') return false;
+                if (!isApproved(c)) return false;
                 const cal = c?.calibration;
                 if (!cal?.x || !cal?.yPrimary || !cal?.ySecondary) return false;
                 const hasTaille = cal.yPrimary.axis === 'taille' || cal.ySecondary.axis === 'taille';
@@ -179,7 +187,7 @@ function PatientMeasurementsChart({ data, allData, measureKey, patient, height =
             return savedCurves.find((c) => {
                 if (!c?.curve_data?.isComposite) return false;
                 if (c.gender !== gender) return false;
-                if (c.validation_status === 'rejected') return false;
+                if (!isApproved(c)) return false;
                 const range = c.curve_data.ageRange;
                 if (!range || !Number.isFinite(latestAge)) return true;
                 return latestAge >= range.min - 2 && latestAge <= range.max + 2;
