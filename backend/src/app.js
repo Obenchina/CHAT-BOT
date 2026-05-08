@@ -357,12 +357,14 @@ async function runMigrations(pool) {
             doctor_id INT NOT NULL,
             measure_key VARCHAR(50) NOT NULL,
             gender ENUM('male', 'female') NOT NULL DEFAULT 'male',
-            source_type ENUM('reference', 'extracted') NOT NULL DEFAULT 'reference',
+            source_type ENUM('reference', 'extracted', 'calibrated_overlay') NOT NULL DEFAULT 'reference',
             reference_id VARCHAR(100) NULL,
             curve_data JSON NULL,
             validation_status ENUM('auto_approved', 'pending_review', 'doctor_approved', 'rejected') NOT NULL DEFAULT 'auto_approved',
             original_image_path VARCHAR(255) NULL,
             label VARCHAR(255) NULL,
+            chart_kind VARCHAR(40) NULL,
+            calibration JSON NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
@@ -370,13 +372,22 @@ async function runMigrations(pool) {
     `);
 
     // Online migration for databases that pre-date v2.
-    await ensureColumn(pool, 'doctor_growth_curves', 'source_type', "ENUM('reference', 'extracted') NOT NULL DEFAULT 'reference'");
+    await ensureColumn(pool, 'doctor_growth_curves', 'source_type', "ENUM('reference', 'extracted', 'calibrated_overlay') NOT NULL DEFAULT 'reference'");
     await ensureColumn(pool, 'doctor_growth_curves', 'reference_id', 'VARCHAR(100) NULL');
     await ensureColumn(pool, 'doctor_growth_curves', 'curve_data', 'JSON NULL');
     await ensureColumn(pool, 'doctor_growth_curves', 'validation_status', "ENUM('auto_approved', 'pending_review', 'doctor_approved', 'rejected') NOT NULL DEFAULT 'auto_approved'");
     await ensureColumn(pool, 'doctor_growth_curves', 'original_image_path', 'VARCHAR(255) NULL');
     await ensureColumn(pool, 'doctor_growth_curves', 'label', 'VARCHAR(255) NULL');
+    await ensureColumn(pool, 'doctor_growth_curves', 'chart_kind', 'VARCHAR(40) NULL');
+    await ensureColumn(pool, 'doctor_growth_curves', 'calibration', 'JSON NULL');
     await ensureColumn(pool, 'doctor_growth_curves', 'updated_at', 'TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP');
+    // Extend ENUMs in case an older deploy was created before the
+    // calibrated_overlay variant was added.
+    try {
+        await pool.execute("ALTER TABLE doctor_growth_curves MODIFY COLUMN source_type ENUM('reference', 'extracted', 'calibrated_overlay') NOT NULL DEFAULT 'reference'");
+    } catch (err) {
+        console.warn('Could not extend doctor_growth_curves.source_type ENUM:', err.message);
+    }
     // Make legacy required column optional so the new flow can omit it.
     try {
         await pool.execute('ALTER TABLE doctor_growth_curves MODIFY COLUMN file_path VARCHAR(255) NULL');

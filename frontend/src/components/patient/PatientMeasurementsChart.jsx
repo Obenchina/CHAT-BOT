@@ -7,9 +7,17 @@
  * system as the percentile lines (no background image overlay).
  */
 import { useEffect, useMemo, useState } from 'react';
-import { CLINICAL_MEASURE_LABELS } from '../../constants/config';
+import { API_URL, CLINICAL_MEASURE_LABELS } from '../../constants/config';
 import doctorService from '../../services/doctorService';
 import GrowthCurveChart from '../charts/GrowthCurveChart';
+
+const UPLOADS_BASE = API_URL.replace(/\/api\/?$/, '');
+function uploadUrl(relPath) {
+    if (!relPath) return null;
+    const path = relPath.startsWith('/') ? relPath : `/${relPath}`;
+    const token = (typeof localStorage !== 'undefined' && localStorage.getItem('token')) || '';
+    return `${UPLOADS_BASE}${path}${token ? `?token=${encodeURIComponent(token)}` : ''}`;
+}
 
 const MEASURE_TO_PANEL = {
     weight: 'weight',
@@ -37,25 +45,61 @@ function processMeasurementPoints(rawData, patient) {
         .sort((a, b) => a.age - b.age);
 }
 
+// Map app-side measure key ('height', 'weight', 'head', 'bmi') to the calibration
+// axis token ('taille', 'poids', 'pc', 'imc') used in calibration.yPrimary.axis.
+const MEASURE_TO_AXIS = {
+    height: 'taille',
+    weight: 'poids',
+    head: 'pc',
+    bmi: 'imc',
+};
+
+function calibrationCoversMeasure(curve, measure) {
+    const axisToken = MEASURE_TO_AXIS[measure];
+    if (!axisToken) return false;
+    const calib = curve?.calibration;
+    if (!calib?.x || !calib?.yPrimary) return false;
+    return calib.yPrimary.axis === axisToken
+        || (calib.ySecondary && calib.ySecondary.axis === axisToken);
+}
+
 function pickCurveForPatient(curves, { measure, gender, ageInMonths }) {
     if (!Array.isArray(curves)) return null;
 
-    const usable = curves.filter((c) => c && c.curve_data && c.gender === gender && c.validation_status !== 'rejected');
-    const panelMatches = (curve) => {
+    const isCalibrated = (c) => c?.source_type === 'calibrated_overlay'
+        && c?.calibration?.x && c?.calibration?.yPrimary;
+    const isData = (c) => Boolean(c?.curve_data);
+
+    const usable = curves.filter((c) =>
+        c && c.gender === gender && c.validation_status !== 'rejected'
+        && (isData(c) || isCalibrated(c))
+    );
+
+    const matches = (curve) => {
+        if (isCalibrated(curve)) return calibrationCoversMeasure(curve, measure);
         const panels = curve.curve_data?.panels || [];
         return panels.some((p) => p.measure === measure);
     };
     const ageInRange = (curve) => {
+        if (!Number.isFinite(ageInMonths)) return true;
+        if (isCalibrated(curve)) {
+            // calibration.x stores the unit; we accept anything within [aA, aB] +/- 1 unit
+            const x = curve.calibration.x;
+            const ageInUnit = (x.unit === 'months') ? ageInMonths : ageInMonths / 12;
+            const lo = Math.min(x.aA, x.aB);
+            const hi = Math.max(x.aA, x.aB);
+            const slack = (x.unit === 'months') ? 12 : 1;
+            return ageInUnit >= lo - slack && ageInUnit <= hi + slack;
+        }
         const range = curve.curve_data?.ageRange;
         if (!range) return true;
-        if (!Number.isFinite(ageInMonths)) return true;
         return ageInMonths >= range.min - 2 && ageInMonths <= range.max + 2;
     };
 
-    const candidates = usable.filter((c) => panelMatches(c) && ageInRange(c));
+    const candidates = usable.filter((c) => matches(c) && ageInRange(c));
     if (!candidates.length) return null;
 
-    // Prefer doctor_approved, then auto_approved
+    // Prefer doctor_approved, then auto_approved, then calibrated_overlay over data
     const ranking = { doctor_approved: 0, auto_approved: 1, pending_review: 2 };
     candidates.sort((a, b) => (ranking[a.validation_status] ?? 9) - (ranking[b.validation_status] ?? 9));
     return candidates[0];
@@ -118,7 +162,20 @@ function PatientMeasurementsChart({ data, allData, measureKey, patient, height =
         if (!savedCurves.length) return null;
         const gender = patient?.gender || 'male';
         if (isCombinedView) {
-            // Look for any composite curve covering the latest age
+            // 1. Composite calibrated overlay (preferred — pixel-perfect AFPA-style)
+            const calibratedComposite = savedCurves.find((c) => {
+                if (c?.source_type !== 'calibrated_overlay') return false;
+                if (c?.gender !== gender) return false;
+                if (c?.validation_status === 'rejected') return false;
+                const cal = c?.calibration;
+                if (!cal?.x || !cal?.yPrimary || !cal?.ySecondary) return false;
+                const hasTaille = cal.yPrimary.axis === 'taille' || cal.ySecondary.axis === 'taille';
+                const hasPoids = cal.yPrimary.axis === 'poids' || cal.ySecondary.axis === 'poids';
+                return hasTaille && hasPoids;
+            });
+            if (calibratedComposite) return calibratedComposite;
+
+            // 2. Recharts composite (curve_data.isComposite)
             return savedCurves.find((c) => {
                 if (!c?.curve_data?.isComposite) return false;
                 if (c.gender !== gender) return false;
@@ -134,6 +191,9 @@ function PatientMeasurementsChart({ data, allData, measureKey, patient, height =
             ageInMonths: latestAge,
         });
     }, [savedCurves, isCombinedView, patient, panelMeasure, latestAge]);
+
+    const isCalibratedMatch = matchingCurve?.source_type === 'calibrated_overlay'
+        && matchingCurve?.calibration?.x;
 
     const hasAnyPoint = singlePoints.length || heightPoints.length || weightPoints.length || headPoints.length || bmiPoints.length;
 
@@ -163,11 +223,17 @@ function PatientMeasurementsChart({ data, allData, measureKey, patient, height =
                     curve={matchingCurve.curve_data}
                     title={matchingCurve.label || matchingCurve.curve_data?.label}
                     height={typeof height === 'number' ? height - 30 : 480}
-                    patientPoints={isCombinedView
-                        ? { height: heightPoints, weight: weightPoints }
-                        : (matchingCurve.curve_data?.isComposite
+                    calibration={isCalibratedMatch ? matchingCurve.calibration : null}
+                    imageUrl={isCalibratedMatch ? uploadUrl(matchingCurve.original_image_path) : null}
+                    patientPoints={
+                        isCalibratedMatch
                             ? { height: heightPoints, weight: weightPoints, head: headPoints, bmi: bmiPoints }
-                            : singlePoints)}
+                            : isCombinedView
+                                ? { height: heightPoints, weight: weightPoints }
+                                : (matchingCurve.curve_data?.isComposite
+                                    ? { height: heightPoints, weight: weightPoints, head: headPoints, bmi: bmiPoints }
+                                    : singlePoints)
+                    }
                 />
             ) : (
                 <div style={{

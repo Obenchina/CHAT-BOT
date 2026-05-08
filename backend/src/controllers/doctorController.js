@@ -10,6 +10,7 @@ const referenceCurveLibrary = require('../services/curve/referenceCurveLibrary')
 const { identifyCurve } = require('../services/curve/curveIdentificationService');
 const { extractCurve } = require('../services/curve/curveExtractionService');
 const { validateCurveData } = require('../services/curve/curveValidationService');
+const { validateCalibration } = require('../services/curve/calibrationService');
 
 function normalizeOptionalText(value, maxLength) {
     if (value === undefined || value === null) {
@@ -341,6 +342,8 @@ function mapDoctorCurveForApi(row) {
         reference_id: row.reference_id,
         validation_status: row.validation_status,
         original_image_path: row.original_image_path || null,
+        chart_kind: row.chart_kind || null,
+        calibration: row.calibration || null,
         label: label || `${row.measure_key} (${row.gender})`,
         source,
         curve_data: curveData,
@@ -761,6 +764,144 @@ async function updateGrowthCurveData(req, res) {
 }
 
 /**
+ * POST /api/doctor/growth-curves/upload-image
+ *
+ * Calibrated-overlay flow: doctor uploads a PDF/image of a chart they want
+ * to keep visually intact. The backend stores the file and returns metadata
+ * (id, image URL, dimensions). The doctor then opens a calibration modal and
+ * clicks reference points; calibration is saved via PUT /:id/calibration.
+ *
+ * No AI extraction is performed here.
+ *
+ * Form fields:
+ *   curveImage: file (image/* or rendered PNG of a PDF page)
+ *   imageWidth, imageHeight: optional ints (taken from the PNG itself if absent)
+ *   measure: 'height' | 'weight' | 'head' | 'bmi' | 'height_weight'
+ *   gender:  'male' | 'female'
+ *   label:   optional human label
+ */
+async function uploadCurveImageForCalibration(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+
+        const curveFile = req.files?.curve?.[0];
+        const curveImageFile = req.files?.curveImage?.[0];
+        const imageFile = curveImageFile || curveFile;
+        if (!imageFile) {
+            cleanupTempFiles(req);
+            return res.status(400).json({ success: false, message: 'Fichier requis' });
+        }
+
+        const measure = String(req.body.measure || 'height').toLowerCase();
+        const gender = String(req.body.gender || 'male').toLowerCase();
+        const label = String(req.body.label || '').trim().slice(0, 200) || null;
+        const chartKind = String(req.body.chartKind || '').trim().slice(0, 40) || null;
+
+        const allowedMeasures = ['height', 'weight', 'head', 'bmi', 'height_weight'];
+        if (!allowedMeasures.includes(measure)) {
+            cleanupTempFiles(req);
+            return res.status(400).json({ success: false, message: 'measure invalide' });
+        }
+        if (!['male', 'female'].includes(gender)) {
+            cleanupTempFiles(req);
+            return res.status(400).json({ success: false, message: 'gender invalide' });
+        }
+
+        const originalImagePath = persistOriginalImage(imageFile);
+        if (!originalImagePath) {
+            cleanupTempFiles(req);
+            return res.status(500).json({ success: false, message: "Échec de l'enregistrement de l'image" });
+        }
+
+        const imageWidth = Number(req.body.imageWidth) || null;
+        const imageHeight = Number(req.body.imageHeight) || null;
+
+        const created = await GrowthCurve.create({
+            doctor_id: doctor.id,
+            measure_key: measure,
+            gender,
+            source_type: 'calibrated_overlay',
+            reference_id: null,
+            curve_data: null,
+            validation_status: 'pending_review',
+            original_image_path: originalImagePath,
+            label,
+            chart_kind: chartKind,
+            calibration: imageWidth && imageHeight
+                ? { imageWidth, imageHeight }
+                : null,
+        });
+        cleanupTempFiles(req);
+
+        res.status(201).json({
+            success: true,
+            message: 'Image enregistrée. Procédez à la calibration en cliquant sur des points connus du graphique.',
+            data: mapDoctorCurveForApi(created),
+        });
+    } catch (error) {
+        console.error('Upload curve image error:', error);
+        cleanupTempFiles(req);
+        res.status(500).json({ success: false, message: "Échec de l'envoi" });
+    }
+}
+
+/**
+ * PUT /api/doctor/growth-curves/:id/calibration
+ *
+ * Persist the calibration produced by the doctor in the CalibrationModal.
+ * Body: {
+ *   chartKind: 'taille' | 'poids' | 'taille_poids' | …,
+ *   calibration: { imageWidth, imageHeight, x:{aA,pxA,aB,pxB,unit}, yPrimary:{…}, ySecondary?:{…} },
+ *   label?: string
+ * }
+ *
+ * Validates the calibration math (distinct points, supported axes) before
+ * saving. The curve becomes 'doctor_approved' so it can be used for plotting.
+ */
+async function saveCurveCalibration(req, res) {
+    try {
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const { id } = req.params;
+        const existing = await GrowthCurve.findById(id);
+        if (!existing || existing.doctor_id !== doctor.id) {
+            return res.status(404).json({ success: false, message: 'Courbe introuvable' });
+        }
+        if (existing.source_type === 'reference') {
+            return res.status(400).json({
+                success: false,
+                message: "Impossible de calibrer une courbe de référence intégrée",
+            });
+        }
+
+        const calibration = req.body?.calibration;
+        const chartKind = req.body?.chartKind ? String(req.body.chartKind).slice(0, 40) : existing.chart_kind;
+        const label = req.body?.label != null ? String(req.body.label).trim().slice(0, 200) : null;
+
+        const v = validateCalibration(calibration);
+        if (!v.ok) {
+            return res.status(400).json({
+                success: false,
+                message: 'Calibration invalide',
+                errors: v.errors,
+            });
+        }
+
+        await GrowthCurve.updateCalibration(id, doctor.id, {
+            calibration,
+            chart_kind: chartKind,
+            label,
+            source_type: 'calibrated_overlay',
+            validation_status: 'doctor_approved',
+        });
+        const updated = await GrowthCurve.findById(id);
+        res.json({ success: true, data: mapDoctorCurveForApi(updated) });
+    } catch (error) {
+        console.error('Save calibration error:', error);
+        res.status(500).json({ success: false, message: 'Échec de la calibration' });
+    }
+}
+
+/**
  * Delete a growth curve
  */
 async function deleteGrowthCurve(req, res) {
@@ -1020,6 +1161,8 @@ module.exports = {
     reviewExtractedCurve,
     createManualGrowthCurve,
     updateGrowthCurveData,
+    uploadCurveImageForCalibration,
+    saveCurveCalibration,
     deleteGrowthCurve,
     uploadMedicationCSV,
     searchMedications,

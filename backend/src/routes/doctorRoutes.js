@@ -58,8 +58,18 @@ router.post(
     doctorController.uploadGrowthCurve
 );
 // Static paths must be registered BEFORE the parameterized ones so Express
-// does not match `manual` against `:id`.
+// does not match `manual` / `upload-image` against `:id`.
 router.post('/growth-curves/manual', doctorController.createManualGrowthCurve);
+router.post(
+    '/growth-curves/upload-image',
+    uploadCurve.fields([
+        { name: 'curve', maxCount: 1 },
+        { name: 'curveImage', maxCount: 1 }
+    ]),
+    handleUploadError,
+    doctorController.uploadCurveImageForCalibration
+);
+router.put('/growth-curves/:id/calibration', doctorController.saveCurveCalibration);
 router.post('/growth-curves/:id/approve', doctorController.reviewExtractedCurve);
 router.put('/growth-curves/:id/curve-data', doctorController.updateGrowthCurveData);
 router.delete('/growth-curves/:id', doctorController.deleteGrowthCurve);

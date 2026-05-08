@@ -4,10 +4,13 @@
  * A doctor's growth curve points either at a built-in reference
  * (source_type='reference', reference_id='who_height_boys_0_5')
  * OR carries inline AI-extracted percentile data
- * (source_type='extracted', curve_data={...}).
+ * (source_type='extracted', curve_data={...})
+ * OR overlays patient measurements directly on top of an uploaded image
+ * (source_type='calibrated_overlay', original_image_path + calibration).
  *
- * Rendering uses curve_data exclusively; the original image path is
- * preserved only for audit / side-by-side comparison in the UI.
+ * Rendering uses curve_data when available; for calibrated_overlay rows the
+ * frontend instead uses original_image_path + calibration to position
+ * patient dots over the image with pixel-perfect accuracy.
  */
 const { pool: db } = require('../config/database');
 
@@ -31,6 +34,7 @@ function mapRow(row) {
     return {
         ...row,
         curve_data: parseJsonField(row.curve_data),
+        calibration: parseJsonField(row.calibration),
     };
 }
 
@@ -39,8 +43,8 @@ class GrowthCurve {
         const [result] = await db.execute(
             `INSERT INTO doctor_growth_curves
                 (doctor_id, measure_key, gender, source_type, reference_id, curve_data,
-                 validation_status, original_image_path, label)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                 validation_status, original_image_path, label, chart_kind, calibration)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 data.doctor_id,
                 data.measure_key,
@@ -51,6 +55,8 @@ class GrowthCurve {
                 data.validation_status || 'auto_approved',
                 data.original_image_path || null,
                 data.label || null,
+                data.chart_kind || null,
+                toJsonString(data.calibration),
             ],
         );
         return GrowthCurve.findById(result.insertId);
@@ -94,6 +100,46 @@ class GrowthCurve {
         const [result] = await db.execute(
             `UPDATE doctor_growth_curves SET curve_data = ? WHERE id = ? AND doctor_id = ?`,
             [toJsonString(curveData), id, doctorId],
+        );
+        return result.affectedRows > 0;
+    }
+
+    /**
+     * Save a calibration object (and optionally update label, chart_kind,
+     * source_type and validation_status) atomically.
+     */
+    static async updateCalibration(id, doctorId, fields) {
+        const sets = [];
+        const params = [];
+        if (fields.calibration !== undefined) {
+            sets.push('calibration = ?');
+            params.push(toJsonString(fields.calibration));
+        }
+        if (fields.chart_kind !== undefined) {
+            sets.push('chart_kind = ?');
+            params.push(fields.chart_kind || null);
+        }
+        if (fields.label !== undefined && fields.label !== null) {
+            sets.push('label = ?');
+            params.push(fields.label);
+        }
+        if (fields.source_type !== undefined) {
+            sets.push('source_type = ?');
+            params.push(fields.source_type);
+        }
+        if (fields.validation_status !== undefined) {
+            const allowed = ['auto_approved', 'pending_review', 'doctor_approved', 'rejected'];
+            if (!allowed.includes(fields.validation_status)) {
+                throw new Error(`Invalid validation status: ${fields.validation_status}`);
+            }
+            sets.push('validation_status = ?');
+            params.push(fields.validation_status);
+        }
+        if (!sets.length) return false;
+        params.push(id, doctorId);
+        const [result] = await db.execute(
+            `UPDATE doctor_growth_curves SET ${sets.join(', ')} WHERE id = ? AND doctor_id = ?`,
+            params,
         );
         return result.affectedRows > 0;
     }

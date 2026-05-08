@@ -14,6 +14,7 @@ import Modal from '../../common/Modal';
 import Button from '../../common/Button';
 import GrowthCurveChart from '../../charts/GrowthCurveChart';
 import ManualCurveEntryModal from './ManualCurveEntryModal';
+import ChartCalibrationModal from './ChartCalibrationModal';
 import { API_URL } from '../../../constants/config';
 import * as pdfjsLib from 'pdfjs-dist';
 
@@ -111,6 +112,12 @@ function GrowthCurveManager() {
     const [librarySearch, setLibrarySearch] = useState('');
     const [manualOpen, setManualOpen] = useState(false);
     const [manualInitial, setManualInitial] = useState(null);
+    const [calibFile, setCalibFile] = useState(null);
+    const [calibMeasure, setCalibMeasure] = useState('height_weight');
+    const [calibGender, setCalibGender] = useState('female');
+    const [calibLabel, setCalibLabel] = useState('');
+    const [calibUploading, setCalibUploading] = useState(false);
+    const [calibTarget, setCalibTarget] = useState(null); // { id, imageUrl, imageWidth, imageHeight }
 
     const loadAll = async () => {
         setLoading(true);
@@ -176,6 +183,72 @@ function GrowthCurveManager() {
             showError(e?.response?.data?.message || e?.message || 'Erreur');
         }
         setUploading(false);
+    }
+
+    /**
+     * Calibrated-overlay flow:
+     *   1. Render the file (PDF or image) to a PNG and capture its native dimensions.
+     *   2. Upload the PNG to the backend along with the chart kind.
+     *   3. Open the calibration modal pointing at the saved image.
+     */
+    async function fileToImage(file) {
+        const isPdf = file.type === 'application/pdf' || /\.pdf$/i.test(file.name);
+        if (isPdf) {
+            const blob = await renderPdfToImage(file);
+            const url = URL.createObjectURL(blob);
+            const dim = await new Promise((resolve) => {
+                const img = new Image();
+                img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+                img.onerror = () => resolve({ width: 0, height: 0 });
+                img.src = url;
+            });
+            URL.revokeObjectURL(url);
+            return { blob, name: file.name.replace(/\.pdf$/i, '.png'), ...dim };
+        }
+        // image — read native size
+        const url = URL.createObjectURL(file);
+        const dim = await new Promise((resolve) => {
+            const img = new Image();
+            img.onload = () => resolve({ width: img.naturalWidth, height: img.naturalHeight });
+            img.onerror = () => resolve({ width: 0, height: 0 });
+            img.src = url;
+        });
+        URL.revokeObjectURL(url);
+        return { blob: file, name: file.name, ...dim };
+    }
+
+    async function handleStartCalibration() {
+        if (!calibFile) return showError('Sélectionnez un fichier');
+        setCalibUploading(true);
+        try {
+            const { blob, name, width, height } = await fileToImage(calibFile);
+            const fd = new FormData();
+            fd.append('curveImage', blob, name);
+            fd.append('measure', calibMeasure);
+            fd.append('gender', calibGender);
+            if (calibLabel) fd.append('label', calibLabel);
+            if (width) fd.append('imageWidth', String(width));
+            if (height) fd.append('imageHeight', String(height));
+            const res = await doctorService.uploadCurveImageForCalibration(fd);
+            if (res?.success) {
+                showSuccess(res.message || 'Image enregistrée');
+                const data = res.data;
+                setCalibTarget({
+                    id: data.id,
+                    imageUrl: uploadUrl(data.original_image_path),
+                    imageWidth: width || data?.calibration?.imageWidth || 0,
+                    imageHeight: height || data?.calibration?.imageHeight || 0,
+                });
+                setCalibFile(null);
+                setCalibLabel('');
+                await loadAll();
+            } else {
+                showError(res?.message || 'Échec');
+            }
+        } catch (e) {
+            showError(e?.response?.data?.message || e?.message || 'Erreur');
+        }
+        setCalibUploading(false);
     }
 
     function requestDelete(curve) {
@@ -302,6 +375,51 @@ function GrowthCurveManager() {
                 </div>
             </div>
 
+            <div className="profile-section-card" style={{ marginBottom: 'var(--space-lg)' }}>
+                <div className="section-header">
+                    <div className="section-title">Calibrer une courbe (overlay pixel-perfect)</div>
+                </div>
+                <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
+                    Importez une image / un PDF de référence (AFPA, carnet de santé…). Aucune extraction
+                    automatique : vous cliquez 4 à 6 points connus du graphique, et le système trace les
+                    mesures du patient avec une précision pixel-parfaite par-dessus l'image originale.
+                </p>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8 }}>
+                    <select className="input-field" value={calibMeasure} onChange={(e) => setCalibMeasure(e.target.value)}>
+                        <option value="height_weight">Taille + Poids (composite)</option>
+                        <option value="height">Taille</option>
+                        <option value="weight">Poids</option>
+                        <option value="head">Périmètre crânien</option>
+                        <option value="bmi">IMC</option>
+                    </select>
+                    <select className="input-field" value={calibGender} onChange={(e) => setCalibGender(e.target.value)}>
+                        <option value="female">Filles</option>
+                        <option value="male">Garçons</option>
+                    </select>
+                    <input
+                        className="input-field"
+                        placeholder="Étiquette (AFPA filles 1-18…)"
+                        value={calibLabel}
+                        onChange={(e) => setCalibLabel(e.target.value)}
+                    />
+                </div>
+                <input
+                    type="file"
+                    className="input-field"
+                    accept="image/*,application/pdf"
+                    onChange={(e) => setCalibFile(e.target.files?.[0] || null)}
+                    style={{ marginTop: 8 }}
+                />
+                <Button
+                    onClick={handleStartCalibration}
+                    disabled={!calibFile || calibUploading}
+                    style={{ marginTop: 12, width: '100%' }}
+                    variant="secondary"
+                >
+                    {calibUploading ? 'Préparation…' : 'Importer & calibrer'}
+                </Button>
+            </div>
+
             <div className="curves-list">
                 <h4 style={{ marginBottom: 'var(--space-md)' }}>Mes courbes</h4>
                 {!loading && savedCurves.length === 0 && (
@@ -324,7 +442,14 @@ function GrowthCurveManager() {
             >
                 {previewCurve && (
                     <div>
-                        {previewCurve.original_image_path && (
+                        {previewCurve.source_type === 'calibrated_overlay' && previewCurve.calibration?.x ? (
+                            <GrowthCurveChart
+                                imageUrl={uploadUrl(previewCurve.original_image_path)}
+                                calibration={previewCurve.calibration}
+                                patientPoints={null}
+                                height={520}
+                            />
+                        ) : previewCurve.original_image_path ? (
                             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 12 }}>
                                 <div>
                                     <div style={{ fontSize: 12, color: 'var(--text-secondary)', marginBottom: 6 }}>Source originale</div>
@@ -339,18 +464,34 @@ function GrowthCurveManager() {
                                     <GrowthCurveChart curve={previewCurve.curve_data} height={480} />
                                 </div>
                             </div>
-                        )}
-                        {!previewCurve.original_image_path && (
+                        ) : (
                             <GrowthCurveChart curve={previewCurve.curve_data} height={520} />
                         )}
                         <div style={{ display: 'flex', gap: 8, justifyContent: 'space-between', marginTop: 12, flexWrap: 'wrap' }}>
-                            {previewCurve.curve_data && previewCurve.source_type !== 'reference' && (
+                            {previewCurve.curve_data && previewCurve.source_type === 'extracted' && (
                                 <Button variant="ghost" size="sm" onClick={() => { setManualInitial(previewCurve); setPreviewCurve(null); setManualOpen(true); }}>
                                     Modifier les valeurs
                                 </Button>
                             )}
+                            {previewCurve.source_type === 'calibrated_overlay' && previewCurve.original_image_path && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        setCalibTarget({
+                                            id: previewCurve.id,
+                                            imageUrl: uploadUrl(previewCurve.original_image_path),
+                                            imageWidth: previewCurve.calibration?.imageWidth || 0,
+                                            imageHeight: previewCurve.calibration?.imageHeight || 0,
+                                        });
+                                        setPreviewCurve(null);
+                                    }}
+                                >
+                                    {previewCurve.calibration?.x ? 'Recalibrer' : 'Calibrer'}
+                                </Button>
+                            )}
                             <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
-                                {previewCurve.validation_status === 'pending_review' && (
+                                {previewCurve.validation_status === 'pending_review' && previewCurve.source_type !== 'calibrated_overlay' && (
                                     <>
                                         <Button variant="danger" onClick={() => handleApprove(previewCurve.id, 'rejected')}>Rejeter</Button>
                                         <Button onClick={() => handleApprove(previewCurve.id, 'approved')}>Approuver</Button>
@@ -373,6 +514,18 @@ function GrowthCurveManager() {
                 onSaved={() => loadAll()}
                 initialCurve={manualInitial}
             />
+
+            {calibTarget && (
+                <ChartCalibrationModal
+                    isOpen
+                    onClose={() => setCalibTarget(null)}
+                    curveId={calibTarget.id}
+                    imageUrl={calibTarget.imageUrl}
+                    imageWidth={calibTarget.imageWidth}
+                    imageHeight={calibTarget.imageHeight}
+                    onSaved={() => loadAll()}
+                />
+            )}
 
             <Modal
                 isOpen={deleteModalOpen}

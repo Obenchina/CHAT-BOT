@@ -29,6 +29,7 @@ import {
     ResponsiveContainer,
     Legend,
 } from 'recharts';
+import CalibratedOverlayChart from './CalibratedOverlayChart';
 
 const PERCENTILE_STYLE = {
     P3:  { stroke: '#dc2626', dashArray: '4 4' },
@@ -230,7 +231,22 @@ function PanelChart({ panel, patientPoints, panelHeight }) {
     );
 }
 
-export default function GrowthCurveChart({ curve, patientPoints, height = 480, title }) {
+export default function GrowthCurveChart({ curve, patientPoints, height = 480, title, calibration, imageUrl }) {
+    // Calibrated-overlay mode: the doctor uploaded a chart image and clicked
+    // calibration points. Render the original image with patient dots placed
+    // at math-correct positions instead of redrawing the chart from data.
+    if (calibration && imageUrl) {
+        return (
+            <CalibratedOverlayChart
+                imageUrl={imageUrl}
+                calibration={calibration}
+                patientPoints={patientPoints}
+                height={height}
+                title={title}
+            />
+        );
+    }
+
     if (!curve || !Array.isArray(curve.panels) || curve.panels.length === 0) {
         return (
             <div style={{ padding: 24, textAlign: 'center', opacity: 0.7 }}>

@@ -175,6 +175,16 @@ const doctorService = {
         return api.put(`/doctor/growth-curves/${id}/curve-data`, payload);
     },
 
+    async uploadCurveImageForCalibration(formData) {
+        return api.post('/doctor/growth-curves/upload-image', formData, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+        });
+    },
+
+    async saveCurveCalibration(id, payload) {
+        return api.put(`/doctor/growth-curves/${id}/calibration`, payload);
+    },
+
     // ======================
     // MEDICATIONS CSV
     // ======================
