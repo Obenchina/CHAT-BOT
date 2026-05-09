@@ -394,20 +394,46 @@ export default function CaseDetails() {
   };
 
   const handlePrintDocument = async (kind = documentType) => {
-    if (kind !== 'ordonnance') return;
-    if (medications.length === 0) {
-      showError('Ajoutez au moins un mÃ©dicament');
-      return;
-    }
-
     setPrintingPdf(true);
     try {
-      await persistBeforeExport();
-      const blob = await api.get(`/cases/${id}/prescription/pdf`, { responseType: 'blob' });
-      printBlob(blob);
+      if (kind === 'ordonnance') {
+        if (medications.length === 0) {
+          showError('Ajoutez au moins un médicament');
+          return;
+        }
+        await persistBeforeExport();
+        const blob = await api.get(`/cases/${id}/prescription/pdf`, { responseType: 'blob' });
+        printBlob(blob);
+        return;
+      }
+
+      if (kind === 'analyses') {
+        if (selectedAnalyses.length === 0) {
+          showError('Sélectionnez au moins une analyse');
+          return;
+        }
+        const blob = await api.get(`/cases/${id}/analyses/pdf`, {
+          params: { selected: selectedAnalyses.join(',') },
+          responseType: 'blob',
+        });
+        printBlob(blob);
+        return;
+      }
+
+      if (kind === 'lettre') {
+        if (!letterContent.trim()) {
+          showError('Veuillez remplir le contenu de la lettre');
+          return;
+        }
+        const blob = await api.get(`/cases/${id}/letter/pdf`, {
+          params: { content: letterContent },
+          responseType: 'blob',
+        });
+        printBlob(blob);
+      }
     } catch (err) {
       console.error('Print PDF error:', err);
-      showError(err?.message || 'Erreur lors de l impression');
+      showError(err?.message || 'Erreur lors de l\'impression');
     } finally {
       setPrintingPdf(false);
     }

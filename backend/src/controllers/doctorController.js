@@ -876,6 +876,7 @@ async function saveCurveCalibration(req, res) {
         const calibration = req.body?.calibration;
         const chartKind = req.body?.chartKind ? String(req.body.chartKind).slice(0, 40) : existing.chart_kind;
         const label = req.body?.label != null ? String(req.body.label).trim().slice(0, 200) : null;
+        const rotatedImageDataUrl = req.body?.rotatedImageDataUrl;
 
         const v = validateCalibration(calibration);
         if (!v.ok) {
@@ -884,6 +885,22 @@ async function saveCurveCalibration(req, res) {
                 message: 'Calibration invalide',
                 errors: v.errors,
             });
+        }
+
+        // If the doctor rotated the image in the frontend, overwrite the original file
+        if (rotatedImageDataUrl && existing.original_image_path) {
+            const matches = rotatedImageDataUrl.match(/^data:image\/([A-Za-z-+\/]+);base64,(.+)$/);
+            if (matches && matches.length === 3) {
+                const fs = require('fs');
+                const path = require('path');
+                const imageBuffer = Buffer.from(matches[2], 'base64');
+                const targetPath = path.join(__dirname, '..', '..', existing.original_image_path);
+                try {
+                    fs.writeFileSync(targetPath, imageBuffer);
+                } catch (e) {
+                    console.error('Failed to overwrite rotated image:', e);
+                }
+            }
         }
 
         await GrowthCurve.updateCalibration(id, doctor.id, {

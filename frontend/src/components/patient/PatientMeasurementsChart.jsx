@@ -101,12 +101,31 @@ function pickCurveForPatient(curves, { measure, gender, ageInMonths }) {
         return ageInMonths >= range.min - 2 && ageInMonths <= range.max + 2;
     };
 
+    const getRangeSize = (c) => {
+        if (isCalibrated(c)) {
+            const x = c.calibration.x;
+            const size = Math.abs(x.aB - x.aA);
+            return x.unit === 'months' ? size : size * 12;
+        }
+        if (c.curve_data?.ageRange) {
+            return c.curve_data.ageRange.max - c.curve_data.ageRange.min;
+        }
+        return Infinity;
+    };
+
     const candidates = usable.filter((c) => matches(c) && ageInRange(c));
     if (!candidates.length) return null;
 
-    // Prefer doctor_approved, then auto_approved, then calibrated_overlay over data
+    // Prefer doctor_approved, then auto_approved
     const ranking = { doctor_approved: 0, auto_approved: 1, pending_review: 2 };
-    candidates.sort((a, b) => (ranking[a.validation_status] ?? 9) - (ranking[b.validation_status] ?? 9));
+    candidates.sort((a, b) => {
+        const rankA = ranking[a.validation_status] ?? 9;
+        const rankB = ranking[b.validation_status] ?? 9;
+        if (rankA !== rankB) return rankA - rankB;
+        
+        // If status is equal, prefer the curve with the smallest (most zoomed-in) age range
+        return getRangeSize(a) - getRangeSize(b);
+    });
     return candidates[0];
 }
 

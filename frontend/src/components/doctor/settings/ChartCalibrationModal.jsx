@@ -52,28 +52,44 @@ function getNativePixel(event, imgEl) {
     return { px, py };
 }
 
-function CalibrationStep({ index, label, instructions, captured, onCapture, color = '#2563eb' }) {
+function CalibrationStep({ index, label, instructions, captured, isActive, onCapture, color = '#2563eb' }) {
     return (
         <div style={{
             padding: 8,
             borderRadius: 8,
-            border: `1px solid ${captured ? color : '#cbd5e1'}`,
-            background: captured ? '#ecfdf5' : '#fff',
+            border: `2px solid ${isActive ? '#f59e0b' : (captured ? color : '#cbd5e1')}`,
+            background: isActive ? '#fffbeb' : (captured ? '#ecfdf5' : '#fff'),
+            transition: 'all 0.2s ease'
         }}>
-            <div style={{ fontSize: 12, fontWeight: 600 }}>
-                Étape {index} : {label}
+            <div style={{ fontSize: 12, fontWeight: 600, color: isActive ? '#d97706' : 'inherit' }}>
+                Étape {index} : {label} {isActive && '(En cours...)'}
             </div>
             <div style={{ fontSize: 11, color: '#64748b', marginTop: 4 }}>
                 {instructions}
             </div>
             {captured ? (
-                <div style={{ fontSize: 11, marginTop: 4, color }}>
-                    ✓ pixel ({captured.px.toFixed(0)}, {captured.py.toFixed(0)})
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 }}>
+                    <div style={{ fontSize: 11, color, fontWeight: 500 }}>
+                        ✓ pixel ({captured.px.toFixed(0)}, {captured.py.toFixed(0)})
+                    </div>
+                    {!isActive && (
+                        <button 
+                            onClick={onCapture} 
+                            style={{ background: 'transparent', border: `1px solid ${color}`, color: color, borderRadius: 4, padding: '2px 8px', fontSize: 10, cursor: 'pointer' }}
+                        >
+                            Modifier
+                        </button>
+                    )}
                 </div>
             ) : (
-                <Button size="sm" variant="ghost" onClick={onCapture} style={{ marginTop: 4 }}>
-                    Cliquer pour activer
-                </Button>
+                !isActive && (
+                    <button 
+                        onClick={onCapture} 
+                        style={{ marginTop: 6, background: '#f1f5f9', border: '1px solid #cbd5e1', color: '#475569', borderRadius: 4, padding: '4px 10px', fontSize: 11, cursor: 'pointer' }}
+                    >
+                        Cliquer pour activer
+                    </button>
+                )
             )}
         </div>
     );
@@ -101,6 +117,12 @@ export default function ChartCalibrationModal({ isOpen, onClose, curveId, imageU
     const [activeStep, setActiveStep] = useState(null);
     const [imgEl, setImgEl] = useState(null);
     const [saving, setSaving] = useState(false);
+    
+    // For rotation
+    const [currentImageUrl, setCurrentImageUrl] = useState(imageUrl);
+    const [currentWidth, setCurrentWidth] = useState(imageWidth);
+    const [currentHeight, setCurrentHeight] = useState(imageHeight);
+    const [rotatedImageDataUrl, setRotatedImageDataUrl] = useState(null);
 
     const chartCfg = useMemo(() => CHART_KINDS.find((k) => k.value === chartKind), [chartKind]);
     const isComposite = Boolean(chartCfg?.secondary);
@@ -145,6 +167,30 @@ export default function ChartCalibrationModal({ isOpen, onClose, curveId, imageU
         setActiveStep(next || null);
     }
 
+    function handleRotate() {
+        if (!imgEl) return;
+        const canvas = document.createElement('canvas');
+        canvas.width = currentHeight;
+        canvas.height = currentWidth;
+        const ctx = canvas.getContext('2d');
+        // Rotate 90 degrees clockwise
+        ctx.translate(canvas.width / 2, canvas.height / 2);
+        ctx.rotate((90 * Math.PI) / 180);
+        ctx.drawImage(imgEl, -currentWidth / 2, -currentHeight / 2, currentWidth, currentHeight);
+        
+        const newDataUrl = canvas.toDataURL('image/png');
+        setCurrentImageUrl(newDataUrl);
+        setRotatedImageDataUrl(newDataUrl);
+        setCurrentWidth(currentHeight);
+        setCurrentHeight(currentWidth);
+        
+        // Clear captured points because they are invalid on the rotated image
+        setPxXA(null); setPxXB(null);
+        setPyYPA(null); setPyYPB(null);
+        setPyYSA(null); setPyYSB(null);
+        setActiveStep('xA');
+    }
+
     const allCaptured = useMemo(() => {
         const base = pxXA && pxXB && pyYPA && pyYPB;
         if (!isComposite) return base;
@@ -154,8 +200,8 @@ export default function ChartCalibrationModal({ isOpen, onClose, curveId, imageU
     async function handleSave() {
         if (!allCaptured || !curveId) return;
         const calibration = {
-            imageWidth,
-            imageHeight,
+            imageWidth: currentWidth,
+            imageHeight: currentHeight,
             x: {
                 aA: Number(xA),
                 aB: Number(xB),
@@ -188,6 +234,7 @@ export default function ChartCalibrationModal({ isOpen, onClose, curveId, imageU
             const res = await doctorService.saveCurveCalibration(curveId, {
                 chartKind,
                 calibration,
+                rotatedImageDataUrl,
             });
             if (res?.success) {
                 showSuccess('Calibration enregistrée');
@@ -247,47 +294,62 @@ export default function ChartCalibrationModal({ isOpen, onClose, curveId, imageU
     return (
         <Modal isOpen={isOpen} onClose={onClose} title="Calibrer la courbe" size="xl">
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-                <div style={{ position: 'relative', border: '1px solid #cbd5e1', borderRadius: 6, overflow: 'hidden' }}>
-                    <img
-                        ref={setImgEl}
-                        src={imageUrl}
-                        alt="Chart"
-                        onClick={handleImageClick}
-                        style={{
-                            width: '100%', display: 'block',
-                            cursor: activeStep ? 'crosshair' : 'default',
-                            userSelect: 'none',
-                        }}
-                        draggable={false}
-                    />
-                    {/* visual markers for captured points */}
-                    {imgEl && [
-                        { p: pxXA, color: '#2563eb', label: 'X1' },
-                        { p: pxXB, color: '#2563eb', label: 'X2' },
-                        { p: pyYPA, color: '#9333ea', label: 'Y1' },
-                        { p: pyYPB, color: '#9333ea', label: 'Y2' },
-                        { p: pyYSA, color: '#16a34a', label: 'Y1\'' },
-                        { p: pyYSB, color: '#16a34a', label: 'Y2\'' },
-                    ].map((m, i) => m.p && (
-                        <div key={i} style={{
-                            position: 'absolute',
-                            left: `${(m.p.px / imageWidth) * 100}%`,
-                            top: `${(m.p.py / imageHeight) * 100}%`,
-                            width: 14, height: 14,
-                            background: m.color,
-                            borderRadius: '50%',
-                            border: '2px solid #fff',
-                            transform: 'translate(-50%, -50%)',
-                            pointerEvents: 'none',
-                            boxShadow: '0 0 0 1px ' + m.color,
-                        }}>
-                            <div style={{
-                                position: 'absolute', left: 16, top: -2,
-                                fontSize: 10, color: '#fff', background: m.color,
-                                padding: '0 4px', borderRadius: 4, whiteSpace: 'nowrap',
-                            }}>{m.label}</div>
-                        </div>
-                    ))}
+                <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                    <div style={{ padding: 8, borderBottom: '1px solid #cbd5e1', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end' }}>
+                        <Button size="sm" variant="outline" onClick={handleRotate} disabled={saving}>
+                            ↻ Faire pivoter (90°)
+                        </Button>
+                    </div>
+                    <div style={{ position: 'relative' }}>
+                        <img
+                            ref={setImgEl}
+                            crossOrigin="anonymous"
+                            src={currentImageUrl}
+                            alt="Chart"
+                            onClick={handleImageClick}
+                            style={{
+                                width: '100%', display: 'block',
+                                cursor: activeStep ? 'crosshair' : 'default',
+                                userSelect: 'none',
+                            }}
+                            draggable={false}
+                        />
+                        {/* visual markers for captured points */}
+                        {imgEl && [
+                            { p: pxXA, color: '#2563eb', label: 'X1' },
+                            { p: pxXB, color: '#2563eb', label: 'X2' },
+                            { p: pyYPA, color: '#9333ea', label: 'Y1' },
+                            { p: pyYPB, color: '#9333ea', label: 'Y2' },
+                            { p: pyYSA, color: '#16a34a', label: 'Y1\'' },
+                            { p: pyYSB, color: '#16a34a', label: 'Y2\'' },
+                        ].map((m, i) => m.p && (
+                            <div key={i} style={{
+                                position: 'absolute',
+                                left: `${(m.p.px / currentWidth) * 100}%`,
+                                top: `${(m.p.py / currentHeight) * 100}%`,
+                                width: 24, height: 24,
+                                background: 'transparent',
+                                borderRadius: '50%',
+                                border: `2px solid ${m.color}`,
+                                transform: 'translate(-50%, -50%)',
+                                pointerEvents: 'none',
+                                opacity: 0.85,
+                            }}>
+                                {/* Tiny center dot */}
+                                <div style={{
+                                    position: 'absolute', left: '50%', top: '50%',
+                                    width: 4, height: 4, background: m.color,
+                                    borderRadius: '50%', transform: 'translate(-50%, -50%)'
+                                }} />
+                                <div style={{
+                                    position: 'absolute', left: 24, top: 0,
+                                    fontSize: 10, color: '#fff', background: m.color,
+                                    padding: '0 4px', borderRadius: 4, whiteSpace: 'nowrap',
+                                    textShadow: '0px 0px 2px rgba(0,0,0,0.5)',
+                                }}>{m.label}</div>
+                            </div>
+                        ))}
+                    </div>
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '70vh', overflowY: 'auto' }}>
@@ -346,6 +408,7 @@ export default function ChartCalibrationModal({ isOpen, onClose, curveId, imageU
                                 label={s.label}
                                 instructions={s.instructions}
                                 captured={s.captured}
+                                isActive={activeStep === s.key}
                                 color={s.color}
                                 onCapture={() => setActiveStep(s.key)}
                             />

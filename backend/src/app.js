@@ -61,10 +61,10 @@ app.use((req, res, next) => {
 app.use(cookieParser());
 
 // Parse JSON bodies
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
 
 // Parse URL-encoded bodies
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 
 // ======================
 // INITIALIZE UPLOADS DIRECTORIES
@@ -83,7 +83,7 @@ const uploadDirs = [
 uploadDirs.forEach(dir => {
     if (!fs.existsSync(dir)) {
         fs.mkdirSync(dir, { recursive: true });
-        console.log(`📁 Created directory: ${dir}`);
+        console.log(`ðŸ“ Created directory: ${dir}`);
     }
 });
 
@@ -111,13 +111,13 @@ app.use('/uploads', (req, res, next) => {
         }
 
         if (!token) {
-            return res.status(401).json({ success: false, message: 'Accès non autorisé.' });
+            return res.status(401).json({ success: false, message: 'AccÃ¨s non autorisÃ©.' });
         }
 
         jwt.verify(token, config.jwt.secret);
         next();
     } catch (error) {
-        return res.status(401).json({ success: false, message: 'Token invalide ou expiré.' });
+        return res.status(401).json({ success: false, message: 'Token invalide ou expirÃ©.' });
     }
 }, express.static(path.join(__dirname, '../uploads')));
 
@@ -348,7 +348,7 @@ async function runMigrations(pool) {
 
     // Migrations completed
 
-    // Growth curves table — v2 schema with reference + extracted source types.
+    // Growth curves table â€” v2 schema with reference + extracted source types.
     // Old columns (file_path, template_config, is_calibrated) are kept nullable for
     // backward-compatible deploys; new uploads no longer write to them.
     await pool.execute(`
