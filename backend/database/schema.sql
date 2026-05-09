@@ -275,14 +275,26 @@ CREATE TABLE IF NOT EXISTS ai_chat_messages (
     doctor_id INT NOT NULL,
     role ENUM('doctor', 'ai') NOT NULL,
     content TEXT NOT NULL,
-    attachment_path VARCHAR(500) NULL,
-    attachment_name VARCHAR(255) NULL,
-    attachment_mime VARCHAR(120) NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
     INDEX idx_case (case_id),
     INDEX idx_doctor (doctor_id)
+) ENGINE=InnoDB;
+
+-- ======================
+-- AI CHAT ATTACHMENTS TABLE
+-- Stores images/files attached to AI chat messages
+-- ======================
+CREATE TABLE IF NOT EXISTS ai_chat_attachments (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    message_id INT NOT NULL,
+    path VARCHAR(500) NOT NULL,
+    name VARCHAR(255) NULL,
+    mime VARCHAR(120) NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (message_id) REFERENCES ai_chat_messages(id) ON DELETE CASCADE,
+    INDEX idx_message (message_id)
 ) ENGINE=InnoDB;
 
 -- ======================

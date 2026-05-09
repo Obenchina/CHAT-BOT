@@ -16,7 +16,10 @@ const aiChatService = {
             form.append('message', message || '');
             form.append('image', image);
             return api.post(`/ai-chat/${caseId}`, form, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                transformRequest: (data, headers) => {
+                    delete headers['Content-Type'];
+                    return data;
+                }
             });
         }
         return api.post(`/ai-chat/${caseId}`, { message });
@@ -28,7 +31,10 @@ const aiChatService = {
             form.append('message', message || '');
             form.append('image', image);
             return api.post(`/ai-chat/${caseId}/with-history`, form, {
-                headers: { 'Content-Type': 'multipart/form-data' }
+                transformRequest: (data, headers) => {
+                    delete headers['Content-Type'];
+                    return data;
+                }
             });
         }
         return api.post(`/ai-chat/${caseId}/with-history`, { message });
@@ -39,7 +45,10 @@ const aiChatService = {
         form.append('audio', audioBlob, 'recording.webm');
         if (lang) form.append('lang', lang);
         return api.post(`/ai-chat/transcribe`, form, {
-            headers: { 'Content-Type': 'multipart/form-data' }
+            transformRequest: (data, headers) => {
+                delete headers['Content-Type'];
+                return data;
+            }
         });
     }
 };

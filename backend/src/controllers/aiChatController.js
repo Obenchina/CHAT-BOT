@@ -94,7 +94,8 @@ async function sendMessage(req, res) {
             return res.status(400).json({ success: false, message: 'Cle API IA non configuree' });
         }
 
-        const doctorMsg = await AiChat.addMessage(caseId, doctor.id, 'doctor', messageText, attachment);
+        const attachmentsArray = attachment ? [attachment] : [];
+        const doctorMsg = await AiChat.addMessage(caseId, doctor.id, 'doctor', messageText, attachmentsArray);
         const history = await AiChat.getMessages(caseId);
         const chatHistory = history.filter((m) => m.id !== doctorMsg.id);
         const systemContext = aiService.buildChatSystemPrompt(
@@ -177,12 +178,13 @@ async function sendWithFullHistory(req, res) {
             fullHistoryContext += '\n';
         }
 
+        const attachmentsArray = attachment ? [attachment] : [];
         const doctorMsg = await AiChat.addMessage(
             caseId,
             doctor.id,
             'doctor',
             `[avec le dossier complet] ${messageText}`,
-            attachment
+            attachmentsArray
         );
 
         const chatHistory = await AiChat.getMessages(caseId);

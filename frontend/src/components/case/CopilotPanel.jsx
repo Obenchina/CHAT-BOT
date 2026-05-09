@@ -33,13 +33,23 @@ function normalizeMessage(raw, fallbackRole = null) {
     raw.text ??
     raw.reply ??
     '';
+  // Handle new array of attachments or old flat structure
+  let attachments = [];
+  if (Array.isArray(raw.attachments) && raw.attachments.length > 0) {
+    attachments = raw.attachments;
+  } else if (raw.attachmentPath || raw.attachment_path) {
+    attachments = [{
+      path: raw.attachmentPath || raw.attachment_path,
+      name: raw.attachmentName || raw.attachment_name,
+      mime: raw.attachmentMime || raw.attachment_mime
+    }];
+  }
+
   return {
     id: raw.id ?? `m-${Date.now()}-${Math.random()}`,
     role,
     content: String(content ?? ''),
-    attachmentPath: raw.attachmentPath || raw.attachment_path || null,
-    attachmentName: raw.attachmentName || raw.attachment_name || null,
-    attachmentMime: raw.attachmentMime || raw.attachment_mime || null,
+    attachments,
     created_at: raw.created_at || raw.createdAt || null,
   };
 }
@@ -74,12 +84,17 @@ function MessageBubble({ msg, onPin }) {
           (Réponse vide — réessayez ou vérifiez la configuration IA)
         </div>
       )}
-      {isUser && msg.attachmentPath && (
-        <img
-          className="copilot__bubble-image"
-          src={String(msg.attachmentPath).startsWith('blob:') ? msg.attachmentPath : getAuthUploadUrl(msg.attachmentPath)}
-          alt={msg.attachmentName || 'Image envoyee'}
-        />
+      {isUser && msg.attachments && msg.attachments.length > 0 && (
+        <div className="copilot__bubble-attachments">
+          {msg.attachments.map((att, idx) => (
+            <img
+              key={idx}
+              className="copilot__bubble-image"
+              src={String(att.path).startsWith('blob:') ? att.path : getAuthUploadUrl(att.path)}
+              alt={att.name || 'Image envoyee'}
+            />
+          ))}
+        </div>
       )}
       {!isUser && msg.content && onPin && (
         <div className="copilot__bubble-actions">
@@ -182,8 +197,10 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
       id: `u-${Date.now()}`,
       role: 'doctor',
       content: text || '[Image medicale jointe]',
-      attachmentPath: previewForSend || null,
-      attachmentName: imageForSend?.name || null,
+      attachments: imageForSend ? [{
+        path: previewForSend,
+        name: imageForSend.name
+      }] : [],
     });
     setMessages((prev) => [...prev, tempUser]);
     setInput('');

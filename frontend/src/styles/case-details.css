@@ -763,6 +763,12 @@ body.sidebar-collapsed .case-page__main {
   border-radius: var(--radius-sm);
 }
 .copilot__bubble-action:hover { background: var(--color-surface-3); color: var(--color-text-primary); }
+.copilot__bubble-attachments {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
 .copilot__bubble-image {
   display: block;
   max-width: 100%;
