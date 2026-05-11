@@ -94,7 +94,7 @@ const TABS = [
     { id: 'assistants', label: 'Assistants', description: 'Comptes assistants autorisés à créer les visites', icon: <GroupIcon fontSize="small" /> },
     { id: 'ai', label: 'Configuration IA', description: 'Fournisseur, modèle et langue des réponses IA', icon: <SmartToyIcon fontSize="small" /> },
     { id: 'prescription', label: 'Edition Ordonnance', description: 'PDF ordonnance, bilans et lettre orientation', icon: <DescriptionIcon fontSize="small" /> },
-    { id: 'medications', label: 'Médicaments', description: 'Import CSV et base médicamenteuse locale', icon: <MedicationIcon fontSize="small" /> },
+    { id: 'medications', label: 'Médicaments', description: 'Import Excel et base médicamenteuse locale', icon: <MedicationIcon fontSize="small" /> },
     { id: 'growth_curves', label: 'Courbes Pediatriques', description: 'Modeles PDF pour tracer les mesures patients', icon: <TimelineIcon fontSize="small" /> }
 ];
 

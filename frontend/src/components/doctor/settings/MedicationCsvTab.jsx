@@ -1,4 +1,5 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
+import * as XLSX from 'xlsx';
 import doctorService from '../../../services/doctorService';
 import { showSuccess, showError } from '../../../utils/toast';
 import Modal from '../../common/Modal';
@@ -16,16 +17,6 @@ function MedicationCsvTab() {
         loadMedications();
     }, []);
 
-    const sampleCsv = useMemo(() => {
-        // Same fields used by the prescription editor in CaseDetails.
-        return [
-            'nom du médicament;dosage;fréq;durée',
-            '"Paracétamol";"15 mg/kg";"Toutes les 6h";"3 jours"',
-            '"Amoxicilline";"500 mg";"3 fois/jour";"7 jours"',
-            '"Ibuprofène";"10 mg/kg";"Toutes les 8h";"2 jours"'
-        ].join('\n');
-    }, []);
-
     async function loadMedications() {
         try {
             const res = await doctorService.getMedications();
@@ -34,6 +25,26 @@ function MedicationCsvTab() {
                 setCount(res.count || 0);
             }
         } catch (e) { console.error(e); }
+    }
+
+    /** Download an Excel (.xlsx) example file */
+    function handleDownloadExample() {
+        const rows = [
+            { 'nom du médicament': 'Paracétamol', 'dosage': '15 mg/kg', 'fréq': 'Toutes les 6h', 'durée': '3 jours' },
+            { 'nom du médicament': 'Amoxicilline', 'dosage': '500 mg',   'fréq': '3 fois/jour',   'durée': '7 jours' },
+            { 'nom du médicament': 'Ibuprofène',   'dosage': '10 mg/kg', 'fréq': 'Toutes les 8h', 'durée': '2 jours' },
+            { 'nom du médicament': 'Azithromycine','dosage': '250 mg',   'fréq': '1 fois/jour',   'durée': '5 jours' },
+            { 'nom du médicament': 'Cetirizine',   'dosage': '5 mg',     'fréq': '1 fois/soir',   'durée': '30 jours'},
+        ];
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        // Set column widths
+        worksheet['!cols'] = [
+            { wch: 28 }, { wch: 14 }, { wch: 18 }, { wch: 12 }
+        ];
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Médicaments');
+        XLSX.writeFile(workbook, 'medicaments_exemple.xlsx');
     }
 
     async function handleUpload(e) {
@@ -92,42 +103,53 @@ function MedicationCsvTab() {
         <div>
             <div className="profile-section-card" style={{ marginBottom: 'var(--space-lg)' }}>
                 <div className="section-header">
-                        <div className="section-title">Base de médicaments (CSV)</div>
+                    <div className="section-title">Base de médicaments (Excel)</div>
                 </div>
 
                 <p style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 'var(--space-md)' }}>
-                    Importez un fichier CSV contenant vos médicaments. La colonne "nom du médicament" est obligatoire.
-                    Colonnes conseillées : nom du médicament, dosage, fréq, durée.
+                    Importez un fichier <strong>Excel (.xlsx)</strong> contenant vos médicaments.&nbsp;
+                    La colonne <em>«&nbsp;nom du médicament&nbsp;»</em> est obligatoire.
+                    Colonnes conseillées&nbsp;: nom du médicament, dosage, fréq, durée.
+                    <br />
+                    <span style={{ opacity: 0.7 }}>Les fichiers CSV sont également acceptés.</span>
                 </p>
 
                 <div style={{ display: 'flex', gap: 'var(--space-md)', alignItems: 'center', flexWrap: 'wrap' }}>
+                    {/* Primary upload button */}
                     <label style={{
+                        display: 'inline-flex',
+                        alignItems: 'center',
+                        gap: '6px',
                         padding: 'var(--space-sm) var(--space-lg)',
                         backgroundColor: 'var(--primary)',
                         color: 'white',
                         borderRadius: 'var(--radius-md)',
                         cursor: uploading ? 'wait' : 'pointer',
                         fontSize: '0.9rem',
-                        fontWeight: '500'
+                        fontWeight: '500',
+                        userSelect: 'none'
                     }}>
-                        {uploading ? 'Import en cours...' : 'Importer CSV'}
-                        <input type="file" accept=".csv,.txt" onChange={handleUpload} style={{ display: 'none' }} disabled={uploading} />
+                        {uploading
+                            ? '⏳ Import en cours...'
+                            : <>📊 Importer Excel</>
+                        }
+                        <input
+                            type="file"
+                            accept=".xlsx,.xls,.csv,.txt"
+                            onChange={handleUpload}
+                            style={{ display: 'none' }}
+                            disabled={uploading}
+                        />
                     </label>
 
+                    {/* Download Excel example */}
                     <button
                         type="button"
-                        onClick={() => {
-                            const blob = new Blob([sampleCsv], { type: 'text/csv;charset=utf-8' });
-                            const url = URL.createObjectURL(blob);
-                            const a = document.createElement('a');
-                            a.href = url;
-                            a.download = 'medicaments_exemple.csv';
-                            document.body.appendChild(a);
-                            a.click();
-                            a.remove();
-                            URL.revokeObjectURL(url);
-                        }}
+                        onClick={handleDownloadExample}
                         style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
                             padding: 'var(--space-sm) var(--space-md)',
                             border: '1px solid var(--border-color)',
                             color: 'var(--text-primary)',
@@ -137,11 +159,15 @@ function MedicationCsvTab() {
                             fontSize: '0.85rem'
                         }}
                     >
-                        Télécharger un exemple CSV
+                        ⬇️ Télécharger un exemple Excel
                     </button>
 
+                    {/* Delete all */}
                     {count > 0 && (
                         <button onClick={handleDelete} style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '6px',
                             padding: 'var(--space-sm) var(--space-md)',
                             border: '1px solid var(--error)',
                             color: 'var(--error)',
@@ -188,7 +214,7 @@ function MedicationCsvTab() {
                 )}
             </div>
 
-            {/* Preview of medications */}
+            {/* Preview */}
             {medications.length > 0 && (
                 <div className="profile-section-card">
                     <div className="section-header">
@@ -198,10 +224,10 @@ function MedicationCsvTab() {
                         <table style={{ width: '100%', fontSize: '0.8rem', borderCollapse: 'collapse' }}>
                             <thead>
                                 <tr style={{ borderBottom: '2px solid var(--border-color)', textAlign: 'left' }}>
-                                    <th style={{ padding: '6px 8px' }}>Nom</th>
-                                    <th style={{ padding: '6px 8px' }}>Dosage</th>
-                                    <th style={{ padding: '6px 8px' }}>Fréq.</th>
-                                    <th style={{ padding: '6px 8px' }}>Durée</th>
+                                    <th style={{ padding: '6px 8px' }}>NOM</th>
+                                    <th style={{ padding: '6px 8px' }}>DOSAGE</th>
+                                    <th style={{ padding: '6px 8px' }}>FRÉQ.</th>
+                                    <th style={{ padding: '6px 8px' }}>DURÉE</th>
                                 </tr>
                             </thead>
                             <tbody>

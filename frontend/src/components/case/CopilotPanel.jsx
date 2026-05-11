@@ -366,36 +366,42 @@ export default function CopilotPanel({ caseId, onPinToDiagnostic, onCollapse, on
             className="copilot__file-input"
             onChange={handlePickImage}
           />
+          {/* Left action buttons */}
+          <div className="copilot__input-actions-left">
+            <button
+              type="button"
+              className="copilot__attach"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={sending}
+              aria-label="Joindre une image"
+              title="Joindre une image"
+            >
+              <ImageIcon fontSize="small" />
+            </button>
+            <button
+              type="button"
+              className={`copilot__voice${voice.recording ? ' copilot__voice--recording' : ''}`}
+              onClick={voice.toggle}
+              disabled={sending || voice.transcribing}
+              aria-label={voice.recording ? 'Arrêter la dictée' : 'Dicter vocalement'}
+              title={voice.recording ? 'Arrêter la dictée' : 'Dicter vocalement'}
+            >
+              {voice.recording ? <StopIcon fontSize="small" /> : <MicIcon fontSize="small" />}
+            </button>
+          </div>
+
           <textarea
             ref={textareaRef}
             className="copilot__textarea"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            rows={2}
-            placeholder="Demandez à l'IA…  (Entrée pour envoyer · Maj+Entrée pour saut de ligne)"
+            rows={1}
+            placeholder="Demandez à l'IA…"
             disabled={sending}
           />
-          <button
-            type="button"
-            className="copilot__attach"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={sending}
-            aria-label="Joindre une image"
-            title="Joindre une image"
-          >
-            <ImageIcon fontSize="small" />
-          </button>
-          <button
-            type="button"
-            className={`copilot__voice${voice.recording ? ' copilot__voice--recording' : ''}`}
-            onClick={voice.toggle}
-            disabled={sending || voice.transcribing}
-            aria-label={voice.recording ? 'Arrêter la dictée' : 'Dicter vocalement'}
-            title={voice.recording ? 'Arrêter la dictée' : 'Dicter vocalement'}
-          >
-            {voice.recording ? <StopIcon fontSize="small" /> : <MicIcon fontSize="small" />}
-          </button>
+
+          {/* Right send button */}
           <button
             className="copilot__send"
             onClick={() => send()}

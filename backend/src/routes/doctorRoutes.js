@@ -74,9 +74,15 @@ router.post('/growth-curves/:id/approve', doctorController.reviewExtractedCurve)
 router.put('/growth-curves/:id/curve-data', doctorController.updateGrowthCurveData);
 router.delete('/growth-curves/:id', doctorController.deleteGrowthCurve);
 
-// Medications CSV
+// Medications file upload (Excel or CSV)
 const multer = require('multer');
-const uploadCSV = multer({ dest: require('path').join(__dirname, '../../uploads/temp') });
+const uploadCSV = multer({
+    dest: require('path').join(__dirname, '../../uploads/temp'),
+    fileFilter: (_req, file, cb) => {
+        const ok = /\.(xlsx|xls|csv|txt)$/i.test(file.originalname);
+        cb(null, ok);
+    }
+});
 router.get('/medications', doctorController.getMedications);
 router.get('/medications/search', doctorController.searchMedications);
 router.post('/medications/csv', uploadCSV.single('csv'), doctorController.uploadMedicationCSV);

@@ -939,48 +939,69 @@ async function deleteGrowthCurve(req, res) {
 async function uploadMedicationCSV(req, res) {
     try {
         const doctor = await Doctor.findByUserId(req.user.id);
-        if (!req.file) return res.status(400).json({ success: false, message: 'Fichier CSV requis' });
+        if (!req.file) return res.status(400).json({ success: false, message: 'Fichier Excel ou CSV requis' });
 
         const fs = require('fs');
         const { parse } = require('csv-parse/sync');
         const { pool } = require('../config/database');
 
         const fileBuffer = fs.readFileSync(req.file.path);
-        // Decode: prefer utf8, fallback to latin1 if it looks badly decoded
-        let csvContent = fileBuffer.toString('utf8');
-        // Remove UTF-8 BOM if present
-        csvContent = csvContent.replace(/^\uFEFF/, '');
-        if (!csvContent.includes('\n') && fileBuffer.length > 0) {
-            // Try latin1 if file has no line breaks after utf8 decode (rare encoding issues)
-            csvContent = fileBuffer.toString('latin1').replace(/^\uFEFF/, '');
-        }
+        const originalName = (req.file.originalname || '').toLowerCase();
+        const isExcel = originalName.endsWith('.xlsx') || originalName.endsWith('.xls');
 
-        if (!csvContent.trim()) {
-            fs.unlinkSync(req.file.path);
-            return res.status(400).json({ success: false, message: 'Fichier CSV vide' });
-        }
+        let records;
 
-        // Autodetect delimiter from header line: ; , \t
-        const firstLine = csvContent.split(/\r?\n/).find(l => l.trim().length > 0) || '';
-        const countChar = (s, ch) => (s.match(new RegExp(`\\${ch}`, 'g')) || []).length;
-        const comma = countChar(firstLine, ',');
-        const semi = countChar(firstLine, ';');
-        const tab = (firstLine.match(/\t/g) || []).length;
-        const delimiter = tab >= semi && tab >= comma ? '\t' : (semi >= comma ? ';' : ',');
+        if (isExcel) {
+            // Convert Excel to records using xlsx
+            const XLSX = require('xlsx');
+            const workbook = XLSX.read(fileBuffer, { type: 'buffer' });
+            const sheetName = workbook.SheetNames[0];
+            if (!sheetName) {
+                fs.unlinkSync(req.file.path);
+                return res.status(400).json({ success: false, message: 'Fichier Excel vide ou invalide' });
+            }
+            const sheet = workbook.Sheets[sheetName];
+            records = XLSX.utils.sheet_to_json(sheet, { defval: '' });
 
-        const records = parse(csvContent, {
-            columns: true,
-            skip_empty_lines: true,
-            relax_column_count: true,
-            relax_quotes: true,
-            bom: true,
-            delimiter,
-            trim: true
-        });
+            if (!Array.isArray(records) || records.length === 0) {
+                fs.unlinkSync(req.file.path);
+                return res.status(400).json({ success: false, message: 'Fichier Excel vide ou invalide' });
+            }
+        } else {
+            // CSV path: Decode: prefer utf8, fallback to latin1
+            let csvContent = fileBuffer.toString('utf8');
+            csvContent = csvContent.replace(/^\uFEFF/, '');
+            if (!csvContent.includes('\n') && fileBuffer.length > 0) {
+                csvContent = fileBuffer.toString('latin1').replace(/^\uFEFF/, '');
+            }
 
-        if (!Array.isArray(records) || records.length === 0) {
-            fs.unlinkSync(req.file.path);
-            return res.status(400).json({ success: false, message: 'Fichier CSV vide ou invalide' });
+            if (!csvContent.trim()) {
+                fs.unlinkSync(req.file.path);
+                return res.status(400).json({ success: false, message: 'Fichier CSV vide' });
+            }
+
+            // Autodetect delimiter from header line: ; , \t
+            const firstLine = csvContent.split(/\r?\n/).find(l => l.trim().length > 0) || '';
+            const countChar = (s, ch) => (s.match(new RegExp(`\\${ch}`, 'g')) || []).length;
+            const comma = countChar(firstLine, ',');
+            const semi = countChar(firstLine, ';');
+            const tab = (firstLine.match(/\t/g) || []).length;
+            const delimiter = tab >= semi && tab >= comma ? '\t' : (semi >= comma ? ';' : ',');
+
+            records = parse(csvContent, {
+                columns: true,
+                skip_empty_lines: true,
+                relax_column_count: true,
+                relax_quotes: true,
+                bom: true,
+                delimiter,
+                trim: true
+            });
+
+            if (!Array.isArray(records) || records.length === 0) {
+                fs.unlinkSync(req.file.path);
+                return res.status(400).json({ success: false, message: 'Fichier CSV vide ou invalide' });
+            }
         }
 
         const normalizeHeader = (h) =>
