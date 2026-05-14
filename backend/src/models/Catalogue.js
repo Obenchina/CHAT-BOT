@@ -118,6 +118,21 @@ const Catalogue = {
     },
 
     /**
+     * Count in-progress cases using a catalogue.
+     * These still need the live catalogue to complete the questionnaire.
+     * @param {number} catalogueId - Catalogue ID
+     * @returns {Promise<number>} Number of linked in-progress cases
+     */
+    async countInProgressCasesUsing(catalogueId) {
+        const [rows] = await pool.execute(
+            "SELECT COUNT(*) AS case_count FROM cases WHERE catalogue_version_id = ? AND status = 'in_progress'",
+            [catalogueId]
+        );
+
+        return Number(rows[0]?.case_count || 0);
+    },
+
+    /**
      * Get active catalogues for a doctor that assistants can use
      * @param {number} doctorId - Doctor ID
      * @returns {Promise<Array>} Active catalogues with at least one active question

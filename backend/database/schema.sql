@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS catalogues (
 -- ======================
 CREATE TABLE IF NOT EXISTS questions (
     id INT PRIMARY KEY AUTO_INCREMENT,
-    catalogue_id INT NOT NULL,
+    catalogue_id INT NULL,
     section_name VARCHAR(150) NULL,
     section_order INT DEFAULT 0,
     question_text TEXT NOT NULL,
@@ -115,7 +115,7 @@ CREATE TABLE IF NOT EXISTS questions (
     is_required BOOLEAN DEFAULT TRUE,
     is_active BOOLEAN DEFAULT TRUE,
     order_index INT NOT NULL DEFAULT 0,
-    FOREIGN KEY (catalogue_id) REFERENCES catalogues(id) ON DELETE CASCADE,
+    FOREIGN KEY (catalogue_id) REFERENCES catalogues(id) ON DELETE SET NULL,
     INDEX idx_catalogue_id (catalogue_id),
     INDEX idx_order (catalogue_id, section_order, order_index)
 ) ENGINE=InnoDB;
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS cases (
     id INT PRIMARY KEY AUTO_INCREMENT,
     patient_id INT NOT NULL,
     assistant_id INT NOT NULL,
-    catalogue_version_id INT NOT NULL,
+    catalogue_version_id INT NULL,
     status ENUM('in_progress', 'submitted', 'reviewed', 'closed') NOT NULL DEFAULT 'in_progress',
     ai_analysis JSON,
     doctor_diagnosis TEXT,
@@ -138,7 +138,7 @@ CREATE TABLE IF NOT EXISTS cases (
     reviewed_at TIMESTAMP NULL,
     FOREIGN KEY (patient_id) REFERENCES patients(id) ON DELETE CASCADE,
     FOREIGN KEY (assistant_id) REFERENCES assistants(id) ON DELETE CASCADE,
-    FOREIGN KEY (catalogue_version_id) REFERENCES catalogues(id) ON DELETE CASCADE,
+    FOREIGN KEY (catalogue_version_id) REFERENCES catalogues(id) ON DELETE SET NULL,
     INDEX idx_patient_id (patient_id),
     INDEX idx_assistant_id (assistant_id),
     INDEX idx_status (status),
@@ -153,7 +153,7 @@ CREATE TABLE IF NOT EXISTS cases (
 CREATE TABLE IF NOT EXISTS case_answers (
     id INT PRIMARY KEY AUTO_INCREMENT,
     case_id INT NOT NULL,
-    question_id INT NOT NULL,
+    question_id INT NULL,
     audio_path VARCHAR(500),
     transcribed_text TEXT,
     text_answer TEXT,
@@ -161,7 +161,7 @@ CREATE TABLE IF NOT EXISTS case_answers (
     answer_type_snapshot ENUM('yes_no', 'voice', 'choices', 'text_short', 'text_long', 'number') NULL,
     order_index_snapshot INT NULL,
     FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
-    FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE CASCADE,
+    FOREIGN KEY (question_id) REFERENCES questions(id) ON DELETE SET NULL,
     INDEX idx_case_id (case_id)
 ) ENGINE=InnoDB;
 

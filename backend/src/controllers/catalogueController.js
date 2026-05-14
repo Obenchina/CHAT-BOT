@@ -307,11 +307,11 @@ async function deleteCatalogue(req, res) {
             });
         }
 
-        const caseCount = await Catalogue.countCasesUsing(id);
-        if (caseCount > 0) {
+        const inProgressCaseCount = await Catalogue.countInProgressCasesUsing(id);
+        if (inProgressCaseCount > 0) {
             return res.status(400).json({
                 success: false,
-                message: 'Impossible de supprimer ce catalogue car il est deja utilise dans des cas existants.'
+                message: 'Impossible de supprimer ce catalogue car il est utilise dans des cas en cours.'
             });
         }
 

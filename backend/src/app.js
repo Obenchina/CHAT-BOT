@@ -233,6 +233,58 @@ async function ensureColumn(pool, tableName, columnName, definition) {
     }
 }
 
+function quoteIdentifier(identifier) {
+    if (!/^[A-Za-z0-9_]+$/.test(identifier)) {
+        throw new Error(`Invalid identifier: ${identifier}`);
+    }
+
+    return `\`${identifier}\``;
+}
+
+async function ensureSetNullForeignKey(pool, tableName, columnName, referencedTableName, referencedColumnName) {
+    const [rows] = await pool.execute(
+        `SELECT kcu.CONSTRAINT_NAME, rc.DELETE_RULE, col.IS_NULLABLE
+         FROM information_schema.KEY_COLUMN_USAGE kcu
+         JOIN information_schema.REFERENTIAL_CONSTRAINTS rc
+           ON rc.CONSTRAINT_SCHEMA = kcu.CONSTRAINT_SCHEMA
+          AND rc.CONSTRAINT_NAME = kcu.CONSTRAINT_NAME
+          AND rc.TABLE_NAME = kcu.TABLE_NAME
+         JOIN information_schema.COLUMNS col
+           ON col.TABLE_SCHEMA = kcu.TABLE_SCHEMA
+          AND col.TABLE_NAME = kcu.TABLE_NAME
+          AND col.COLUMN_NAME = kcu.COLUMN_NAME
+         WHERE kcu.TABLE_SCHEMA = DATABASE()
+           AND kcu.TABLE_NAME = ?
+           AND kcu.COLUMN_NAME = ?
+           AND kcu.REFERENCED_TABLE_NAME = ?
+           AND kcu.REFERENCED_COLUMN_NAME = ?
+         LIMIT 1`,
+        [tableName, columnName, referencedTableName, referencedColumnName]
+    );
+
+    const table = quoteIdentifier(tableName);
+    const column = quoteIdentifier(columnName);
+    const referencedTable = quoteIdentifier(referencedTableName);
+    const referencedColumn = quoteIdentifier(referencedColumnName);
+    const foreignKeyName = rows[0]?.CONSTRAINT_NAME || `${tableName}_${columnName}_fk`;
+
+    const shouldRecreate = !rows[0]?.CONSTRAINT_NAME || rows[0].DELETE_RULE !== 'SET NULL' || rows[0].IS_NULLABLE !== 'YES';
+
+    if (rows[0]?.CONSTRAINT_NAME && shouldRecreate) {
+        await pool.execute(`ALTER TABLE ${table} DROP FOREIGN KEY ${quoteIdentifier(rows[0].CONSTRAINT_NAME)}`);
+    }
+
+    await pool.execute(`ALTER TABLE ${table} MODIFY COLUMN ${column} INT NULL`);
+
+    if (shouldRecreate) {
+        await pool.execute(
+            `ALTER TABLE ${table}
+             ADD CONSTRAINT ${quoteIdentifier(foreignKeyName)}
+             FOREIGN KEY (${column}) REFERENCES ${referencedTable}(${referencedColumn}) ON DELETE SET NULL`
+        );
+    }
+}
+
 async function runMigrations(pool) {
     await pool.execute(`
         CREATE TABLE IF NOT EXISTS pending_registrations (
@@ -257,6 +309,10 @@ async function runMigrations(pool) {
     await ensureColumn(pool, 'case_answers', 'answer_type_snapshot', "ENUM('yes_no','voice','choices','text_short','text_long','number') NULL");
     await ensureColumn(pool, 'case_answers', 'text_answer', 'TEXT NULL');
     await ensureColumn(pool, 'case_answers', 'order_index_snapshot', 'INT NULL');
+
+    await ensureSetNullForeignKey(pool, 'questions', 'catalogue_id', 'catalogues', 'id');
+    await ensureSetNullForeignKey(pool, 'cases', 'catalogue_version_id', 'catalogues', 'id');
+    await ensureSetNullForeignKey(pool, 'case_answers', 'question_id', 'questions', 'id');
 
     // Update ENUMs to allow new types
     try {
