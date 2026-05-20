@@ -359,50 +359,59 @@ function buildAnalysisPrompt(caseData, responseLanguage = 'ar') {
         patientAge = Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000));
     }
 
-    let prompt = `أنت "طبيب استشاري ذكي" (Senior Medical AI Specialist).
-مهمتك ليست مجرد التلخيص، بل تقديم تحليل سريري احترافي عالي الدقة.
+    let prompt = `You are a Senior Medical AI Specialist.
+Your task is NOT merely to summarize — you must deliver a high-precision, professional clinical analysis.
 
-ملاحظة مهنية هامة: المريض جزائري ويتحدث بـ "الدارجة الجزائرية" (بما فيها من مصطلحات فرنسية وعامية). يجب أن تفهم شكواه بدقة (مثلاً: "عندي السطر" تعني ألم، "التخمام" قد تعني دوار أو قلق، إلخ).
+IMPORTANT PROFESSIONAL NOTE: The patient is Algerian and may have been interviewed in "Algerian Darja" (a spoken Arabic dialect mixed with French and colloquial terms). You must accurately interpret their complaints. Examples:
+- "عندي السطر" = pain
+- "التخمام" = dizziness or anxiety
+- "نحس بالدوخة" = I feel dizzy
+- "عندي الحمى" = I have a fever
+Always interpret Darja expressions in their correct medical context.
 
-مطلوباتك الصارمة: 1. التلخيص السريري: لخص الحالة في 4 أسطر كحد أقصى بصرامة (لا تتجاوز 4 أسطر أبداً). لا تذكر اسم أو لقب المريض أبداً. ${hasDocs ? 'يوجد مستندات مرفقة، اذكر أهم التفاصيل التقنية باختصار.' : 'اذكر في نهاية الملخص: (لا توجد مستندات).'}
-2. التشخيص التفريقي: قدم التشخيصات الأكثر احتمالية مع نسبة مئوية.
-3. ملاحظات مهمة:
-   - في حالات "الطوارئ الجراحية" أو الحالات الخطيرة (مثل التواء الخصية Torsion، أو اشتباه احتشاء عضلة القلب، إلخ)، يجب أن يبدأ ردك في قسم الملاحظات بعبارة: [!!! URGENCE CHIRURGICALE / MÉDICALE !!!] مع توجيه الطبيب للإجراء الفوري.
+STRICT REQUIREMENTS:
+1. CLINICAL SUMMARY: Summarize the case in 4 lines MAXIMUM (never exceed 4 lines, strictly enforced). Never mention the patient's first name or last name. ${hasDocs ? 'Attached documents exist — briefly mention the most important technical findings.' : 'End the summary with: (aucun document joint).'}
+2. DIFFERENTIAL DIAGNOSIS: Provide the most probable diagnoses with percentage probability.
+3. IMPORTANT ALERTS:
+   - For "surgical emergencies" or critical conditions (e.g., testicular torsion, suspected myocardial infarction, acute abdomen, etc.), you MUST start the additionalNotes section with: [!!! URGENCE CHIRURGICALE / MÉDICALE !!!] followed by immediate action guidance for the doctor.
 
 ═══════════════════════════════
-معلومات المريض (بدون اسم لأسباب الخصوصية):
+PATIENT INFORMATION (anonymized — name omitted for privacy):
 ═══════════════════════════════
-- الجنس: ${patient.gender === 'male' ? 'ذكر' : patient.gender === 'female' ? 'أنثى' : 'غير محدد'}
-- العمر: ${patientAge || 'غير محدد'} سنة
+- Gender: ${patient.gender === 'male' ? 'Male' : patient.gender === 'female' ? 'Female' : 'Unspecified'}
+- Age: ${patientAge || 'Unspecified'} years
+- Date of birth: ${patient.date_of_birth ? new Date(patient.date_of_birth).toISOString().slice(0, 10) : 'Unknown'}
+- Siblings alive: ${patient.siblings_alive ?? 'Unknown'}
+- Siblings deceased: ${patient.siblings_deceased ?? 'Unknown'}
 
 ═══════════════════════════════
-إجابات الاستبيان الطبي:
+MEDICAL QUESTIONNAIRE ANSWERS:
 ═══════════════════════════════`;
 
     // Add questionnaire answers
     answers.forEach((answer, index) => {
-        const answerText = answer.text_answer || answer.textAnswer || 'لم يتم تقديم إجابة';
-        prompt += `\n\n${index + 1}. السؤال: ${answer.question_text}`;
-        prompt += `\n   الإجابة: ${answerText}`;
+        const answerText = answer.text_answer || answer.textAnswer || 'No answer provided';
+        prompt += `\n\n${index + 1}. Question: ${answer.question_text}`;
+        prompt += `\n   Answer: ${answerText}`;
     });
 
     prompt += `
 
 ═══════════════════════════════
-المطلوب (Format JSON):
+REQUIRED OUTPUT (JSON FORMAT):
 ═══════════════════════════════
 
-قدم تحليلك بصيغة JSON التالية (بالعربية):
+Return your analysis as the following JSON structure:
 {
-  "summary": "ملخص سريري احترافي في 4 أسطر كحد أقصى يتضمن التاريخ المرضي والأعراض الحالية وتفاصيل الملفات المرفقة إن وجدت.",
+  "summary": "Professional clinical summary in 4 lines maximum, covering medical history, current symptoms, and key document findings if any.",
   "diagnoses": [
     {
-      "name": "الاسم العلمي بالفرنسية + العربي",
+      "name": "Scientific diagnosis name in French medical terminology",
       "probability": 85,
-      "reasoning": "التبرير السريري بناءً على الأعراض والفحص."
+      "reasoning": "Clinical reasoning based on symptoms and examination."
     }
   ],
-  "additionalNotes": "ضع هنا أي تنبيهات طوارئ أو نصائح طبية تخصصية للطبيب."
+  "additionalNotes": "Place any emergency alerts or specialized medical advice for the doctor here."
 }`;
 
     if (normalizedResponseLanguage === 'fr') {
@@ -410,18 +419,18 @@ function buildAnalysisPrompt(caseData, responseLanguage = 'ar') {
 
 CRITICAL LANGUAGE OVERRIDE:
 - Return valid JSON only.
-- Keep the JSON keys exactly as requested: summary, diagnoses, additionalNotes, name, probability, reasoning.
-- All human-readable values MUST be written in professional medical French.
-- Do not write Arabic in the AI analysis, except when quoting the patient's original Darja wording.
-- Diagnosis names should be in French medical terminology.`;
+- Keep the JSON keys EXACTLY as specified: summary, diagnoses, additionalNotes, name, probability, reasoning.
+- ALL human-readable values MUST be written in professional medical French.
+- Do NOT write Arabic in the analysis, except when quoting the patient's original Darja wording verbatim.
+- Diagnosis names MUST use French medical terminology (e.g., "Bronchiolite aiguë", "Gastro-entérite virale").`;
     } else {
         prompt += `
 
 CRITICAL LANGUAGE OVERRIDE:
 - Return valid JSON only.
-- Keep the JSON keys exactly as requested: summary, diagnoses, additionalNotes, name, probability, reasoning.
-- All human-readable values MUST be written in clear medical Arabic.
-- French medical terms may be kept when clinically useful.`;
+- Keep the JSON keys EXACTLY as specified: summary, diagnoses, additionalNotes, name, probability, reasoning.
+- ALL human-readable values MUST be written in clear medical Arabic.
+- French medical terms may be kept when clinically useful (e.g., diagnostic names).`;
     }
 
     return prompt;
@@ -612,8 +621,8 @@ async function callOpenAIAPI(userContent, cfg) {
     const model = cfg.model || 'gpt-4o-mini';
     const url = 'https://api.openai.com/v1/chat/completions';
     const systemContent = cfg.responseLanguage === 'fr'
-        ? 'You are a senior medical AI assistant. Analyze medical case data and return structured JSON. All human-readable values must be in professional medical French unless quoting the patient verbatim.'
-        : 'You are a senior medical AI assistant. Analyze medical case data and return structured JSON. All human-readable values must be in clear medical Arabic, with French medical terms when clinically useful.';
+        ? 'You are a Senior Medical AI Specialist. Analyze the provided medical case data with high clinical precision and return a structured JSON response. All human-readable values must be written in professional medical French. You may quote the patient\'s original Darja wording verbatim when relevant. The patient is Algerian and may have been interviewed in Algerian Darja (Arabic dialect with French terms).'
+        : 'You are a Senior Medical AI Specialist. Analyze the provided medical case data with high clinical precision and return a structured JSON response. All human-readable values must be written in clear medical Arabic, with French medical terms when clinically useful. The patient is Algerian and may have been interviewed in Algerian Darja (Arabic dialect with French terms).';
 
     const MAX_RETRIES = 3;
     let retryCount = 0;
@@ -759,20 +768,33 @@ async function _transcribeAudioGemini(audioPath, cfg, targetLang = null) {
 
         // Build prompt parts: transcription instruction + audio data
         const promptText = targetLang === 'fr'
-            ? `Tu es un expert en transcription médicale. Écoute l'audio suivant et transcris-le fidèlement en FRANÇAIS uniquement. 
-               Ignore toute autre langue. Ne réponds que par le texte transcrit, sans commentaires.`
-            : `أنت متخصص في تحويل الكلام إلى نص في سياق طبي. استمع للتسجيل الصوتي التالي وقم بنسخه حرفياً إلى نص عربي.
+            ? `You are a medical transcription specialist. Listen to the following audio recording and transcribe it faithfully.
 
-ملاحظة مهمة: المتحدث جزائري، وقد يتكلم بالدارجة الجزائرية أو بمزيج من الدارجة الجزائرية والعربية الفصحى أو بالفصحى فقط. اكتب ما تسمعه بالضبط كما نطقه المتحدث.
+STRICT RULES:
+- The speaker is a French-speaking medical professional (doctor or assistant).
+- Transcribe the audio ONLY in French. Output nothing but the transcribed text.
+- Do NOT add any introduction, explanation, commentary, or formatting.
+- If the audio is silent, unclear, or contains no intelligible speech, output exactly: [Audio inaudible]
+- Do NOT invent or hallucinate any content that is not in the recording.
 
-قواعد صارمة:
-- اكتب النص فقط بدون أي مقدمة أو شرح أو تعليق
-- اكتب ما تسمعه حرفياً كما نُطق
-- إذا كان الصوت صامتاً أو غير واضح أو لا يحتوي على كلام مفهوم، اكتب بالضبط: [صوت غير واضح]
-- لا تختلق أو تتخيل كلاماً غير موجود في التسجيل
-- لا تكتب أي محتوى من خيالك أو من الإنترنت
+Transcribe:`
+            : `You are a medical transcription specialist. Listen to the following audio recording and transcribe it faithfully.
 
-انسخ الصوت:`;
+IMPORTANT CONTEXT: The speaker is Algerian and speaks in "Algerian Darja" — a spoken Arabic dialect that frequently mixes colloquial Arabic with French words and medical terminology. Examples of Darja expressions:
+- "عندي السطر" = I have pain
+- "التخمام" = dizziness/anxiety
+- "راني نحس بالحمى" = I feel feverish
+- "عندي مال دو تات" (mal de tête) = I have a headache
+The speaker may also use pure Modern Standard Arabic or pure French for some sentences.
+
+STRICT RULES:
+- Transcribe exactly what you hear, preserving the original language (Darja, Arabic, or French) as spoken.
+- Output ONLY the transcribed text — no introduction, explanation, or commentary.
+- If the audio is silent, unclear, or contains no intelligible speech, output exactly: [Audio inaudible]
+- Do NOT invent or hallucinate any content that is not in the recording.
+- Do NOT generate content from your training data or the internet.
+
+Transcribe:`;
 
         const promptParts = [
             {
@@ -800,7 +822,7 @@ async function _transcribeAudioGemini(audioPath, cfg, targetLang = null) {
             // Anti-hallucination filter: detect nonsensical/random text
             if (isHallucinatedTranscription(text)) {
                 console.warn('Gemini transcription detected as hallucinated, rejecting:', text.substring(0, 80));
-                return '[فشل تحويل الصوت إلى نص — يرجى إعادة التسجيل]';
+                return '[Échec de la transcription — veuillez réenregistrer]';
             }
 
             console.log('Gemini Transcription SUCCESS:', text.substring(0, 100) + (text.length > 100 ? '...' : ''));
@@ -854,13 +876,13 @@ async function _transcribeAudioWhisper(audioPath, cfg, targetLang = null) {
         // Native FormData in Node 18+
         const formData = new FormData();
         const blob = new Blob([audioBuffer]);
-        const whisperPrompt = targetLang === 'fr'
-            ? 'Le locuteur parle en français médical. Veuillez transcrire fidèlement le texte en français uniquement.'
-            : 'المتحدث يتحدث بالدارجة الجزائرية وقد يستخدم كلمات فرنسية أو مصطلحات طبية. يرجى كتابة النص بدقة كما نُطق.';
+        const transcriptionPrompt = targetLang === 'fr'
+            ? 'Le locuteur parle en français médical. Transcription médicale professionnelle. Diagnostic, prescription, posologie, antécédents, examen clinique.'
+            : 'المتحدث جزائري يتحدث بالدارجة الجزائرية مع مصطلحات طبية بالفرنسية. عندي السطر، التخمام، الدوخة، الحمى. Diagnostic, fièvre, douleur, prescription.';
 
         formData.append('file', blob, path.basename(absoluteAudioPath));
         formData.append('model', 'gpt-4o-mini-transcribe');
-        formData.append('prompt', whisperPrompt);
+        formData.append('prompt', transcriptionPrompt);
 
         const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
             method: 'POST',
@@ -877,8 +899,8 @@ async function _transcribeAudioWhisper(audioPath, cfg, targetLang = null) {
 
                 // Anti-hallucination filter
                 if (isHallucinatedTranscription(text)) {
-                    console.warn('Whisper transcription detected as hallucinated, rejecting:', text.substring(0, 80));
-                    return '[فشل تحويل الصوت إلى نص — يرجى إعادة التسجيل]';
+                    console.warn('Transcription detected as hallucinated, rejecting:', text.substring(0, 80));
+                    return '[Échec de la transcription — veuillez réenregistrer]';
                 }
 
                 console.log('Whisper Transcription SUCCESS:', text.substring(0, 100) + '...');
@@ -986,42 +1008,49 @@ function buildChatSystemPrompt(caseData, responseLanguage = 'ar') {
     }
     const normalizedResponseLanguage = responseLanguage === 'fr' ? 'fr' : 'ar';
 
-    let context = `أنت مساعد طبي ذكي (Senior Medical AI Consultant).
-أنت في محادثة مع الطبيب المعالج حول حالة مريض.
-يجب أن تكون إجاباتك دقيقة، علمية، ومفيدة سريرياً.
-أجب بالعربية مع المصطلحات الطبية بالفرنسية/الإنجليزية عند الحاجة.
+    let context = `You are a Senior Medical AI Consultant engaged in a clinical discussion with the treating physician about a patient case.
+
+CORE BEHAVIOR RULES:
+- Be precise, evidence-based, and clinically actionable in every response.
+- Provide only confirmed, well-established medical information. Cite clinical guidelines (HAS, OMS, GINA, etc.) when relevant.
+- Never use flattering or filler phrases (e.g., "Great question!", "Absolutely!", "That's an excellent observation!"). Get straight to the clinical point.
+- If uncertain about a diagnosis or recommendation, explicitly state the degree of uncertainty.
+- When the doctor asks a clinical question, respond with the same rigor expected in a hospital staff meeting.
+- Structure your responses clearly: use numbered lists for differential diagnoses, bullet points for recommendations.
+
+PATIENT CONTEXT NOTE: The patient is Algerian and may have been interviewed in "Algerian Darja" (spoken Arabic dialect mixed with French terms). Interpret Darja expressions accurately in their medical context.
 
 ═══════════════════════════════
-سياق المريض:
+PATIENT CONTEXT:
 ═══════════════════════════════
-- الجنس: ${patient.gender === 'male' ? 'ذكر' : patient.gender === 'female' ? 'أنثى' : 'غير محدد'}
-- العمر: ${patientAge || 'غير محدد'} سنة
+- Gender: ${patient.gender === 'male' ? 'Male' : patient.gender === 'female' ? 'Female' : 'Unspecified'}
+- Age: ${patientAge || 'Unspecified'} years
 
 ═══════════════════════════════
-إجابات الاستبيان الطبي:
+MEDICAL QUESTIONNAIRE ANSWERS:
 ═══════════════════════════════`;
 
     if (normalizedResponseLanguage === 'fr') {
-        context += `\n\nINSTRUCTION DE LANGUE: Reponds toujours en francais medical professionnel.
-Conserve les termes du patient en darija algerienne uniquement lorsqu'ils sont cites.`;
+        context += `\n\nCRITICAL LANGUAGE INSTRUCTION: You MUST respond ONLY in professional medical French.
+You may quote the patient's original Darja wording verbatim when clinically relevant, but all your analysis, reasoning, and recommendations must be in French.`;
     } else {
-        context += `\n\nتعليمة اللغة: اجب دائما بالعربية الطبية الواضحة.
-لا تغيّر معنى عبارات المريض بالدارجة الجزائرية عند الاقتباس منها.`;
+        context += `\n\nCRITICAL LANGUAGE INSTRUCTION: You MUST respond ONLY in clear medical Arabic.
+Preserve the patient's Darja expressions verbatim when quoting them. All your analysis and recommendations must be in Arabic, with French medical terms when clinically useful.`;
     }
 
     if (answers && answers.length > 0) {
         answers.forEach((answer, index) => {
-            const answerText = answer.text_answer || answer.textAnswer || 'لم يتم تقديم إجابة';
+            const answerText = answer.text_answer || answer.textAnswer || 'No answer provided';
             context += `\n${index + 1}. ${answer.question_text}: ${answerText}`;
         });
     }
 
     const aiAnalysis = caseData.ai_analysis || caseData.aiAnalysis;
     if (aiAnalysis) {
-        context += `\n\n═══════════════════════════════\nالتحليل السابق للذكاء الاصطناعي:\n═══════════════════════════════`;
-        if (aiAnalysis.summary) context += `\nالملخص: ${aiAnalysis.summary}`;
+        context += `\n\n═══════════════════════════════\nPREVIOUS AI ANALYSIS:\n═══════════════════════════════`;
+        if (aiAnalysis.summary) context += `\nSummary: ${aiAnalysis.summary}`;
         if (aiAnalysis.diagnoses) {
-            context += `\nالتشخيصات المقترحة:`;
+            context += `\nSuggested diagnoses:`;
             aiAnalysis.diagnoses.forEach(d => {
                 context += `\n- ${d.name}: ${d.reasoning || ''}`;
             });
@@ -1164,25 +1193,25 @@ async function suggestMedications(caseData, aiConfig = null) {
 
     const aiAnalysis = caseData.ai_analysis || caseData.aiAnalysis;
 
-    const prompt = `Tu es un pharmacien clinicien expert.
-Basé sur les informations suivantes, suggère les médicaments appropriés.
+    const prompt = `You are an expert clinical pharmacist.
+Based on the following patient information, suggest the appropriate medications.
 
 Patient:
-- Genre: ${patient.gender === 'male' ? 'Homme' : 'Femme'}
-- Âge: ${patientAge || 'Indéterminé'} ans
+- Gender: ${patient.gender === 'male' ? 'Male' : 'Female'}
+- Age: ${patientAge || 'Undetermined'} years
 
-${aiAnalysis?.summary ? `Résumé: ${aiAnalysis.summary}` : ''}
-${aiAnalysis?.diagnoses ? `Diagnostics: ${aiAnalysis.diagnoses.map(d => d.name).join(', ')}` : ''}
+${aiAnalysis?.summary ? `Clinical summary: ${aiAnalysis.summary}` : ''}
+${aiAnalysis?.diagnoses ? `Diagnoses: ${aiAnalysis.diagnoses.map(d => d.name).join(', ')}` : ''}
 
-Réponds UNIQUEMENT en JSON avec la structure suivante.
-IMPORTANT: Les valeurs (nom, dosage, fréquence, durée) doivent être en FRANÇAIS. Ne jamais utiliser l'arabe dans le JSON.
+Return ONLY a JSON array with the following structure.
+CRITICAL: All values (name, dosage, frequency, duration) MUST be written in FRENCH. Never use Arabic or English in the JSON values.
 
 [
   {
-    "name": "Nom du médicament (DCI)",
-    "dosage": "Posologie (ex: 500mg)",
-    "frequency": "Fréquence (ex: 3x/jour)",
-    "duration": "Durée (ex: 7 jours)"
+    "name": "Medication name (DCI in French)",
+    "dosage": "Dosage (e.g., 500mg)",
+    "frequency": "Frequency (e.g., 3x/jour)",
+    "duration": "Duration (e.g., 7 jours)"
   }
 ]`;
 
