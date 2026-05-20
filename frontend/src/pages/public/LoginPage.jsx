@@ -69,7 +69,7 @@ function LoginPage() {
             coverSubtitle="Connectez-vous pour superviser vos dossiers, coordonner votre équipe et maintenir une continuité de soins sans friction."
             coverHighlights={coverHighlights}
             panelTitle="Ravi de vous revoir, Docteur"
-            panelSubtitle="Accédez à votre espace professionnel MediConsult."
+            panelSubtitle="Accédez à votre espace professionnel MediBot."
             footer={
                 <>
                     {t.auth.noAccount} <Link to="/register">{t.auth.register}</Link>

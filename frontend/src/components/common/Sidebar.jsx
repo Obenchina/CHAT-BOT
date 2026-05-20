@@ -140,9 +140,9 @@ function Sidebar() {
                         <>
                             {/* Expanded State: Logo on Left, Toggle on Right */}
                             <div className="sidebar-logo">
-                                <img src="/assets/logo.png" alt="Medi-Consult Logo" className="sidebar-brand-logo-img" />
+                                <img src="/assets/logo.png" alt="Medi-Bot Logo" className="sidebar-brand-logo-img" />
                                 <div className="sidebar-brand-copy">
-                                    <span className="sidebar-brand-name">Medi-Consult</span>
+                                    <span className="sidebar-brand-name">Medi-Bot</span>
                                     <span className="sidebar-brand-subtitle">{roleLabel}</span>
                                 </div>
                             </div>
