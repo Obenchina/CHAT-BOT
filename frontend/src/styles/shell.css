@@ -643,13 +643,18 @@
 }
 
 .internal-shell .case-stack,
-.internal-shell .case-review-stack,
 .internal-shell .case-details-stack {
     display: flex;
     flex-direction: column;
     gap: 18px;
     max-width: 1040px;
     margin: 0 auto;
+}
+
+.internal-shell .case-review-stack {
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
 }
 
 .internal-shell .case-meta-list>div,

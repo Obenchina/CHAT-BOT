@@ -195,7 +195,7 @@ function CaseReviewPage() {
                             <LoadingSpinner size="lg" text={t.common.loading} />
                         </div>
                     ) : caseData ? (
-                        <div className="case-stack case-review-stack" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)', maxWidth: '900px', margin: '0 auto' }}>
+                        <div className="case-review-stack" style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-lg)' }}>
                             {/* 1. Patient info */}
                             <div className="card">
                                 <div className="card-header border-b">
@@ -252,7 +252,7 @@ function CaseReviewPage() {
                                                 }}>
                                                     <div style={{
                                                         fontWeight: '600',
-                                                        marginBottom: 'var(--space-sm)',
+                                                        marginBottom: '4px',
                                                         color: 'var(--text-primary)',
                                                         fontSize: '1.05rem',
                                                         direction: questionIsRtl ? 'rtl' : 'ltr',
@@ -262,31 +262,24 @@ function CaseReviewPage() {
                                                         {questionText}
                                                     </div>
                                                     <div style={{
-                                                        display: 'flex',
-                                                        flexDirection: 'column',
-                                                        gap: 'var(--space-xs)',
-                                                        marginTop: 'var(--space-xs)'
+                                                        color: 'var(--text-secondary)',
+                                                        padding: '8px var(--space-md)',
+                                                        background: 'var(--bg-card)',
+                                                        borderRadius: 'var(--radius-md)',
+                                                        border: '1px solid var(--border-color)',
+                                                        direction: answerDirection,
+                                                        textAlign: getTextAlign(answerText || questionText),
+                                                        fontSize: '0.95rem',
+                                                        lineHeight: '1.6'
                                                     }}>
-                                                        <div style={{
-                                                            color: 'var(--text-secondary)',
-                                                            padding: 'var(--space-md)',
-                                                            background: 'var(--bg-card)',
-                                                            borderRadius: 'var(--radius-md)',
-                                                            border: '1px solid var(--border-color)',
-                                                            direction: answerDirection,
-                                                            textAlign: getTextAlign(answerText || questionText),
-                                                            fontSize: '0.95rem',
-                                                            lineHeight: '1.6'
-                                                        }}>
-                                                            {answerText ? (
-                                                                <>{answerText}</>
-                                                            ) : (
-                                                                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: answerDirection === 'rtl' ? 'flex-end' : 'flex-start', fontStyle: 'italic' }}>
-                                                                    <span>Réponse enregistrée vocalement</span>
-                                                                    <CheckIcon color="success" fontSize="small" />
-                                                                </div>
-                                                            )}
-                                                        </div>
+                                                        {answerText ? (
+                                                            <>{answerText}</>
+                                                        ) : (
+                                                            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: answerDirection === 'rtl' ? 'flex-end' : 'flex-start', fontStyle: 'italic' }}>
+                                                                <span>Réponse enregistrée vocalement</span>
+                                                                <CheckIcon color="success" fontSize="small" />
+                                                            </div>
+                                                        )}
                                                     </div>
                                                 </div>
                                                 );
