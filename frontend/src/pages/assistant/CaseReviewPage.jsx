@@ -246,7 +246,7 @@ function CaseReviewPage() {
 
                                                 return (
                                                 <div key={idx} style={{
-                                                    padding: 'var(--space-lg)',
+                                                    padding: 'var(--space-md) var(--space-lg)',
                                                     borderBottom: idx < caseData.answers.length - 1 ? '1px solid var(--border-color)' : 'none',
                                                     background: idx % 2 === 0 ? 'transparent' : 'var(--bg-elevated)'
                                                 }}>
@@ -264,8 +264,8 @@ function CaseReviewPage() {
                                                     <div style={{
                                                         display: 'flex',
                                                         flexDirection: 'column',
-                                                        gap: 'var(--space-sm)',
-                                                        marginTop: 'var(--space-md)'
+                                                        gap: 'var(--space-xs)',
+                                                        marginTop: 'var(--space-xs)'
                                                     }}>
                                                         <div style={{
                                                             color: 'var(--text-secondary)',
