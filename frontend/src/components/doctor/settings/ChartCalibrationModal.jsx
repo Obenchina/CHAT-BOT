@@ -292,15 +292,15 @@ export default function ChartCalibrationModal({ isOpen, onClose, curveId, imageU
     }
 
     return (
-        <Modal isOpen={isOpen} onClose={onClose} title="Calibrer la courbe" size="xl">
+        <Modal isOpen={isOpen} onClose={onClose} title="Calibrer la courbe" maxWidth="1200px" modalStyle={{ width: '95vw', maxWidth: '1200px' }} bodyStyle={{ overflowY: 'hidden' }}>
             <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16 }}>
-                <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                    <div style={{ padding: 8, borderBottom: '1px solid #cbd5e1', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end' }}>
+                <div style={{ border: '1px solid #cbd5e1', borderRadius: 6, overflow: 'hidden', display: 'flex', flexDirection: 'column', background: '#f8fafc', justifyContent: 'center' }}>
+                    <div style={{ padding: 8, borderBottom: '1px solid #cbd5e1', background: '#f8fafc', display: 'flex', justifyContent: 'flex-end', width: '100%' }}>
                         <Button size="sm" variant="outline" onClick={handleRotate} disabled={saving}>
                             ↻ Faire pivoter (90°)
                         </Button>
                     </div>
-                    <div style={{ position: 'relative' }}>
+                    <div style={{ position: 'relative', width: 'fit-content', margin: '0 auto' }}>
                         <img
                             ref={setImgEl}
                             crossOrigin="anonymous"
@@ -308,7 +308,11 @@ export default function ChartCalibrationModal({ isOpen, onClose, curveId, imageU
                             alt="Chart"
                             onClick={handleImageClick}
                             style={{
-                                width: '100%', display: 'block',
+                                width: 'auto',
+                                height: 'auto',
+                                maxWidth: '100%',
+                                maxHeight: '60vh',
+                                display: 'block',
                                 cursor: activeStep ? 'crosshair' : 'default',
                                 userSelect: 'none',
                             }}
@@ -352,7 +356,7 @@ export default function ChartCalibrationModal({ isOpen, onClose, curveId, imageU
                     </div>
                 </div>
 
-                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '70vh', overflowY: 'auto' }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: 12, maxHeight: '68vh', overflowY: 'auto' }}>
                     <div>
                         <label style={{ fontSize: 12, fontWeight: 600 }}>Type de courbe</label>
                         <select className="input-field" value={chartKind} onChange={(e) => handleChartKindChange(e.target.value)}>

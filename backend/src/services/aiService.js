@@ -55,17 +55,16 @@ function formatMedicationList(rawPrescription) {
     }).join('\n');
 }
 
-function buildComprehensiveCaseContext(caseData = {}, responseLanguage = 'ar') {
+function buildComprehensiveCaseContext(caseData = {}, responseLanguage = 'fr') {
     const patient = caseData.patient || {};
     const answers = Array.isArray(caseData.answers) ? caseData.answers : [];
     const documents = Array.isArray(caseData.documents) ? caseData.documents : [];
     const aiAnalysis = safeJsonParse(caseData.ai_analysis || caseData.aiAnalysis, caseData.aiAnalysis || null);
-    const language = responseLanguage === 'fr' ? 'French' : 'Arabic';
 
     const lines = [
         'COMPREHENSIVE ANONYMIZED CASE DATA',
         'Never mention patient first name or last name. These fields are intentionally excluded.',
-        `Expected response language: ${language}.`,
+        'Expected response language: French.',
         '',
         'Patient facts:',
         `- Gender: ${patient.gender || 'unknown'}`,
@@ -192,14 +191,14 @@ async function analyzeCase(caseData, aiConfig = null) {
         const docResult = await processCaseDocuments(caseData);
 
         // Build base text prompt
-        let baseTextPrompt = buildAnalysisPrompt(caseData, cfg.responseLanguage || 'ar');
-        baseTextPrompt += `\n\n${buildComprehensiveCaseContext(caseData, cfg.responseLanguage || 'ar')}`;
+        let baseTextPrompt = buildAnalysisPrompt(caseData, cfg.responseLanguage || 'fr');
+        baseTextPrompt += `\n\n${buildComprehensiveCaseContext(caseData, cfg.responseLanguage || 'fr')}`;
 
         if (cfg.provider === 'openai') {
             // OpenAI multimodal path (Text extraction for PDFs)
             let openaiTextPrompt = baseTextPrompt;
             if (docResult.extractedText) {
-                openaiTextPrompt += `\n\n═══════════════════════════════\nمحتويات مستخرجة من المستندات المرفقة (PDF):\n═══════════════════════════════\n${docResult.extractedText}`;
+                openaiTextPrompt += `\n\n═══════════════════════════════\nContenu extrait des documents joints (PDF):\n═══════════════════════════════\n${docResult.extractedText}`;
             }
 
             const userContent = [
@@ -346,10 +345,9 @@ async function processCaseDocuments(caseData) {
  * @param {Object} caseData - Case data
  * @returns {string} Formatted prompt
  */
-function buildAnalysisPrompt(caseData, responseLanguage = 'ar') {
+function buildAnalysisPrompt(caseData, responseLanguage = 'fr') {
     const { patient, answers, documents } = caseData;
     const hasDocs = documents && documents.length > 0;
-    const normalizedResponseLanguage = responseLanguage === 'fr' ? 'fr' : 'ar';
 
     // Use computed age from backend (TIMESTAMPDIFF), fallback to manual calculation from date_of_birth
     let patientAge = patient.age;
@@ -414,8 +412,7 @@ Return your analysis as the following JSON structure:
   "additionalNotes": "Place any emergency alerts or specialized medical advice for the doctor here."
 }`;
 
-    if (normalizedResponseLanguage === 'fr') {
-        prompt += `
+    prompt += `
 
 CRITICAL LANGUAGE OVERRIDE:
 - Return valid JSON only.
@@ -423,15 +420,6 @@ CRITICAL LANGUAGE OVERRIDE:
 - ALL human-readable values MUST be written in professional medical French.
 - Do NOT write Arabic in the analysis, except when quoting the patient's original Darja wording verbatim.
 - Diagnosis names MUST use French medical terminology (e.g., "Bronchiolite aiguë", "Gastro-entérite virale").`;
-    } else {
-        prompt += `
-
-CRITICAL LANGUAGE OVERRIDE:
-- Return valid JSON only.
-- Keep the JSON keys EXACTLY as specified: summary, diagnoses, additionalNotes, name, probability, reasoning.
-- ALL human-readable values MUST be written in clear medical Arabic.
-- French medical terms may be kept when clinically useful (e.g., diagnostic names).`;
-    }
 
     return prompt;
 }
@@ -620,9 +608,7 @@ async function callOpenAIAPI(userContent, cfg) {
     const apiKey = cfg.apiKey;
     const model = cfg.model || 'gpt-4o-mini';
     const url = 'https://api.openai.com/v1/chat/completions';
-    const systemContent = cfg.responseLanguage === 'fr'
-        ? 'You are a Senior Medical AI Specialist. Analyze the provided medical case data with high clinical precision and return a structured JSON response. All human-readable values must be written in professional medical French. You may quote the patient\'s original Darja wording verbatim when relevant. The patient is Algerian and may have been interviewed in Algerian Darja (Arabic dialect with French terms).'
-        : 'You are a Senior Medical AI Specialist. Analyze the provided medical case data with high clinical precision and return a structured JSON response. All human-readable values must be written in clear medical Arabic, with French medical terms when clinically useful. The patient is Algerian and may have been interviewed in Algerian Darja (Arabic dialect with French terms).';
+    const systemContent = 'You are a Senior Medical AI Specialist. Analyze the provided medical case data with high clinical precision and return a structured JSON response. All human-readable values must be written in professional medical French. You may quote the patient\'s original Darja wording verbatim when relevant. The patient is Algerian and may have been interviewed in Algerian Darja (Arabic dialect with French terms).';
 
     const MAX_RETRIES = 3;
     let retryCount = 0;
@@ -997,7 +983,7 @@ function isHallucinatedTranscription(text) {
 /**
  * Build system prompt for doctor-AI chat with patient context
  */
-function buildChatSystemPrompt(caseData, responseLanguage = 'ar') {
+function buildChatSystemPrompt(caseData, responseLanguage = 'fr') {
     const { patient, answers, documents } = caseData;
 
     let patientAge = patient.age;
@@ -1006,7 +992,6 @@ function buildChatSystemPrompt(caseData, responseLanguage = 'ar') {
         const now = new Date();
         patientAge = Math.floor((now - dob) / (365.25 * 24 * 60 * 60 * 1000));
     }
-    const normalizedResponseLanguage = responseLanguage === 'fr' ? 'fr' : 'ar';
 
     let context = `You are a Senior Medical AI Consultant engaged in a clinical discussion with the treating physician about a patient case.
 
@@ -1030,13 +1015,8 @@ PATIENT CONTEXT:
 MEDICAL QUESTIONNAIRE ANSWERS:
 ═══════════════════════════════`;
 
-    if (normalizedResponseLanguage === 'fr') {
-        context += `\n\nCRITICAL LANGUAGE INSTRUCTION: You MUST respond ONLY in professional medical French.
+    context += `\n\nCRITICAL LANGUAGE INSTRUCTION: You MUST respond ONLY in professional medical French.
 You may quote the patient's original Darja wording verbatim when clinically relevant, but all your analysis, reasoning, and recommendations must be in French.`;
-    } else {
-        context += `\n\nCRITICAL LANGUAGE INSTRUCTION: You MUST respond ONLY in clear medical Arabic.
-Preserve the patient's Darja expressions verbatim when quoting them. All your analysis and recommendations must be in Arabic, with French medical terms when clinically useful.`;
-    }
 
     if (answers && answers.length > 0) {
         answers.forEach((answer, index) => {
@@ -1074,7 +1054,7 @@ async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = nul
     const cfg = aiConfig || { provider: 'gemini', apiKey: config.ai.apiKey, model: config.ai.model };
 
     if (!cfg.apiKey) {
-        throw Object.assign(new Error('مفتاح API غير مُعَدّ'), { code: 'MISSING_API_KEY' });
+        throw Object.assign(new Error('Clé API non configurée'), { code: 'MISSING_API_KEY' });
     }
 
     if (cfg.provider === 'openai') {
@@ -1116,7 +1096,7 @@ async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = nul
         }
 
         const data = await response.json();
-        return data.choices?.[0]?.message?.content || 'لم يتمكن الذكاء الاصطناعي من الرد.';
+        return data.choices?.[0]?.message?.content || "L'IA n'a pas pu répondre.";
     }
 
     // Gemini format — use multi-turn conversation
@@ -1127,8 +1107,8 @@ async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = nul
     const contents = [];
 
     // Add system context as first user message
-    contents.push({ role: 'user', parts: [{ text: systemContext + '\n\nابدأ المحادثة. أنا الطبيب المعالج.' }] });
-    contents.push({ role: 'model', parts: [{ text: 'مرحباً دكتور. أنا مستعد لمناقشة هذه الحالة معك. كيف يمكنني مساعدتك؟' }] });
+    contents.push({ role: 'user', parts: [{ text: systemContext + '\n\nCommencez la conversation. Je suis le médecin traitant.' }] });
+    contents.push({ role: 'model', parts: [{ text: 'Bonjour Docteur. Je suis prêt à discuter de ce cas avec vous. Comment puis-je vous aider ?' }] });
 
     // Add chat history
     chatHistory.forEach(m => {
@@ -1168,7 +1148,7 @@ async function chatWithAI(systemContext, chatHistory, newMessage, aiConfig = nul
     }
 
     const data = await response.json();
-    return data.candidates?.[0]?.content?.parts?.[0]?.text || 'لم يتمكن الذكاء الاصطناعي من الرد.';
+    return data.candidates?.[0]?.content?.parts?.[0]?.text || "L'IA n'a pas pu répondre.";
 }
 
 /**
@@ -1181,7 +1161,7 @@ async function suggestMedications(caseData, aiConfig = null) {
     const cfg = aiConfig || { provider: 'gemini', apiKey: config.ai.apiKey, model: config.ai.model };
 
     if (!cfg.apiKey) {
-        throw Object.assign(new Error('مفتاح API غير مُعَدّ'), { code: 'MISSING_API_KEY' });
+        throw Object.assign(new Error('Clé API non configurée'), { code: 'MISSING_API_KEY' });
     }
 
     const { patient, answers } = caseData;

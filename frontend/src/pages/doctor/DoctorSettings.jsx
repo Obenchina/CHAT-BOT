@@ -1115,7 +1115,7 @@ function AiConfigTab() {
         provider: 'gemini',
         apiKey: '',
         model: 'gemini-2.5-flash-lite',
-        responseLanguage: 'ar'
+        responseLanguage: 'fr'
     });
 
     const [configs, setConfigs] = useState({ gemini: {}, openai: {} });
@@ -1135,7 +1135,7 @@ function AiConfigTab() {
                     provider: active,
                     apiKey: provConfigs[active]?.apiKey || '',
                     model: provConfigs[active]?.model || (active === 'gemini' ? 'gemini-2.5-flash' : 'gpt-5.4-mini'),
-                    responseLanguage: provConfigs[active]?.responseLanguage || 'ar'
+                    responseLanguage: provConfigs[active]?.responseLanguage || 'fr'
                 });
             }
         } catch (error) {
@@ -1154,7 +1154,7 @@ function AiConfigTab() {
             provider: providerId,
             model: configs[providerId]?.model || provider?.models[0]?.value || '',
             apiKey: configs[providerId]?.apiKey || '',
-            responseLanguage: configs[providerId]?.responseLanguage || formData.responseLanguage || 'ar'
+            responseLanguage: configs[providerId]?.responseLanguage || formData.responseLanguage || 'fr'
         });
 
         // Trigger backend activation silently
@@ -1307,23 +1307,7 @@ function AiConfigTab() {
                         ))}
                     </select>
                 </div>
-                <div style={{ marginBottom: 'var(--space-xl)' }}>
-                    <label style={{ display: 'block', fontWeight: 600, marginBottom: 'var(--space-xs)', fontSize: '0.95rem', color: 'var(--text-primary)' }}>
-                        Langue des réponses IA
-                    </label>
-                    <select
-                        className="input-field"
-                        value={formData.responseLanguage}
-                        onChange={(e) => setFormData({ ...formData, responseLanguage: e.target.value })}
-                        style={{ width: '100%', fontSize: '0.9rem', padding: '10px 14px', borderRadius: 'var(--radius-md)' }}
-                    >
-                        <option value="ar">Arabe</option>
-                        <option value="fr">Francais</option>
-                    </select>
-                    <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '6px', marginBottom: 0 }}>
-                        Cette modification change uniquement la langue de réponse de l'IA pour le médecin, sans modifier l'audio ou la transcription du patient.
-                    </p>
-                </div>
+
 
 
                 {/* Save Button */}

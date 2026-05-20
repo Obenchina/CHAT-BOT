@@ -108,7 +108,7 @@ const AiConfig = {
         if (existing.length === 0) {
             // Create empty config just to hold the active state
             await pool.execute(
-                `INSERT INTO ai_config (doctor_id, provider, api_key, model, is_active, response_language) VALUES (?, ?, '', ?, true, 'ar')`,
+                `INSERT INTO ai_config (doctor_id, provider, api_key, model, is_active, response_language) VALUES (?, ?, '', ?, true, 'fr')`,
                 [doctorId, provider, provider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-5.4-mini']
             );
         } else {
@@ -172,7 +172,7 @@ const AiConfig = {
     async upsert(doctorId, { provider, apiKey, model, responseLanguage }) {
         // Encrypt the API key before storage
         const encryptedKey = encrypt(apiKey);
-        const normalizedLanguage = responseLanguage === 'fr' ? 'fr' : (responseLanguage === 'ar' ? 'ar' : null);
+        const normalizedLanguage = 'fr';
 
         const [existing] = await pool.execute(
             'SELECT id FROM ai_config WHERE doctor_id = ? AND provider = ?',
@@ -182,14 +182,14 @@ const AiConfig = {
         if (existing.length > 0) {
             await pool.execute(
                 `UPDATE ai_config
-                 SET api_key = ?, model = ?, is_active = true, response_language = COALESCE(?, response_language, 'ar')
+                 SET api_key = ?, model = ?, is_active = true, response_language = COALESCE(?, response_language, 'fr')
                  WHERE doctor_id = ? AND provider = ?`,
                 [encryptedKey, model, normalizedLanguage, doctorId, provider]
             );
         } else {
             await pool.execute(
                 `INSERT INTO ai_config (doctor_id, provider, api_key, model, is_active, response_language) VALUES (?, ?, ?, ?, true, ?)`,
-                [doctorId, provider, encryptedKey, model, normalizedLanguage || 'ar']
+                [doctorId, provider, encryptedKey, model, normalizedLanguage || 'fr']
             );
         }
 
@@ -213,7 +213,7 @@ const AiConfig = {
                 provider: doctorConfig.provider,
                 apiKey: doctorConfig.api_key,
                 model: doctorConfig.model,
-                responseLanguage: doctorConfig.response_language || 'ar'
+                responseLanguage: doctorConfig.response_language || 'fr'
             };
         }
 

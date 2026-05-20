@@ -171,7 +171,7 @@ async function getAiConfig(req, res) {
             configsByProvider[cfg.provider] = {
                 apiKey: cfg.api_key || '',
                 model: cfg.model || '',
-                responseLanguage: cfg.response_language || 'ar'
+                responseLanguage: cfg.response_language || 'fr'
             };
             if (cfg.is_active) {
                 activeProvider = cfg.provider;
@@ -207,7 +207,7 @@ async function updateAiConfig(req, res) {
             provider,
             apiKey: api_key || apiKey || '',
             model,
-            responseLanguage: response_language || responseLanguage || 'ar'
+            responseLanguage: response_language || responseLanguage || 'fr'
         });
 
         res.json({
@@ -216,7 +216,7 @@ async function updateAiConfig(req, res) {
             data: {
                 provider: config?.provider || provider,
                 model: config?.model || model,
-                responseLanguage: config?.response_language || response_language || responseLanguage || 'ar'
+                responseLanguage: config?.response_language || response_language || responseLanguage || 'fr'
             }
         });
     } catch (error) {

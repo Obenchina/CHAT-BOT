@@ -351,7 +351,7 @@ async function runMigrations(pool) {
             api_key TEXT NOT NULL,
             model VARCHAR(120) NOT NULL,
             is_active BOOLEAN NOT NULL DEFAULT FALSE,
-            response_language ENUM('ar','fr') NOT NULL DEFAULT 'ar',
+            response_language ENUM('ar','fr') NOT NULL DEFAULT 'fr',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uq_doctor_provider (doctor_id, provider),
@@ -359,7 +359,7 @@ async function runMigrations(pool) {
             FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
         ) ENGINE=InnoDB;
     `);
-    await ensureColumn(pool, 'ai_config', 'response_language', "ENUM('ar','fr') NOT NULL DEFAULT 'ar'");
+    await ensureColumn(pool, 'ai_config', 'response_language', "ENUM('ar','fr') NOT NULL DEFAULT 'fr'");
 
     await pool.execute(`
         CREATE TABLE IF NOT EXISTS ai_chat_messages (
