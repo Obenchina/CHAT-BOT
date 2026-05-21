@@ -170,8 +170,7 @@ async function getAiConfig(req, res) {
         (configs || []).forEach((cfg) => {
             configsByProvider[cfg.provider] = {
                 apiKey: cfg.api_key || '',
-                model: cfg.model || '',
-                responseLanguage: cfg.response_language || 'fr'
+                model: cfg.model || ''
             };
             if (cfg.is_active) {
                 activeProvider = cfg.provider;
@@ -198,16 +197,13 @@ async function updateAiConfig(req, res) {
             provider,
             api_key,
             apiKey,
-            model,
-            response_language,
-            responseLanguage
+            model
         } = req.body;
 
         const config = await AiConfig.upsert(doctor.id, {
             provider,
             apiKey: api_key || apiKey || '',
-            model,
-            responseLanguage: response_language || responseLanguage || 'fr'
+            model
         });
 
         res.json({
@@ -215,8 +211,7 @@ async function updateAiConfig(req, res) {
             message: 'AI configuration saved',
             data: {
                 provider: config?.provider || provider,
-                model: config?.model || model,
-                responseLanguage: config?.response_language || response_language || responseLanguage || 'fr'
+                model: config?.model || model
             }
         });
     } catch (error) {

@@ -321,7 +321,6 @@ async function getById(req, res) {
                 })),
                 documents: (caseData.documents || []).map(d => ({
                     id: d.id,
-                    type: d.document_type,
                     fileName: d.file_name,
                     filePath: d.file_path,
                     uploadedAt: d.uploaded_at
@@ -600,7 +599,6 @@ async function addAnswer(req, res) {
 async function uploadDocument(req, res) {
     try {
         const { id } = req.params;
-        const { documentType } = req.body;
 
         if (!req.file) {
             return res.status(400).json({
@@ -609,11 +607,8 @@ async function uploadDocument(req, res) {
             });
         }
 
-        // Any document type is accepted now
-
         const document = await Document.create({
             caseId: id,
-            documentType,
             filePath: `documents/${req.file.filename}`,
             fileName: req.file.originalname
         });
@@ -623,7 +618,6 @@ async function uploadDocument(req, res) {
             message: 'Document uploaded successfully',
             data: {
                 id: document.id,
-                type: documentType,
                 fileName: req.file.originalname
             }
         });

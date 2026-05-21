@@ -351,7 +351,6 @@ async function runMigrations(pool) {
             api_key TEXT NOT NULL,
             model VARCHAR(120) NOT NULL,
             is_active BOOLEAN NOT NULL DEFAULT FALSE,
-            response_language ENUM('ar','fr') NOT NULL DEFAULT 'fr',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uq_doctor_provider (doctor_id, provider),
@@ -359,7 +358,6 @@ async function runMigrations(pool) {
             FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
         ) ENGINE=InnoDB;
     `);
-    await ensureColumn(pool, 'ai_config', 'response_language', "ENUM('ar','fr') NOT NULL DEFAULT 'fr'");
 
     await pool.execute(`
         CREATE TABLE IF NOT EXISTS ai_chat_messages (
@@ -368,9 +366,6 @@ async function runMigrations(pool) {
             doctor_id INT NOT NULL,
             role ENUM('doctor', 'ai') NOT NULL,
             content TEXT NOT NULL,
-            attachment_path VARCHAR(500) NULL,
-            attachment_name VARCHAR(255) NULL,
-            attachment_mime VARCHAR(120) NULL,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             FOREIGN KEY (case_id) REFERENCES cases(id) ON DELETE CASCADE,
             FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE,
@@ -378,9 +373,6 @@ async function runMigrations(pool) {
             INDEX idx_doctor (doctor_id)
         ) ENGINE=InnoDB;
     `);
-    await ensureColumn(pool, 'ai_chat_messages', 'attachment_path', 'VARCHAR(500) NULL');
-    await ensureColumn(pool, 'ai_chat_messages', 'attachment_name', 'VARCHAR(255) NULL');
-    await ensureColumn(pool, 'ai_chat_messages', 'attachment_mime', 'VARCHAR(120) NULL');
 
     await pool.execute(`
         UPDATE catalogues
@@ -404,9 +396,7 @@ async function runMigrations(pool) {
 
     // Migrations completed
 
-    // Growth curves table â€” v2 schema with reference + extracted source types.
-    // Old columns (file_path, template_config, is_calibrated) are kept nullable for
-    // backward-compatible deploys; new uploads no longer write to them.
+    // Growth curves table - v2 schema with reference + extracted source types.
     await pool.execute(`
         CREATE TABLE IF NOT EXISTS doctor_growth_curves (
             id INT PRIMARY KEY AUTO_INCREMENT,
@@ -443,12 +433,6 @@ async function runMigrations(pool) {
         await pool.execute("ALTER TABLE doctor_growth_curves MODIFY COLUMN source_type ENUM('reference', 'extracted', 'calibrated_overlay') NOT NULL DEFAULT 'reference'");
     } catch (err) {
         console.warn('Could not extend doctor_growth_curves.source_type ENUM:', err.message);
-    }
-    // Make legacy required column optional so the new flow can omit it.
-    try {
-        await pool.execute('ALTER TABLE doctor_growth_curves MODIFY COLUMN file_path VARCHAR(255) NULL');
-    } catch (err) {
-        // Column may have been removed already.
     }
 
     console.log('Database migrations ready');

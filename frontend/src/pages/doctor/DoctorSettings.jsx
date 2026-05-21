@@ -1114,8 +1114,7 @@ function AiConfigTab() {
     const [formData, setFormData] = useState({
         provider: 'gemini',
         apiKey: '',
-        model: 'gemini-2.5-flash-lite',
-        responseLanguage: 'fr'
+        model: 'gemini-3.1-flash-lite'
     });
 
     const [configs, setConfigs] = useState({ gemini: {}, openai: {} });
@@ -1134,8 +1133,7 @@ function AiConfigTab() {
                 setFormData({
                     provider: active,
                     apiKey: provConfigs[active]?.apiKey || '',
-                    model: provConfigs[active]?.model || (active === 'gemini' ? 'gemini-2.5-flash' : 'gpt-5.4-mini'),
-                    responseLanguage: provConfigs[active]?.responseLanguage || 'fr'
+                    model: provConfigs[active]?.model || (active === 'gemini' ? 'gemini-3.1-flash-lite' : 'gpt-5.4-mini')
                 });
             }
         } catch (error) {
@@ -1153,8 +1151,7 @@ function AiConfigTab() {
             ...formData,
             provider: providerId,
             model: configs[providerId]?.model || provider?.models[0]?.value || '',
-            apiKey: configs[providerId]?.apiKey || '',
-            responseLanguage: configs[providerId]?.responseLanguage || formData.responseLanguage || 'fr'
+            apiKey: configs[providerId]?.apiKey || ''
         });
 
         // Trigger backend activation silently

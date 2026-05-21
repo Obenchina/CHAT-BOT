@@ -172,7 +172,6 @@ CREATE TABLE IF NOT EXISTS case_answers (
 CREATE TABLE IF NOT EXISTS documents (
     id INT PRIMARY KEY AUTO_INCREMENT,
     case_id INT NOT NULL,
-    document_type VARCHAR(50) NOT NULL DEFAULT 'general',
     file_path VARCHAR(500) NOT NULL,
     file_name VARCHAR(255) NOT NULL,
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -210,11 +209,10 @@ CREATE TABLE IF NOT EXISTS ai_config (
     doctor_id INT NOT NULL,
     provider ENUM('gemini', 'openai') NOT NULL DEFAULT 'gemini',
     api_key VARCHAR(500) NOT NULL DEFAULT '',
-    model VARCHAR(100) NOT NULL DEFAULT 'gemini-2.5-flash',
+    model VARCHAR(100) NOT NULL DEFAULT 'gemini-3.1-flash-lite',
     is_active BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    response_language ENUM('ar', 'fr') NOT NULL DEFAULT 'fr',
     UNIQUE KEY doctor_provider_unique (doctor_id, provider),
     FOREIGN KEY (doctor_id) REFERENCES doctors(id) ON DELETE CASCADE
 ) ENGINE=InnoDB;

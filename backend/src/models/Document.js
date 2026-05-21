@@ -14,12 +14,12 @@ const Document = {
      * @returns {Promise<Object>} Created document
      */
     async create(documentData) {
-        const { caseId, documentType, filePath, fileName } = documentData;
+        const { caseId, filePath, fileName } = documentData;
 
         const [result] = await pool.execute(
-            `INSERT INTO documents (case_id, document_type, file_path, file_name, uploaded_at)
-       VALUES (?, ?, ?, ?, NOW())`,
-            [caseId, documentType, filePath, fileName]
+            `INSERT INTO documents (case_id, file_path, file_name, uploaded_at)
+       VALUES (?, ?, ?, NOW())`,
+            [caseId, filePath, fileName]
         );
 
         return {
@@ -77,20 +77,7 @@ const Document = {
         return documents;
     },
 
-    /**
-     * Get documents by type for a case
-     * @param {number} caseId - Case ID
-     * @param {string} documentType - Document type
-     * @returns {Promise<Array>} List of documents
-     */
-    async findByType(caseId, documentType) {
-        const [documents] = await pool.execute(
-            'SELECT * FROM documents WHERE case_id = ? AND document_type = ?',
-            [caseId, documentType]
-        );
 
-        return documents;
-    },
 
     /**
      * Delete document

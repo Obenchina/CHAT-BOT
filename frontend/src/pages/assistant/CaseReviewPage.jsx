@@ -11,7 +11,7 @@ import LoadingSpinner from '../../components/common/LoadingSpinner';
 import DocumentPreviewModal from '../../components/common/DocumentPreviewModal';
 import caseService from '../../services/caseService';
 import translations from '../../constants/translations';
-import { DOCUMENT_TYPES, CASE_STATUS } from '../../constants/config';
+import { CASE_STATUS } from '../../constants/config';
 import { showSuccess, showError, showConfirm } from '../../utils/toast';
 import { computeAgeDisplay, formatDateOnlyDisplay } from '../../utils/patientAge';
 import { getTextAlign, getTextDirection, isRtlText } from '../../utils/textDirection';

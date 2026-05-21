@@ -108,8 +108,8 @@ const AiConfig = {
         if (existing.length === 0) {
             // Create empty config just to hold the active state
             await pool.execute(
-                `INSERT INTO ai_config (doctor_id, provider, api_key, model, is_active, response_language) VALUES (?, ?, '', ?, true, 'fr')`,
-                [doctorId, provider, provider === 'gemini' ? 'gemini-2.5-flash' : 'gpt-5.4-mini']
+                `INSERT INTO ai_config (doctor_id, provider, api_key, model, is_active) VALUES (?, ?, '', ?, true)`,
+                [doctorId, provider, provider === 'gemini' ? 'gemini-3.1-flash-lite' : 'gpt-5.4-mini']
             );
         } else {
             // Set the explicitly chosen one to active
@@ -166,13 +166,12 @@ const AiConfig = {
     /**
      * Upsert AI config (insert or update) and set it as active
      * @param {number} doctorId - Doctor ID
-     * @param {Object} data - { provider, apiKey, model, responseLanguage }
+     * @param {Object} data - { provider, apiKey, model }
      * @returns {Promise<Object>} Updated active config
      */
-    async upsert(doctorId, { provider, apiKey, model, responseLanguage }) {
+    async upsert(doctorId, { provider, apiKey, model }) {
         // Encrypt the API key before storage
         const encryptedKey = encrypt(apiKey);
-        const normalizedLanguage = 'fr';
 
         const [existing] = await pool.execute(
             'SELECT id FROM ai_config WHERE doctor_id = ? AND provider = ?',
@@ -182,14 +181,14 @@ const AiConfig = {
         if (existing.length > 0) {
             await pool.execute(
                 `UPDATE ai_config
-                 SET api_key = ?, model = ?, is_active = true, response_language = COALESCE(?, response_language, 'fr')
+                 SET api_key = ?, model = ?, is_active = true
                  WHERE doctor_id = ? AND provider = ?`,
-                [encryptedKey, model, normalizedLanguage, doctorId, provider]
+                [encryptedKey, model, doctorId, provider]
             );
         } else {
             await pool.execute(
-                `INSERT INTO ai_config (doctor_id, provider, api_key, model, is_active, response_language) VALUES (?, ?, ?, ?, true, ?)`,
-                [doctorId, provider, encryptedKey, model, normalizedLanguage || 'fr']
+                `INSERT INTO ai_config (doctor_id, provider, api_key, model, is_active) VALUES (?, ?, ?, ?, true)`,
+                [doctorId, provider, encryptedKey, model]
             );
         }
 
@@ -212,8 +211,7 @@ const AiConfig = {
             return {
                 provider: doctorConfig.provider,
                 apiKey: doctorConfig.api_key,
-                model: doctorConfig.model,
-                responseLanguage: doctorConfig.response_language || 'fr'
+                model: doctorConfig.model
             };
         }
 

@@ -101,7 +101,7 @@ function buildComprehensiveCaseContext(caseData = {}, responseLanguage = 'fr') {
         lines.push('- No documents attached.');
     } else {
         documents.forEach((doc, index) => {
-            lines.push(`${index + 1}. ${doc.file_name || doc.fileName || 'Document'} (${doc.document_type || doc.type || 'general'}) uploaded ${formatDateForPrompt(doc.uploaded_at || doc.uploadedAt)}.`);
+            lines.push(`${index + 1}. ${doc.file_name || doc.fileName || 'Document'} uploaded ${formatDateForPrompt(doc.uploaded_at || doc.uploadedAt)}.`);
         });
     }
 
@@ -263,14 +263,13 @@ async function processCaseDocuments(caseData) {
         for (const doc of caseData.documents) {
             const fileName = doc.file_name || doc.fileName;
             const filePath = doc.file_path || doc.filePath;
-            let docType = doc.document_type || doc.type || doc.documentType;
 
-            console.log(`Processing document for AI: ID=${doc.id}, fileName=${fileName}, type=${docType}, path=${filePath}`);
+            console.log(`Processing document for AI: ID=${doc.id}, fileName=${fileName}, path=${filePath}`);
 
             if (!fileName || !filePath) continue;
 
-            const isImage = fileName.match(/\.(jpg|jpeg|png|webp)$/i) || (docType && docType.startsWith('image/'));
-            const isPdf = fileName.match(/\.(pdf)$/i) || docType === 'application/pdf' || docType === 'general';
+            const isImage = fileName.match(/\.(jpg|jpeg|png|webp)$/i);
+            const isPdf = fileName.match(/\.(pdf)$/i);
 
             if (isImage || isPdf) {
                 try {

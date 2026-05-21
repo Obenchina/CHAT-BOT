@@ -44,8 +44,7 @@ async function getDoctorAiConfig(doctorId) {
     return activeAiConfig ? {
         provider: activeAiConfig.provider,
         apiKey: activeAiConfig.api_key,
-        model: activeAiConfig.model,
-        responseLanguage: activeAiConfig.response_language || 'fr'
+        model: activeAiConfig.model
     } : null;
 }
 
