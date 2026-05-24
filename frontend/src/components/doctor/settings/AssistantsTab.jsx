@@ -77,14 +77,7 @@ function AssistantsTab() {
         }
     }
 
-    async function handleToggle(id) {
-        try {
-            await doctorService.toggleAssistant(id);
-            loadAssistants();
-        } catch (error) {
-            console.error('Toggle assistant error:', error);
-        }
-    }
+
 
     async function handleDelete(id) {
         const confirmed = await showConfirm('Êtes-vous sûr de vouloir supprimer cet assistant ?');
@@ -134,13 +127,7 @@ function AssistantsTab() {
                                     <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>{assistant.email}</div>
                                 </div>
                                 <div style={{ display: 'flex', gap: 'var(--space-xs)', alignItems: 'center' }}>
-                                    <button
-                                        onClick={() => handleToggle(assistant.id)}
-                                        className={`badge ${assistant.is_active ? 'badge-green' : 'badge-gray'}`}
-                                        style={{ cursor: 'pointer', border: 'none', padding: '4px 10px' }}
-                                    >
-                                        {assistant.is_active ? 'Actif' : 'Inactif'}
-                                    </button>
+                                    <div style={{ width: '0' }} />
                                     <Button variant="ghost" size="sm" className="btn-icon" onClick={() => handleEdit(assistant)}>
                                         <EditIcon fontSize="small" />
                                     </Button>

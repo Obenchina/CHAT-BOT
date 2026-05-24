@@ -319,7 +319,7 @@ function PrescriptionPdfTab() {
                                         className="input-field"
                                         rows="6"
                                         maxLength={1200}
-                                        placeholder={'Un service par ligne\\nÉchographie\\nTraitement des calculs urinaires\\nSuivi nutritionnel'}
+                                        placeholder={'Un service par ligne\nÉchographie\nTraitement des calculs urinaires\nSuivi nutritionnel'}
                                     />
                                     <p className="prescription-help-text">
                                         Saisissez chaque service sur une ligne distincte. Ils apparaîtront dans l'en-tête du PDF.

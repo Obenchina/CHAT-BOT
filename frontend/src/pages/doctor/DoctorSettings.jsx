@@ -92,7 +92,7 @@ const AI_PROVIDERS = [
 const TABS = [
     { id: 'profile', label: 'Profil', description: 'Informations du médecin et sécurité du compte', icon: <PersonIcon fontSize="small" /> },
     { id: 'assistants', label: 'Assistants', description: 'Comptes assistants autorisés à créer les visites', icon: <GroupIcon fontSize="small" /> },
-    { id: 'ai', label: 'Configuration IA', description: 'Fournisseur, modèle et langue des réponses IA', icon: <SmartToyIcon fontSize="small" /> },
+    { id: 'ai', label: 'Configuration IA', description: 'Fournisseur et modèle des réponses IA', icon: <SmartToyIcon fontSize="small" /> },
     { id: 'prescription', label: 'Edition Ordonnance', description: 'PDF ordonnance, bilans et lettre orientation', icon: <DescriptionIcon fontSize="small" /> },
     { id: 'medications', label: 'Médicaments', description: 'Import Excel et base médicamenteuse locale', icon: <MedicationIcon fontSize="small" /> },
     { id: 'growth_curves', label: 'Courbes Pediatriques', description: 'Modeles PDF pour tracer les mesures patients', icon: <TimelineIcon fontSize="small" /> }
@@ -852,7 +852,7 @@ function PrescriptionPdfTab() {
                                         onChange={(e) => handleFieldChange('specialtyText', e.target.value)}
                                         className="input-field"
                                         maxLength={180}
-                                        placeholder="Urologue, Medecin g?n?raliste, Nutritionniste..."
+                                        placeholder="Urologue, Médecin généraliste, Nutritionniste..."
                                     />
                                 </div>
 
@@ -864,7 +864,7 @@ function PrescriptionPdfTab() {
                                         className="input-field"
                                         rows="6"
                                         maxLength={1200}
-                                        placeholder={'Un service par ligne\\nEchographie\\nTraitement des calculs urinaires\\nSuivi nutritionnel'}
+                                        placeholder={'Un service par ligne\nÉchographie\nTraitement des calculs urinaires\nSuivi nutritionnel'}
                                     />
                                     <p className="prescription-help-text">
                                         Saisissez chaque service sur une ligne distincte. Ils apparaitront dans l'en-tete du PDF.
@@ -1324,10 +1324,9 @@ function AiConfigTab() {
                 <h4 style={{ fontSize: '0.9rem', fontWeight: 600, marginBottom: 'var(--space-sm)' }}>Info a propos de la configuration IA</h4>
                 <ul style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', lineHeight: '1.8', paddingLeft: 'var(--space-md)', margin: 0 }}>
                     <li>L'IA analyse les cas medicaux soumis par vos assistants</li>
-                    <li><strong>Gemini</strong> supporte l'analyse d'images medicales (radiographies, photos, etc.)</li>
-                    <li><strong>ChatGPT</strong> fournit une analyse textuelle uniquement</li>
+                    <li><strong>Gemini</strong> et <strong>ChatGPT</strong> supportent tous deux l'analyse d'images medicales (radiographies, ordonnances) et de documents PDF</li>
                     <li>Votre clé API est stockée de manière sécurisée et n'est jamais partagée</li>
-                    <li>Si aucune cle n'est configuree, la configuration par defaut du serveur sera utilisee</li>
+                    <li>Une clé API valide est obligatoire pour utiliser l'analyse de cas et l'extraction de courbes</li>
                 </ul>
             </div>
         </div>

@@ -468,7 +468,7 @@ export default function DoctorPatients() {
                           {documentsLoading ? (
                             <div className="pat-loading-inline"><LoadingSpinner size="sm" /></div>
                           ) : patientDocuments.length === 0 ? (
-                            <div className="pat-empty pat-empty--small"><DescriptionIcon style={{ fontSize: 40, opacity: 0.4 }} /><p>Aucun document enregistrÃ© pour ce patient.</p></div>
+                            <div className="pat-empty pat-empty--small"><DescriptionIcon style={{ fontSize: 40, opacity: 0.4 }} /><p>Aucun document enregistré pour ce patient.</p></div>
                           ) : (
                             <div className="pat-documents-grid">
                               {patientDocuments.map((doc) => (
@@ -481,7 +481,7 @@ export default function DoctorPatients() {
                                   <DescriptionIcon fontSize="medium" />
                                   <span className="pat-document-card__name">{doc.fileName || doc.file_name || `Document #${doc.id}`}</span>
                                   <span className="pat-document-card__meta">
-                                    Cas #{doc.caseId || doc.case_id} Â· {formatDate(doc.uploadedAt || doc.uploaded_at)}
+                                    Cas #{doc.caseId || doc.case_id} · {formatDate(doc.uploadedAt || doc.uploaded_at)}
                                   </span>
                                 </button>
                               ))}
