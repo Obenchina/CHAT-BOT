@@ -1,5 +1,5 @@
 {
-  "name": "medi-bot-backend",
+  "name": "med-bot-backend",
   "version": "1.0.0",
   "description": "Backend API for Medical Consultation Platform",
   "main": "src/app.js",

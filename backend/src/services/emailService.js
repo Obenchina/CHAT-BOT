@@ -24,14 +24,14 @@ const transporter = nodemailer.createTransport({
 async function sendVerificationCode(toEmail, code) {
     try {
         const mailOptions = {
-            from: `"Medi-Bot" <${config.email.smtpEmail}>`,
+            from: `"Med-Bot" <${config.email.smtpEmail}>`,
             to: toEmail,
-            subject: 'Code de vérification - Medi-Bot',
+            subject: 'Code de vérification - Med-Bot',
             html: `
                 <div style="font-family: 'Segoe UI', Arial, sans-serif; max-width: 480px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; box-shadow: 0 4px 24px rgba(0,0,0,0.08);">
                     <!-- Header -->
                     <div style="background: linear-gradient(135deg, #071122 0%, #1E293B 100%); padding: 32px 24px; text-align: center;">
-                        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">Medi-Bot</h1>
+                        <h1 style="color: #ffffff; margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.5px;">Med-Bot</h1>
                         <p style="color: rgba(255,255,255,0.85); margin: 6px 0 0 0; font-size: 14px;">Plateforme de Consultation Médicale Intelligente</p>
                     </div>
                     
@@ -58,7 +58,7 @@ async function sendVerificationCode(toEmail, code) {
                     <!-- Footer -->
                     <div style="background: #F8FAFC; padding: 16px 24px; text-align: center; border-top: 1px solid #E2E8F0;">
                         <p style="color: #94A3B8; margin: 0; font-size: 12px;">
-                            © ${new Date().getFullYear()} Medi-Bot — Tous droits réservés
+                            © ${new Date().getFullYear()} Med-Bot — Tous droits réservés
                         </p>
                     </div>
                 </div>
