@@ -640,7 +640,7 @@ function PrescriptionPdfTab() {
             return;
         }
 
-        if (logoPreview.startsWith('blob:')) {
+        if (logoPreview && logoPreview.startsWith('blob:')) {
             URL.revokeObjectURL(logoPreview);
         }
 

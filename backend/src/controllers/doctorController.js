@@ -127,7 +127,14 @@ async function getPrescriptionConfig(req, res) {
         if (!doctor) {
             return res.status(404).json({ success: false, message: 'Doctor not found' });
         }
-        res.json({ success: true, data: doctor.prescription_config || {} });
+        const data = {
+            logoPath: doctor.prescription_logo_path || '',
+            primaryColor: doctor.prescription_primary_color || '',
+            accentColor: doctor.prescription_accent_color || '',
+            specialtyText: doctor.prescription_specialty_text || '',
+            servicesText: doctor.prescription_services_text || ''
+        };
+        res.json({ success: true, data });
     } catch (error) {
         console.error('Get prescription config error:', error);
         res.status(500).json({ success: false, message: 'Failed to load config' });
@@ -141,12 +148,21 @@ async function updatePrescriptionConfig(req, res) {
     try {
         const config = { ...req.body };
         if (req.file) {
-            // Match the property name expected by Doctor.updatePrescriptionConfig
             config.logoPath = `uploads/logos/${req.file.filename}`;
         }
 
-        const updated = await Doctor.updatePrescriptionConfig(req.user.id, config);
-        res.json({ success: true, message: 'Configuration updated successfully', data: updated });
+        await Doctor.updatePrescriptionConfig(req.user.id, config);
+
+        // Re-read the doctor to return the current state
+        const doctor = await Doctor.findByUserId(req.user.id);
+        const data = {
+            logoPath: doctor.prescription_logo_path || '',
+            primaryColor: doctor.prescription_primary_color || '',
+            accentColor: doctor.prescription_accent_color || '',
+            specialtyText: doctor.prescription_specialty_text || '',
+            servicesText: doctor.prescription_services_text || ''
+        };
+        res.json({ success: true, message: 'Configuration updated successfully', data });
     } catch (error) {
         console.error('Update config error:', error);
         res.status(500).json({
