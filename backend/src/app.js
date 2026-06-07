@@ -34,7 +34,7 @@ app.set('trust proxy', 1);
 // Enable CORS for frontend
 const corsOrigins = process.env.CORS_ORIGINS
     ? process.env.CORS_ORIGINS.split(',').map(s => s.trim())
-    : ['http://localhost:5173', 'http://localhost:5174', 'https://med-bot-ia.vercel.app'];
+    : ['http://localhost:5173', 'http://localhost:5174', 'https://medbot-ia.vercel.app/'];
 
 app.use(cors({
     origin: corsOrigins,
